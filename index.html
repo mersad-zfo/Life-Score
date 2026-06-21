@@ -610,8 +610,9 @@ function renderHabits(main){
           </div>
           <button class="btn-done ${done?'done':''}" data-habit="${h.id}">${done? '✓' : ''}</button>
         </div>
-        <div style="text-align:right; margin-top:8px;">
+        <div class="row" style="margin-top:8px;">
           <button class="link-danger" style="font-size:12px;" data-del-habit="${h.id}">Remove</button>
+          <button class="btn-complete-task" data-edit-habit="${h.id}">Edit</button>
         </div>
       </div>`;
     });
@@ -629,6 +630,9 @@ function renderHabits(main){
       if(confirm('Remove this habit? Its streak history will be lost.')) deleteHabit(btn.dataset.delHabit);
     });
   });
+  main.querySelectorAll('[data-edit-habit]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openEditHabitModal(btn.dataset.editHabit));
+  });
 }
 
 function renderTasks(main){
@@ -645,11 +649,15 @@ function renderTasks(main){
           <div>
             <div class="item-name">${escapeHtml(task.name)}</div>
             <div class="item-sub">${days===0?'added today':`added ${days} day${days===1?'':'s'} ago`} · decays ${task.decayRate}/day</div>
+            ${task.description ? `<div class="item-sub" style="margin-top:5px; color:var(--ink);">${escapeHtml(task.description)}</div>` : ''}
           </div>
           <span class="pill ${val<0?'negative':''}">${val>=0?'+':''}${val}</span>
         </div>
         <div class="row" style="margin-top:10px;">
-          <button class="link-danger" style="font-size:12px;" data-del-task="${task.id}">Remove</button>
+          <div style="display:flex; gap:14px;">
+            <button class="link-danger" style="font-size:12px;" data-del-task="${task.id}">Remove</button>
+            <button class="link-danger" style="font-size:12px; color:var(--ink-soft); text-decoration:underline;" data-edit-task="${task.id}">Edit</button>
+          </div>
           <button class="btn-complete-task" data-complete-task="${task.id}">Mark done</button>
         </div>
       </div>`;
@@ -663,6 +671,9 @@ function renderTasks(main){
     btn.addEventListener('click', ()=>{
       if(confirm('Remove this task without earning or losing points for it?')) deleteTask(btn.dataset.delTask);
     });
+  });
+  main.querySelectorAll('[data-edit-task]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openEditTaskModal(btn.dataset.editTask));
   });
 }
 
@@ -745,6 +756,7 @@ function openAddTaskModal(){
   const m = openModal(`
     <h3>New task</h3>
     <div class="field"><label>Name</label><input id="tName" type="text" placeholder="e.g. Call dentist" /></div>
+    <div class="field"><label>Description (optional)</label><input id="tDesc" type="text" placeholder="Add extra detail, e.g. a phone number" /></div>
     <div class="field"><label>Starting value</label><input id="tStart" type="number" value="50" /></div>
     <div class="field"><label>Decay per day</label><input id="tDecay" type="number" value="5" min="0" /></div>
     <div class="modal-actions">
@@ -755,15 +767,76 @@ function openAddTaskModal(){
   m.querySelector('#tCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#tSave').addEventListener('click', ()=>{
     const name = m.querySelector('#tName').value.trim();
+    const description = m.querySelector('#tDesc').value.trim();
     const start = parseFloat(m.querySelector('#tStart').value)||0;
     const decay = parseFloat(m.querySelector('#tDecay').value)||0;
     if(!name){ showToast('Give it a name'); return; }
-    state.tasks.push({id: uid(), name, startValue: start, decayRate: decay, createdDate: todayStr()});
+    state.tasks.push({id: uid(), name, description, startValue: start, decayRate: decay, createdDate: todayStr()});
     saveState();
     m.remove();
     renderMain();
   });
   setTimeout(()=>m.querySelector('#tName').focus(), 100);
+}
+
+function openEditHabitModal(id){
+  const h = state.habits.find(x=>x.id===id);
+  if(!h) return;
+  const m = openModal(`
+    <h3>Edit habit</h3>
+    <div class="field"><label>Name</label><input id="ehName" type="text" value="${escapeHtml(h.name)}" /></div>
+    <div class="field"><label>Base points (difficulty)</label><input id="ehPoints" type="number" value="${h.basePoints}" min="1" /></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="ehCancel">Cancel</button>
+      <button class="btn-primary" id="ehSave">Save changes</button>
+    </div>
+  `);
+  m.querySelector('#ehCancel').addEventListener('click', ()=>m.remove());
+  m.querySelector('#ehSave').addEventListener('click', ()=>{
+    const name = m.querySelector('#ehName').value.trim();
+    const pts = parseInt(m.querySelector('#ehPoints').value)||1;
+    if(!name){ showToast('Give it a name'); return; }
+    h.name = name;
+    h.basePoints = pts;
+    saveState();
+    m.remove();
+    renderMain();
+    showToast('Habit updated');
+  });
+  setTimeout(()=>m.querySelector('#ehName').focus(), 100);
+}
+
+function openEditTaskModal(id){
+  const task = state.tasks.find(x=>x.id===id);
+  if(!task) return;
+  const m = openModal(`
+    <h3>Edit task</h3>
+    <div class="field"><label>Name</label><input id="etName" type="text" value="${escapeHtml(task.name)}" /></div>
+    <div class="field"><label>Description (optional)</label><input id="etDesc" type="text" value="${escapeHtml(task.description||'')}" placeholder="Add extra detail" /></div>
+    <div class="field"><label>Starting value</label><input id="etStart" type="number" value="${task.startValue}" /></div>
+    <div class="field"><label>Decay per day</label><input id="etDecay" type="number" value="${task.decayRate}" min="0" /></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="etCancel">Cancel</button>
+      <button class="btn-primary" id="etSave">Save changes</button>
+    </div>
+  `);
+  m.querySelector('#etCancel').addEventListener('click', ()=>m.remove());
+  m.querySelector('#etSave').addEventListener('click', ()=>{
+    const name = m.querySelector('#etName').value.trim();
+    const description = m.querySelector('#etDesc').value.trim();
+    const start = parseFloat(m.querySelector('#etStart').value)||0;
+    const decay = parseFloat(m.querySelector('#etDecay').value)||0;
+    if(!name){ showToast('Give it a name'); return; }
+    task.name = name;
+    task.description = description;
+    task.startValue = start;
+    task.decayRate = decay;
+    saveState();
+    m.remove();
+    renderMain();
+    showToast('Task updated');
+  });
+  setTimeout(()=>m.querySelector('#etName').focus(), 100);
 }
 
 function openResetModal(){
