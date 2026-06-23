@@ -76,11 +76,11 @@ function recurrenceFieldsHtml(idPrefix, recurrence, task){
   }
   const sched = task ? task.schedule : [];
   return `
-    <div class="field"><label>Reward value (fixed)</label><input id="${idPrefix}Reward" type="number" value="${task?task.rewardValue:20}" /></div>
-    <div class="field"><label>Penalty per missed day</label><input id="${idPrefix}Penalty" type="number" value="${task?task.penaltyValue:5}" min="0" /></div>
     <div class="field"><label>${recurrence==='weekly'?'Which day(s) of the week':'Which day(s) of the month'}</label>
       ${buildDayGrid(idPrefix, recurrence, sched)}
-    </div>`;
+    </div>
+    <div class="field"><label>Reward value (fixed)</label><input id="${idPrefix}Reward" type="number" value="${task?task.rewardValue:20}" /></div>
+    <div class="field"><label>Penalty per missed day</label><input id="${idPrefix}Penalty" type="number" value="${task?task.penaltyValue:5}" min="0" /></div>`;
 }
 function openAddTaskModal(){
   const m = openModal(`

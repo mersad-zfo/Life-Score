@@ -146,6 +146,21 @@
     color:#fff;
   }
   .btn-done:active{ transform: scale(0.92); }
+  .btn-done-square{
+    width:32px; height:32px;
+    border-radius:9px;
+    border:1.5px solid var(--accent);
+    color:var(--accent);
+    font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+    transition: all .15s ease;
+  }
+  .btn-done-square.done{
+    background:var(--accent);
+    color:#fff;
+  }
+  .btn-done-square:active{ transform: scale(0.92); }
   .btn-complete-task{
     border:1px solid var(--line);
     border-radius:10px;

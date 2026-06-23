@@ -25,6 +25,8 @@ function renderToday(main){
     state.habits.forEach(h=>{
       const done = habitDoneToday(h);
       const streak = habitDisplayStreak(h);
+      const previewStreak = done ? h.streak : (streak>0 ? streak+1 : 1);
+      const pointsPreview = habitReward(previewStreak, h.basePoints);
       html += `
       <div class="card row" data-card-habit="${h.id}">
         <span class="emoji-today">${h.emoji||HABIT_FALLBACK_EMOJI}</span>
@@ -32,11 +34,17 @@ function renderToday(main){
           <div class="item-name">${escapeHtml(h.name)}</div>
           <div class="item-sub">${streak>0? `<span class="streak-chip" data-streak="${h.id}">${streak}X 🔥</span>` : 'Tap to start a streak'}</div>
         </div>
+        <span class="pill">+${pointsPreview}</span>
         <button class="btn-done ${done?'done':''}" data-habit="${h.id}">${done? '✓' : ''}</button>
       </div>`;
     });
   }
-  const dueTasks = state.tasks.filter(task=> !isRecurring(task) || recurringStatus(task)!=='not_due');
+  const dueTasks = state.tasks.filter(task=>{
+    if(!isRecurring(task)) return true;
+    if(task.lastCompletedDate === todayStr()) return true; // completed today — show in Completed Today
+    const status = recurringStatus(task);
+    return status==='due' || status==='overdue';
+  });
   const openTasks = dueTasks.filter(task=>!taskDoneToday(task));
   const doneTasks = dueTasks.filter(task=>taskDoneToday(task));
   html += `<div class="section-label">Open tasks</div>`;
@@ -50,8 +58,10 @@ function renderToday(main){
         <span class="emoji-today">${task.emoji||TASK_DEFAULT_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(task.name)}</div>
+          ${task.description ? `<div class="item-sub">${escapeHtml(task.description)}</div>` : ''}
         </div>
         <span class="pill ${val<0?'negative':''}">${val>=0?'+':''}${val}</span>
+        <button class="btn-done-square" data-complete-task-today="${task.id}">✓</button>
       </div>`;
     });
   }
@@ -96,6 +106,9 @@ function renderToday(main){
   main.querySelectorAll('[data-undo-task]').forEach(btn=>{
     btn.addEventListener('click', ()=> uncompleteTask(btn.dataset.undoTask));
   });
+  main.querySelectorAll('[data-complete-task-today]').forEach(btn=>{
+    btn.addEventListener('click', ()=> completeTask(btn.dataset.completeTaskToday));
+  });
 }
 
 function renderHabits(main){
@@ -109,10 +122,6 @@ function renderHabits(main){
       html += `
       <div class="card" data-card-habit="${h.id}">
         <div class="row">
-          <div class="reorder-col">
-            <button data-reorder-habit-up="${h.id}" ${idx===0?'disabled':''}>▲</button>
-            <button data-reorder-habit-down="${h.id}" ${idx===state.habits.length-1?'disabled':''}>▼</button>
-          </div>
           <span class="emoji-list">${h.emoji||HABIT_FALLBACK_EMOJI}</span>
           <div style="flex:1;">
             <div class="item-name">${escapeHtml(h.name)}</div>
@@ -128,12 +137,6 @@ function renderHabits(main){
     });
   }
   main.innerHTML = html;
-  main.querySelectorAll('[data-reorder-habit-up]').forEach(btn=>{
-    btn.addEventListener('click', ()=> reorderHabit(btn.dataset.reorderHabitUp, -1));
-  });
-  main.querySelectorAll('[data-reorder-habit-down]').forEach(btn=>{
-    btn.addEventListener('click', ()=> reorderHabit(btn.dataset.reorderHabitDown, 1));
-  });
   main.querySelectorAll('[data-habit]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.habit;
@@ -157,6 +160,7 @@ function renderTaskCard(task, opts){
   const status = isRecurring(task) ? recurringStatus(task) : null;
   const isNotDue = status==='not_due';
   const isOverdue = status==='overdue';
+  const isDormant = status==='done_this_cycle' && task.lastCompletedDate !== todayStr();
   const val = taskDisplayValue(task);
   const days = daysBetween(task.createdDate, todayStr());
   let subInfo = '';
@@ -168,18 +172,21 @@ function renderTaskCard(task, opts){
   } else if(type==='monthly'){
     subInfo = `Monthly · day${(task.schedule||[]).length>1?'s':''} ${(task.schedule||[]).slice().sort((a,b)=>a-b).join(', ')} · -${Math.abs(task.penaltyValue||0)}/day if missed`;
   }
+  let statusLine = subInfo;
+  if(isNotDue){
+    const next = nextScheduledDate(task, todayStr());
+    statusLine = next ? `Due ${formatDueLabel(next, type)}` : 'Not due yet';
+  } else if(isDormant){
+    const next = nextScheduledDate(task, task.lastCompletedDate);
+    statusLine = next ? `Next due: ${formatDueLabel(next, type)}` : 'Done for now';
+  }
   return `
-  <div class="card ${isNotDue?'not-due':''}" data-card-task="${task.id}">
+  <div class="card ${isNotDue||isDormant?'not-due':''}" data-card-task="${task.id}">
     <div class="row">
-      ${opts.reorder ? `
-      <div class="reorder-col">
-        <button data-reorder-task-up="${task.id}" ${opts.isFirst?'disabled':''}>▲</button>
-        <button data-reorder-task-down="${task.id}" ${opts.isLast?'disabled':''}>▼</button>
-      </div>` : ''}
       <span class="emoji-list">${task.emoji||TASK_DEFAULT_EMOJI}</span>
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(task.name)}${isOverdue?'<span class="badge-overdue">Overdue</span>':''}</div>
-        <div class="item-sub">${isNotDue?'Not due yet':subInfo}</div>
+        <div class="item-sub">${statusLine}</div>
         ${task.description ? `<div class="item-sub" style="margin-top:5px; color:var(--ink);">${escapeHtml(task.description)}</div>` : ''}
       </div>
       <span class="pill ${val<0?'negative':''}">${val>=0?'+':''}${val}</span>
@@ -192,7 +199,7 @@ function renderTaskCard(task, opts){
           : `<span class="lock-note">Editing locked after today</span>`
         }
       </div>
-      ${isNotDue ? '' : `<button class="btn-complete-task" data-complete-task="${task.id}">Mark done</button>`}
+      ${(isNotDue||isDormant) ? '' : `<button class="btn-complete-task" data-complete-task="${task.id}">Mark done</button>`}
     </div>
   </div>`;
 }
@@ -212,7 +219,7 @@ function renderTasks(main){
       h += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">None yet.</div>`;
     } else {
       list.forEach((task, idx)=>{
-        h += renderTaskCard(task, {reorder:true, isFirst: idx===0, isLast: idx===list.length-1});
+        h += renderTaskCard(task, {});
       });
     }
     return h;
@@ -256,12 +263,6 @@ function renderTasks(main){
   });
   main.querySelectorAll('[data-edit-task]').forEach(btn=>{
     btn.addEventListener('click', ()=> openEditTaskModal(btn.dataset.editTask));
-  });
-  main.querySelectorAll('[data-reorder-task-up]').forEach(btn=>{
-    btn.addEventListener('click', ()=> reorderTask(btn.dataset.reorderTaskUp, -1));
-  });
-  main.querySelectorAll('[data-reorder-task-down]').forEach(btn=>{
-    btn.addEventListener('click', ()=> reorderTask(btn.dataset.reorderTaskDown, 1));
   });
 }
 
@@ -308,26 +309,6 @@ function renderSettings(main){
     <div class="section-label">Settings</div>
 
     <div class="settings-group">
-      <div class="settings-group-title">Appearance</div>
-      <div class="seg-control">
-        <button data-theme="system" class="${theme==='system'?'active':''}">System</button>
-        <button data-theme="light" class="${theme==='light'?'active':''}">Light</button>
-        <button data-theme="dark" class="${theme==='dark'?'active':''}">Dark</button>
-      </div>
-    </div>
-
-    <div class="settings-group">
-      <div class="settings-group-title">Sound</div>
-      <div class="toggle-row">
-        <div>
-          <div class="item-name">Sound on completion</div>
-          <div class="item-sub">A small sparkle sound when you finish something</div>
-        </div>
-        <div class="switch ${sound?'on':''}" id="soundSwitch"><div class="knob"></div></div>
-      </div>
-    </div>
-
-    <div class="settings-group">
       <div class="settings-group-title">Account</div>
       ${isLoggedIn ? `
         <div class="account-card">
@@ -354,6 +335,26 @@ function renderSettings(main){
         <button class="settings-btn" id="loginBtn">${state.profile ? 'Log back in' : 'Sign up / Log in'}</button>
       `}
     </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">Appearance</div>
+      <div class="seg-control">
+        <button data-theme="system" class="${theme==='system'?'active':''}">System</button>
+        <button data-theme="light" class="${theme==='light'?'active':''}">Light</button>
+        <button data-theme="dark" class="${theme==='dark'?'active':''}">Dark</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">Sound</div>
+      <div class="toggle-row">
+        <div>
+          <div class="item-name">Sound on completion</div>
+        </div>
+        <div class="switch ${sound?'on':''}" id="soundSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+
 
     <div class="settings-group">
       <div class="settings-group-title">Danger zone</div>

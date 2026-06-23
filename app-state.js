@@ -239,10 +239,20 @@ function taskEditable(task){
 function taskDisplayValue(task){
   return isRecurring(task) ? task.rewardValue : taskCurrentValue(task);
 }
+function daysInMonth(year, monthIndex){
+  return new Date(year, monthIndex+1, 0).getDate();
+}
 function isScheduledOn(task, dateStr){
   const d = new Date(dateStr+'T00:00:00');
   if(task.recurrence==='weekly') return task.schedule.includes(d.getDay());
-  if(task.recurrence==='monthly') return task.schedule.includes(d.getDate());
+  if(task.recurrence==='monthly'){
+    const lastDay = daysInMonth(d.getFullYear(), d.getMonth());
+    const dom = d.getDate();
+    if(task.schedule.includes(dom)) return true;
+    // if today is the last day of a short month, any selected day beyond it rolls over to today
+    if(dom===lastDay && task.schedule.some(s=>s>lastDay)) return true;
+    return false;
+  }
   return false;
 }
 // Most recent scheduled date on/before today, not earlier than the task's creation date. Null if none yet.
@@ -255,6 +265,20 @@ function cycleStartDate(task){
     if(isScheduledOn(task, d)) return d;
   }
   return null;
+}
+function nextScheduledDate(task, afterDateStr){
+  const lookahead = task.recurrence==='monthly' ? 35 : 8;
+  let d = addDays(afterDateStr, 1);
+  for(let i=0; i<=lookahead; i++){
+    if(isScheduledOn(task, d)) return d;
+    d = addDays(d, 1);
+  }
+  return null;
+}
+function formatDueLabel(dateStr, recurrence){
+  const d = new Date(dateStr+'T00:00:00');
+  if(recurrence==='weekly') return d.toLocaleDateString('en-US', {weekday:'long'});
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
 }
 function recurringStatus(task){
   // returns 'not_due' | 'due' | 'overdue' | 'done_this_cycle'
@@ -276,8 +300,7 @@ function applyDuePenalties(){
     const cycleStart = cycleStartDate(task);
     if(!cycleStart) return;
     if(task.lastCompletedDate && task.lastCompletedDate >= cycleStart) return; // already done this cycle
-    if(cycleStart === t) return; // due today, not yet overdue — no penalty
-    let d = addDays(cycleStart, 1);
+    let d = cycleStart; // penalty starts ON the due day itself if missed
     while(d <= t){
       const exists = state.log.some(l=> l.kind==='task_penalty' && l.refId===task.id && l.date===d);
       if(!exists){
@@ -322,9 +345,9 @@ function uncompleteTask(id){
   if(isRecurring(task)){
     task.lastCompletedDate = task.previousCompletedDate || null;
     task.awardedPoints = null;
-    // if it's now overdue again today, resume today's penalty
+    // if it's due/overdue again today, resume today's penalty
     const cycleStart = cycleStartDate(task);
-    if(cycleStart && cycleStart !== t){
+    if(cycleStart){
       const exists = state.log.some(l=> l.kind==='task_penalty' && l.refId===task.id && l.date===t);
       if(!exists){
         state.log.push({id: uid(), kind:'task_penalty', refId: task.id, name: task.name, points: -Math.abs(task.penaltyValue||0), date: t});
