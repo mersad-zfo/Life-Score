@@ -300,8 +300,8 @@ function applyDuePenalties(){
     const cycleStart = cycleStartDate(task);
     if(!cycleStart) return;
     if(task.lastCompletedDate && task.lastCompletedDate >= cycleStart) return; // already done this cycle
-    let d = cycleStart; // penalty starts ON the due day itself if missed
-    while(d <= t){
+    let d = cycleStart;
+    while(d < t){ // today is still in progress — never penalize it yet, only days that have fully passed
       const exists = state.log.some(l=> l.kind==='task_penalty' && l.refId===task.id && l.date===d);
       if(!exists){
         state.log.push({id: uid(), kind:'task_penalty', refId: task.id, name: task.name, points: -Math.abs(task.penaltyValue||0), date: d});
@@ -345,14 +345,9 @@ function uncompleteTask(id){
   if(isRecurring(task)){
     task.lastCompletedDate = task.previousCompletedDate || null;
     task.awardedPoints = null;
-    // if it's due/overdue again today, resume today's penalty
-    const cycleStart = cycleStartDate(task);
-    if(cycleStart){
-      const exists = state.log.some(l=> l.kind==='task_penalty' && l.refId===task.id && l.date===t);
-      if(!exists){
-        state.log.push({id: uid(), kind:'task_penalty', refId: task.id, name: task.name, points: -Math.abs(task.penaltyValue||0), date: t});
-      }
-    }
+    // No penalty is added here — today is still in progress. If this task remains
+    // undone, applyDuePenalties() will catch it up (dated to today) the next time
+    // the app is opened on a later day.
   } else {
     task.completedDate = null;
     task.awardedPoints = null;
