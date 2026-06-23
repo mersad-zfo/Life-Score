@@ -1,10 +1,15 @@
-const CACHE_NAME = 'life-score-v7';
+const CACHE_NAME = 'life-score-v9';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './styles.css',
+  './app-state.js',
+  './app-render.js',
+  './app-modals.js',
+  './app-main.js'
 ];
 
 self.addEventListener('install', (event) => {
