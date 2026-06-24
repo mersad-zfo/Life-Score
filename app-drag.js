@@ -1,47 +1,33 @@
-// ---------- Hold-to-drag reorder (Today tab only) ----------
-const HOLD_MS = 350;
-const MOVE_CANCEL_PX = 10;
+// ---------- Drag handle reorder + drag-to-delete (Today/Home tab only) ----------
 const REFLOW_MS = 220;
 
-function enableHoldDrag(listSelector, itemSelector, onCommit){
+function enableHoldDrag(listSelector, itemSelector, handleSelector, kind, onCommit){
   const list = document.querySelector(listSelector);
   if(!list) return;
   const items = Array.from(list.querySelectorAll(itemSelector));
 
   items.forEach(item=>{
-    item.addEventListener('pointerdown', (e)=>{
-      if(e.target.closest('button, input, a, select')) return;
-      const startX = e.clientX, startY = e.clientY;
-      let cancelled = false;
-
-      function moveCancel(ev){
-        if(Math.abs(ev.clientY-startY) > MOVE_CANCEL_PX || Math.abs(ev.clientX-startX) > MOVE_CANCEL_PX){
-          cancelled = true;
-          cleanup();
-        }
-      }
-      function upCancel(){ cleanup(); }
-      function cleanup(){
-        clearTimeout(timer);
-        document.removeEventListener('pointermove', moveCancel);
-        document.removeEventListener('pointerup', upCancel);
-        document.removeEventListener('pointercancel', upCancel);
-      }
-
-      const timer = setTimeout(()=>{
-        if(cancelled) return;
-        cleanup();
-        startDrag(item, list, itemSelector, e, onCommit);
-      }, HOLD_MS);
-
-      document.addEventListener('pointermove', moveCancel);
-      document.addEventListener('pointerup', upCancel);
-      document.addEventListener('pointercancel', upCancel);
+    const handle = item.querySelector(handleSelector);
+    if(!handle) return;
+    handle.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      startDrag(item, list, itemSelector, e, kind, onCommit);
     });
   });
 }
 
-function startDrag(item, list, itemSelector, startEvent, onCommit){
+function getTrashEl(){
+  return document.getElementById('dragTrash');
+}
+
+function isOverTrash(x, y){
+  const trash = getTrashEl();
+  if(!trash) return false;
+  const r = trash.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+function startDrag(item, list, itemSelector, startEvent, kind, onCommit){
   if(navigator.vibrate) navigator.vibrate(12);
 
   const rect = item.getBoundingClientRect();
@@ -49,13 +35,9 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
   const prevBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
   document.body.style.userSelect = 'none';
-  const prevTouchAction = item.style.touchAction;
-  item.style.touchAction = 'none';
 
-  // claim this pointer so mobile browsers don't hijack the gesture for scrolling mid-drag
-  try{ item.setPointerCapture(startEvent.pointerId); }catch(e){ /* not critical if unsupported */ }
+  try{ item.setPointerCapture(startEvent.pointerId); }catch(e){ /* not critical */ }
 
-  // placeholder takes up the exact same space the card had, so nothing collapses
   const placeholder = document.createElement('div');
   placeholder.className = 'drag-placeholder';
   placeholder.style.height = rect.height + 'px';
@@ -69,6 +51,9 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
   item.style.pointerEvents = 'none';
   item.style.zIndex = 999;
 
+  const trash = getTrashEl();
+  if(trash) trash.classList.add('visible');
+
   function getSiblings(){
     return Array.from(list.querySelectorAll(itemSelector)).filter(el=> el!==item);
   }
@@ -77,6 +62,17 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
     ev.preventDefault();
     const y = ev.clientY - offsetY;
     item.style.top = y + 'px';
+
+    const overTrash = isOverTrash(ev.clientX, ev.clientY);
+    if(trash) trash.classList.toggle('armed', overTrash);
+
+    if(overTrash){
+      // hide the placeholder gap while hovering the trash — nothing to reorder into
+      if(placeholder.parentNode) placeholder.style.opacity = '0';
+      return;
+    } else if(placeholder) {
+      placeholder.style.opacity = '1';
+    }
 
     const siblings = getSiblings();
     let target = null;
@@ -89,7 +85,6 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
     const wouldMove = target ? (placeholder.nextElementSibling !== target) : (placeholder !== list.lastElementChild);
     if(!wouldMove) return;
 
-    // capture positions before the move, animate the slide after
     const firstRects = new Map();
     siblings.forEach(el=> firstRects.set(el, el.getBoundingClientRect()));
 
@@ -114,16 +109,7 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
     });
   }
 
-  function endDrag(){
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', endDrag);
-    document.removeEventListener('pointercancel', endDrag);
-
-    try{ item.releasePointerCapture(startEvent.pointerId); }catch(e){ /* already released */ }
-
-    list.insertBefore(item, placeholder);
-    placeholder.remove();
-
+  function cleanupVisuals(){
     item.classList.remove('dragging');
     item.style.position = '';
     item.style.left = '';
@@ -131,15 +117,41 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
     item.style.width = '';
     item.style.pointerEvents = '';
     item.style.zIndex = '';
-    item.style.touchAction = prevTouchAction;
     document.body.style.overflow = prevBodyOverflow;
     document.body.style.userSelect = '';
-
-    // clear any leftover inline transforms/transitions from the reflow animation
+    if(trash){ trash.classList.remove('visible'); trash.classList.remove('armed'); }
     Array.from(list.querySelectorAll(itemSelector)).forEach(el=>{
       el.style.transition = '';
       el.style.transform = '';
     });
+  }
+
+  function endDrag(ev){
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', endDrag);
+    document.removeEventListener('pointercancel', endDrag);
+    try{ item.releasePointerCapture(startEvent.pointerId); }catch(e){ /* already released */ }
+
+    const droppedOnTrash = ev.type==='pointerup' && isOverTrash(ev.clientX, ev.clientY);
+
+    if(droppedOnTrash){
+      placeholder.remove();
+      cleanupVisuals();
+      const id = item.dataset.dragId;
+      const name = item.querySelector('.item-name') ? item.querySelector('.item-name').textContent : 'this';
+      const label = kind==='habit' ? 'habit' : 'task';
+      if(confirm(`Remove this ${label}? "${name.trim()}" will be deleted.`)){
+        if(kind==='habit') deleteHabit(id); else deleteTask(id);
+        // deleteHabit/deleteTask already re-render, so nothing else to do
+      } else {
+        renderMain(); // snap back to original state since nothing was reordered/removed
+      }
+      return;
+    }
+
+    list.insertBefore(item, placeholder);
+    placeholder.remove();
+    cleanupVisuals();
 
     const newOrderIds = Array.from(list.querySelectorAll(itemSelector)).map(el=> el.dataset.dragId);
     onCommit(newOrderIds);

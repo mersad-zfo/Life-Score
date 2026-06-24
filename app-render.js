@@ -30,6 +30,7 @@ function renderToday(main){
       const pointsPreview = habitReward(previewStreak, h.basePoints);
       html += `
       <div class="card row" data-card-habit="${h.id}" data-drag-item data-drag-id="${h.id}">
+        <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
         <span class="emoji-today">${h.emoji||HABIT_FALLBACK_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(h.name)}</div>
@@ -58,6 +59,7 @@ function renderToday(main){
       const val = taskDisplayValue(task);
       html += `
       <div class="card row" data-card-task="${task.id}" data-drag-item data-drag-id="${task.id}">
+        <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
         <span class="emoji-today">${task.emoji||TASK_DEFAULT_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(task.name)}</div>
@@ -113,11 +115,11 @@ function renderToday(main){
   main.querySelectorAll('[data-complete-task-today]').forEach(btn=>{
     btn.addEventListener('click', ()=> completeTask(btn.dataset.completeTaskToday));
   });
-  enableHoldDrag('#todayHabitsList', '[data-drag-item]', (newOrderIds)=>{
+  enableHoldDrag('#todayHabitsList', '[data-drag-item]', '.drag-handle', 'habit', (newOrderIds)=>{
     state.habits = newOrderIds.map(id=> state.habits.find(h=>h.id===id));
     saveState();
   });
-  enableHoldDrag('#todayTasksList', '[data-drag-item]', (newOrderIds)=>{
+  enableHoldDrag('#todayTasksList', '[data-drag-item]', '.drag-handle', 'task', (newOrderIds)=>{
     state.tasks = reorderMasterByVisibleOrder(state.tasks, newOrderIds);
     saveState();
   });
@@ -314,7 +316,6 @@ function renderSettings(main){
         Back
       </button>
     </div>
-    <div class="section-label">Settings</div>
 
     <div class="settings-group">
       <div class="settings-group-title">Account</div>

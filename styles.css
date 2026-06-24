@@ -50,7 +50,7 @@
     border-bottom:1px solid var(--line);
     position:sticky; top:0; background:var(--bg); z-index:5;
     display:flex;
-    align-items:flex-start;
+    align-items:center;
     justify-content:space-between;
   }
   header.top .wordmark{
@@ -58,6 +58,9 @@
     font-size:22px;
     font-weight:500;
     letter-spacing:0.2px;
+  }
+  header.top .wordmark.page-title{
+    font-size:27px;
   }
   header.top .date{
     font-size:12px;
@@ -178,6 +181,43 @@
     border-top: 1.5px solid var(--accent);
     opacity: 0.4;
     margin-bottom: 10px;
+  }
+  .drag-handle{
+    width:20px; height:20px;
+    color: var(--ink-soft);
+    flex-shrink:0;
+    touch-action: none;
+    cursor: grab;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .drag-handle svg{ width:18px; height:18px; }
+  #dragTrash{
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.8);
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 998;
+    transition: opacity .18s ease, transform .18s ease, background .15s ease, color .15s ease;
+  }
+  #dragTrash svg{ width:24px; height:24px; }
+  #dragTrash.visible{
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  #dragTrash.armed{
+    background: var(--rust);
+    border-color: var(--rust);
+    color: #fff;
+    transform: translateX(-50%) scale(1.15);
   }
   .btn-complete-task{
     border:1px solid var(--line);
@@ -519,7 +559,6 @@
     display:flex; align-items:center; justify-content:center;
     color:var(--ink-soft);
     flex-shrink:0;
-    margin-top:2px;
   }
   .gear-btn:active{ background:var(--accent-soft); color:var(--accent); }
   .gear-btn svg{ width:20px; height:20px; }

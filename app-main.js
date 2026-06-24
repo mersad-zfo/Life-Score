@@ -2,7 +2,7 @@
 function updateHeader(){
   const el = document.getElementById('headerInfo');
   if(currentTab==='settings'){
-    el.innerHTML = `<div class="wordmark">Settings</div>`;
+    el.innerHTML = `<div class="wordmark page-title">Settings</div>`;
   } else {
     el.innerHTML = `<div class="wordmark">Life Score</div><div class="date" id="todayLabel"></div>`;
     fmtDateLabel();
