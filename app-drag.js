@@ -25,6 +25,7 @@ function enableHoldDrag(listSelector, itemSelector, onCommit){
         clearTimeout(timer);
         document.removeEventListener('pointermove', moveCancel);
         document.removeEventListener('pointerup', upCancel);
+        document.removeEventListener('pointercancel', upCancel);
       }
 
       const timer = setTimeout(()=>{
@@ -35,6 +36,7 @@ function enableHoldDrag(listSelector, itemSelector, onCommit){
 
       document.addEventListener('pointermove', moveCancel);
       document.addEventListener('pointerup', upCancel);
+      document.addEventListener('pointercancel', upCancel);
     });
   });
 }
@@ -47,6 +49,11 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
   const prevBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
   document.body.style.userSelect = 'none';
+  const prevTouchAction = item.style.touchAction;
+  item.style.touchAction = 'none';
+
+  // claim this pointer so mobile browsers don't hijack the gesture for scrolling mid-drag
+  try{ item.setPointerCapture(startEvent.pointerId); }catch(e){ /* not critical if unsupported */ }
 
   // placeholder takes up the exact same space the card had, so nothing collapses
   const placeholder = document.createElement('div');
@@ -107,9 +114,12 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
     });
   }
 
-  function onUp(){
+  function endDrag(){
     document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointerup', endDrag);
+    document.removeEventListener('pointercancel', endDrag);
+
+    try{ item.releasePointerCapture(startEvent.pointerId); }catch(e){ /* already released */ }
 
     list.insertBefore(item, placeholder);
     placeholder.remove();
@@ -121,6 +131,7 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
     item.style.width = '';
     item.style.pointerEvents = '';
     item.style.zIndex = '';
+    item.style.touchAction = prevTouchAction;
     document.body.style.overflow = prevBodyOverflow;
     document.body.style.userSelect = '';
 
@@ -135,5 +146,6 @@ function startDrag(item, list, itemSelector, startEvent, onCommit){
   }
 
   document.addEventListener('pointermove', onMove, {passive:false});
-  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
 }

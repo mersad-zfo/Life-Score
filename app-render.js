@@ -167,7 +167,6 @@ function renderHabits(main){
 }
 
 function renderTaskCard(task, opts){
-  const editable = taskEditable(task);
   const type = taskRecurrenceType(task);
   const status = isRecurring(task) ? recurringStatus(task) : null;
   const isNotDue = status==='not_due';
@@ -206,10 +205,7 @@ function renderTaskCard(task, opts){
     <div class="row" style="margin-top:10px;">
       <div style="display:flex; gap:14px; align-items:center;">
         <button class="link-danger" style="font-size:12px;" data-del-task="${task.id}">Remove</button>
-        ${editable
-          ? `<button class="link-danger" style="font-size:12px; color:var(--ink-soft); text-decoration:underline;" data-edit-task="${task.id}">Edit</button>`
-          : `<span class="lock-note">Editing locked after today</span>`
-        }
+        <button class="link-danger" style="font-size:12px; color:var(--ink-soft); text-decoration:underline;" data-edit-task="${task.id}">Edit</button>
       </div>
       ${(isNotDue||isDormant) ? '' : `<button class="btn-complete-task" data-complete-task="${task.id}">Mark done</button>`}
     </div>

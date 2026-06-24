@@ -68,19 +68,21 @@ function wireDayGrid(m, idPrefix){
 function readDayGrid(m, idPrefix){
   return Array.from(m.querySelectorAll(`#${idPrefix}DayGrid button.active`)).map(b=>parseInt(b.dataset.day));
 }
-function recurrenceFieldsHtml(idPrefix, recurrence, task){
+function recurrenceFieldsHtml(idPrefix, recurrence, task, locked){
+  const dis = locked ? 'disabled' : '';
+  const lockNote = locked ? `<div class="lock-note" style="margin-top:4px;">Locked after the first day</div>` : '';
   if(recurrence==='once'){
     return `
-    <div class="field"><label>Starting value</label><input id="${idPrefix}Start" type="number" value="${task?task.startValue:50}" /></div>
-    <div class="field"><label>Decay per day</label><input id="${idPrefix}Decay" type="number" value="${task?task.decayRate:5}" min="0" /></div>`;
+    <div class="field"><label>Starting value</label><input id="${idPrefix}Start" type="number" value="${task?task.startValue:50}" ${dis} /></div>
+    <div class="field"><label>Decay per day</label><input id="${idPrefix}Decay" type="number" value="${task?task.decayRate:5}" min="0" ${dis} />${lockNote}</div>`;
   }
   const sched = task ? task.schedule : [];
   return `
     <div class="field"><label>${recurrence==='weekly'?'Which day(s) of the week':'Which day(s) of the month'}</label>
       ${buildDayGrid(idPrefix, recurrence, sched)}
     </div>
-    <div class="field"><label>Reward value (fixed)</label><input id="${idPrefix}Reward" type="number" value="${task?task.rewardValue:20}" /></div>
-    <div class="field"><label>Penalty per missed day</label><input id="${idPrefix}Penalty" type="number" value="${task?task.penaltyValue:5}" min="0" /></div>`;
+    <div class="field"><label>Reward value (fixed)</label><input id="${idPrefix}Reward" type="number" value="${task?task.rewardValue:20}" ${dis} /></div>
+    <div class="field"><label>Penalty per missed day</label><input id="${idPrefix}Penalty" type="number" value="${task?task.penaltyValue:5}" min="0" ${dis} />${lockNote}</div>`;
 }
 function openAddTaskModal(){
   const m = openModal(`
@@ -101,7 +103,7 @@ function openAddTaskModal(){
         <option value="monthly">Monthly</option>
       </select>
     </div>
-    <div id="tRecurFields">${recurrenceFieldsHtml('t', 'once', null)}</div>
+    <div id="tRecurFields">${recurrenceFieldsHtml('t', 'once', null, false)}</div>
     <div class="modal-actions">
       <button class="btn-secondary" id="tCancel">Cancel</button>
       <button class="btn-primary" id="tSave">Add task</button>
@@ -113,7 +115,7 @@ function openAddTaskModal(){
     m.querySelector('#tAddDetailsLink').style.display = 'none';
   });
   m.querySelector('#tRecurrence').addEventListener('change', (e)=>{
-    m.querySelector('#tRecurFields').innerHTML = recurrenceFieldsHtml('t', e.target.value, null);
+    m.querySelector('#tRecurFields').innerHTML = recurrenceFieldsHtml('t', e.target.value, null, false);
     wireDayGrid(m, 't');
   });
   m.querySelector('#tCancel').addEventListener('click', ()=>m.remove());
@@ -180,10 +182,7 @@ function openEditHabitModal(id){
 function openEditTaskModal(id){
   const task = state.tasks.find(x=>x.id===id);
   if(!task) return;
-  if(!taskEditable(task)){
-    showToast("Editing locked after today");
-    return;
-  }
+  const valuesLocked = !taskEditable(task);
   const recurrence = taskRecurrenceType(task);
   const m = openModal(`
     <h3>Edit task</h3>
@@ -197,13 +196,14 @@ function openEditTaskModal(id){
     <a class="add-details-link" id="etAddDetailsLink" style="${task.description?'display:none;':''}">+ Add details</a>
     <div class="field" id="etDescField" style="${task.description?'':'display:none;'}"><label>Description (optional)</label><input id="etDesc" type="text" value="${escapeHtml(task.description||'')}" placeholder="Add extra detail" /></div>
     <div class="field"><label>Repeats</label>
-      <select id="etRecurrence">
+      <select id="etRecurrence" ${valuesLocked?'disabled':''}>
         <option value="once" ${recurrence==='once'?'selected':''}>One-time</option>
         <option value="weekly" ${recurrence==='weekly'?'selected':''}>Weekly</option>
         <option value="monthly" ${recurrence==='monthly'?'selected':''}>Monthly</option>
       </select>
+      ${valuesLocked?'<div class="lock-note" style="margin-top:4px;">Repeat type locked after the first day</div>':''}
     </div>
-    <div id="etRecurFields">${recurrenceFieldsHtml('et', recurrence, task)}</div>
+    <div id="etRecurFields">${recurrenceFieldsHtml('et', recurrence, task, valuesLocked)}</div>
     <div class="modal-actions">
       <button class="btn-secondary" id="etCancel">Cancel</button>
       <button class="btn-primary" id="etSave">Save changes</button>
@@ -215,7 +215,8 @@ function openEditTaskModal(id){
     m.querySelector('#etAddDetailsLink').style.display = 'none';
   });
   m.querySelector('#etRecurrence').addEventListener('change', (e)=>{
-    m.querySelector('#etRecurFields').innerHTML = recurrenceFieldsHtml('et', e.target.value, e.target.value===recurrence?task:null);
+    if(valuesLocked) return; // recurrence type itself can't change after day one
+    m.querySelector('#etRecurFields').innerHTML = recurrenceFieldsHtml('et', e.target.value, e.target.value===recurrence?task:null, false);
     wireDayGrid(m, 'et');
   });
   m.querySelector('#etCancel').addEventListener('click', ()=>m.remove());
@@ -223,24 +224,25 @@ function openEditTaskModal(id){
     const name = m.querySelector('#etName').value.trim();
     const emoji = m.querySelector('#etEmoji').value.trim() || TASK_DEFAULT_EMOJI;
     const description = m.querySelector('#etDesc').value.trim();
-    const newRecurrence = m.querySelector('#etRecurrence').value;
     if(!name){ showToast('Give it a name'); return; }
     task.name = name;
     task.emoji = emoji;
     task.description = description;
-    task.recurrence = newRecurrence;
-    if(newRecurrence==='once'){
-      task.startValue = parseFloat(m.querySelector('#etStart').value)||0;
-      task.decayRate = parseFloat(m.querySelector('#etDecay').value)||0;
-      delete task.rewardValue; delete task.penaltyValue; delete task.schedule; delete task.lastCompletedDate;
+
+    if(recurrence==='once'){
+      // schedule/type locked fields — only touch them if still within the edit window
+      if(!valuesLocked){
+        task.startValue = parseFloat(m.querySelector('#etStart').value)||0;
+        task.decayRate = parseFloat(m.querySelector('#etDecay').value)||0;
+      }
     } else {
       const schedule = readDayGrid(m, 'et');
       if(schedule.length===0){ showToast('Pick at least one day'); return; }
-      task.rewardValue = parseFloat(m.querySelector('#etReward').value)||0;
-      task.penaltyValue = parseFloat(m.querySelector('#etPenalty').value)||0;
-      task.schedule = schedule;
-      if(task.lastCompletedDate===undefined) task.lastCompletedDate = null;
-      delete task.startValue; delete task.decayRate;
+      task.schedule = schedule; // editable forever — people reschedule
+      if(!valuesLocked){
+        task.rewardValue = parseFloat(m.querySelector('#etReward').value)||0;
+        task.penaltyValue = parseFloat(m.querySelector('#etPenalty').value)||0;
+      }
     }
     saveState();
     m.remove();
