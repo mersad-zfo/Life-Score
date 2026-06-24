@@ -399,6 +399,27 @@ function reorderTask(id, dir){
   renderMain();
 }
 
+function reorderMasterByVisibleOrder(masterArray, visibleIdsInNewOrder){
+  const visibleSet = new Set(visibleIdsInNewOrder);
+  const result = [];
+  let inserted = false;
+  for(const item of masterArray){
+    if(visibleSet.has(item.id)){
+      if(!inserted){
+        visibleIdsInNewOrder.forEach(id=>{
+          const found = masterArray.find(x=>x.id===id);
+          if(found) result.push(found);
+        });
+        inserted = true;
+      }
+      // skip — already inserted as a block above
+    } else {
+      result.push(item);
+    }
+  }
+  return result;
+}
+
 // ---------- Scores ----------
 function startOfWeek(dateStr){
   const d = new Date(dateStr+'T00:00:00');

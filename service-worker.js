@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-score-v12';
+const CACHE_NAME = 'life-score-v15';
 const ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const ASSETS = [
   './icon-512.png',
   './styles.css',
   './app-state.js',
+  './app-drag.js',
   './app-render.js',
   './app-modals.js',
   './app-main.js'

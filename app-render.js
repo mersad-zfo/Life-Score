@@ -22,13 +22,14 @@ function renderToday(main){
   if(state.habits.length===0){
     html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">No habits yet. Add one from the Habits tab.</div>`;
   } else {
+    html += `<div id="todayHabitsList">`;
     state.habits.forEach(h=>{
       const done = habitDoneToday(h);
       const streak = habitDisplayStreak(h);
       const previewStreak = done ? h.streak : (streak>0 ? streak+1 : 1);
       const pointsPreview = habitReward(previewStreak, h.basePoints);
       html += `
-      <div class="card row" data-card-habit="${h.id}">
+      <div class="card row" data-card-habit="${h.id}" data-drag-item data-drag-id="${h.id}">
         <span class="emoji-today">${h.emoji||HABIT_FALLBACK_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(h.name)}</div>
@@ -38,6 +39,7 @@ function renderToday(main){
         <button class="btn-done ${done?'done':''}" data-habit="${h.id}">${done? '✓' : ''}</button>
       </div>`;
     });
+    html += `</div>`;
   }
   const dueTasks = state.tasks.filter(task=>{
     if(!isRecurring(task)) return true;
@@ -51,10 +53,11 @@ function renderToday(main){
   if(openTasks.length===0){
     html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">No open tasks. Nice.</div>`;
   } else {
-    openTasks.slice(0,4).forEach(task=>{
+    html += `<div id="todayTasksList">`;
+    openTasks.forEach(task=>{
       const val = taskDisplayValue(task);
       html += `
-      <div class="card row" data-card-task="${task.id}">
+      <div class="card row" data-card-task="${task.id}" data-drag-item data-drag-id="${task.id}">
         <span class="emoji-today">${task.emoji||TASK_DEFAULT_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(task.name)}</div>
@@ -64,6 +67,7 @@ function renderToday(main){
         <button class="btn-done-square" data-complete-task-today="${task.id}">✓</button>
       </div>`;
     });
+    html += `</div>`;
   }
   if(doneTasks.length>0){
     html += `<div class="section-label">Completed today</div>`;
@@ -108,6 +112,14 @@ function renderToday(main){
   });
   main.querySelectorAll('[data-complete-task-today]').forEach(btn=>{
     btn.addEventListener('click', ()=> completeTask(btn.dataset.completeTaskToday));
+  });
+  enableHoldDrag('#todayHabitsList', '[data-drag-item]', (newOrderIds)=>{
+    state.habits = newOrderIds.map(id=> state.habits.find(h=>h.id===id));
+    saveState();
+  });
+  enableHoldDrag('#todayTasksList', '[data-drag-item]', (newOrderIds)=>{
+    state.tasks = reorderMasterByVisibleOrder(state.tasks, newOrderIds);
+    saveState();
   });
 }
 
