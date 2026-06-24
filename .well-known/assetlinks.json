@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.mersad_zfo.twa",
+        "sha256_cert_fingerprints": ["A6:07:B2:9E:55:9A:0A:F8:CE:5B:E2:AB:7A:C7:DD:7D:02:B2:A0:37:5A:59:17:20:C7:9E:E7:35:16:85:64:FE"]
+      }
+    }]
