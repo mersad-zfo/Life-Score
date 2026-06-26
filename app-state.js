@@ -8,6 +8,17 @@ let backupTapped = false;
 let restoreTapped = false;
 
 function ensureStateShape(){
+  // Migration: older saved data used "habits" (state.habits, log kind 'habit') before the
+  // Habit -> Routine rename. Without this, state.routines would be undefined on real devices
+  // with existing data, crashing the routine catch-up loop at load.
+  if(!state.routines && state.habits){
+    state.routines = state.habits;
+    delete state.habits;
+  }
+  if(!state.routines) state.routines = [];
+  if(state.log){
+    state.log.forEach(l=>{ if(l.kind==='habit') l.kind = 'routine'; });
+  }
   if(!state.profile) state.profile = null;
   if(!state.settings) state.settings = { theme: 'system', sound: true };
   if(state.settings.theme===undefined) state.settings.theme = 'system';

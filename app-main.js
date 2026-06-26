@@ -36,8 +36,13 @@ document.getElementById('fab').addEventListener('click', ()=>{
 
 (async function init(){
   const splashStart = Date.now();
-  await loadState();
-  setTab('today');
+  try{
+    await loadState();
+    setTab('today');
+  }catch(e){
+    console.error('Failed to load saved data', e);
+    showToast('Something went wrong loading your data');
+  }
   if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('./service-worker.js');
