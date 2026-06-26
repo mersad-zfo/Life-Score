@@ -160,6 +160,30 @@ function showToast(msg){
 // Configurable safety-net thresholds for streak drops on a missed day — edit this array to retune long-term values.
 const ROUTINE_SAFETY_NETS = [7, 14, 30, 60, 90, 180, 270, 365];
 
+// Milestone thresholds for the emoji-rank display + celebration triggers. Same numbers drive
+// both streak and neglect badges (mirrored), per the unified-progression design. Note this is
+// intentionally a separate list from ROUTINE_SAFETY_NETS above (different lowest bound, 1 vs 7) —
+// safety nets gate the streak-drop mechanic; these gate the purely visual badge.
+const ROUTINE_MILESTONES = [1, 14, 30, 60, 90, 180, 270, 365];
+const STREAK_RANK_EMOJIS  = ['👏','⭐','💯','🥇','🏆','🔥','👑','👑👑'];
+const NEGLECT_RANK_EMOJIS = ['⚠️','⛔','🚨','🤕','💔','☠️','☠️','☠️☠️'];
+// Index of the highest milestone `value` has reached, or -1 if below the first one (i.e. 0).
+function routineRankIndex(value){
+  let idx = -1;
+  for(let i=0;i<ROUTINE_MILESTONES.length;i++){
+    if(value >= ROUTINE_MILESTONES[i]) idx = i; else break;
+  }
+  return idx;
+}
+function streakEmoji(value){
+  const idx = routineRankIndex(value);
+  return idx>=0 ? STREAK_RANK_EMOJIS[idx] : '';
+}
+function neglectEmoji(value){
+  const idx = routineRankIndex(value);
+  return idx>=0 ? NEGLECT_RANK_EMOJIS[idx] : '';
+}
+
 function ensureRoutineShape(r){
   if(r.neglect===undefined) r.neglect = 0;
   if(r.recoveryChain===undefined) r.recoveryChain = false;
@@ -195,7 +219,7 @@ function routineNextStateOnComplete(r){
     return { streak: r.streak + 1, neglect: 0, recoveryChain: false };
   }
   if(r.neglect > 0){
-    const newNeglect = Math.round(r.neglect / 2);
+    const newNeglect = Math.floor(r.neglect / 2);
     return { streak: 0, neglect: newNeglect, recoveryChain: newNeglect > 0 };
   }
   return { streak: 1, neglect: 0, recoveryChain: false }; // Neutral
@@ -259,12 +283,15 @@ function completeRoutine(id){
     lastEvaluatedDate: r.lastEvaluatedDate
   };
 
+  const oldStreak = r.streak;
   const next = routineNextStateOnComplete(r);
   r.streak = next.streak;
   r.neglect = next.neglect;
   r.recoveryChain = next.recoveryChain;
   r.lastCompletedDate = t;
   r.lastEvaluatedDate = t;
+
+  const crossedStreakMilestone = routineRankIndex(r.streak) > routineRankIndex(oldStreak);
 
   const pts = routineReward(r.streak, r.neglect, r.basePoints);
   r.awardedPoints = pts;
@@ -277,6 +304,7 @@ function completeRoutine(id){
   triggerPop(`[data-neglect="${id}"]`);
   triggerShine(`[data-card-routine="${id}"]`);
   playSparkle();
+  if(crossedStreakMilestone) triggerConfetti(`[data-card-routine="${id}"]`);
   showToast(`+${pts} · ${r.name}`);
 }
 function uncompleteRoutine(id){
@@ -320,6 +348,30 @@ function triggerShine(selector){
     el.classList.remove('shine');
     requestAnimationFrame(()=> el.classList.add('shine'));
     setTimeout(()=> el.classList.remove('shine'), 800);
+  });
+}
+// Bigger celebration than shine/sound/haptic — fires only when a routine crosses upward into
+// a new streak milestone (never on neglect, never on a plain daily completion).
+function triggerConfetti(selector){
+  requestAnimationFrame(()=>{
+    const el = document.querySelector(selector);
+    if(!el) return;
+    const rect = el.getBoundingClientRect();
+    const colors = ['#2F7A5C','#C8553D','#E8B23A','#3B6FA0','#8A4FA0'];
+    const originX = rect.left + rect.width/2;
+    const originY = rect.top + rect.height/2;
+    for(let i=0;i<18;i++){
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = originX + 'px';
+      piece.style.top = originY + 'px';
+      piece.style.background = colors[Math.floor(Math.random()*colors.length)];
+      piece.style.setProperty('--dx', Math.round((Math.random()-0.5)*180)+'px');
+      piece.style.setProperty('--dy', Math.round(110 + Math.random()*130)+'px');
+      piece.style.setProperty('--rot', Math.round(Math.random()*720-360)+'deg');
+      document.body.appendChild(piece);
+      setTimeout(()=> piece.remove(), 950);
+    }
   });
 }
 

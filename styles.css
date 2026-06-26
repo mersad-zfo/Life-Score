@@ -26,20 +26,21 @@
     transition: background-color .25s ease, color .25s ease, border-color .25s ease;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  html,body{margin:0;padding:0;height:100%;}
   body{
     background: var(--bg);
     color: var(--ink);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
-    min-height: 100vh;
+    height:100vh;
+    overflow:hidden;
     display:flex;
     justify-content:center;
   }
   #app{
     width:100%;
     max-width: 480px;
-    min-height:100vh;
+    height:100vh;
     display:flex;
     flex-direction:column;
     position:relative;
@@ -73,6 +74,7 @@
     flex:1;
     padding: 18px 20px 100px;
     overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
   }
   .section-label{
     font-size:11px;
@@ -469,6 +471,21 @@
     0%{ transform:scale(1); }
     45%{ transform:scale(1.35); }
     100%{ transform:scale(1); }
+  }
+  .confetti-piece{
+    position:fixed;
+    width:7px;
+    height:7px;
+    border-radius:2px;
+    z-index:1500;
+    pointer-events:none;
+    animation: confettiFall .95s ease-out forwards;
+  }
+  @keyframes confettiFall{
+    to{
+      transform: translate(var(--dx), var(--dy)) rotate(var(--rot));
+      opacity:0;
+    }
   }
   .btn-done.bump{
     animation: bumpAnim .32s ease;

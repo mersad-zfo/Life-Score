@@ -38,9 +38,9 @@ function renderToday(main){
       const rState = routineState(h);
       let subtitleHtml = '';
       if(rState==='streak'){
-        subtitleHtml = `<div class="item-sub"><span class="streak-chip" data-streak="${h.id}">x${h.streak}🔥</span></div>`;
+        subtitleHtml = `<div class="item-sub"><span class="streak-chip" data-streak="${h.id}">${streakEmoji(h.streak)} ×${h.streak}</span></div>`;
       } else if(rState==='neglect'){
-        subtitleHtml = `<div class="item-sub"><span class="neglect-chip" data-neglect="${h.id}">x${h.neglect}⚠️</span></div>`;
+        subtitleHtml = `<div class="item-sub"><span class="neglect-chip" data-neglect="${h.id}">${neglectEmoji(h.neglect)} ×${h.neglect}</span></div>`;
       }
       html += `
       <div class="card row" data-card-routine="${h.id}" data-drag-item data-drag-id="${h.id}">
@@ -142,8 +142,8 @@ function renderRoutines(main){
       const done = routineDoneToday(h);
       const rState = routineState(h);
       let statusText;
-      if(rState==='streak') statusText = `🔥 x${h.streak} streak`;
-      else if(rState==='neglect') statusText = `⚠️ x${h.neglect} neglect`;
+      if(rState==='streak') statusText = `${streakEmoji(h.streak)} ×${h.streak}`;
+      else if(rState==='neglect') statusText = `${neglectEmoji(h.neglect)} ×${h.neglect}`;
       else statusText = 'Neutral';
       html += `
       <div class="card" data-card-routine="${h.id}">
