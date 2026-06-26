@@ -1,11 +1,12 @@
 // ---------- Init ----------
+const TAB_PAGE_TITLES = { habits: 'Your habits', tasks: 'Your tasks', score: 'Your score', settings: 'Settings' };
 function updateHeader(){
   const el = document.getElementById('headerInfo');
-  if(currentTab==='settings'){
-    el.innerHTML = `<div class="wordmark page-title">Settings</div>`;
-  } else {
+  if(currentTab==='today'){
     el.innerHTML = `<div class="wordmark">Life Score</div><div class="date" id="todayLabel"></div>`;
     fmtDateLabel();
+  } else {
+    el.innerHTML = `<div class="wordmark page-title">${TAB_PAGE_TITLES[currentTab]}</div>`;
   }
 }
 function setTab(tab){

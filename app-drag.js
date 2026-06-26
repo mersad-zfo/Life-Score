@@ -54,12 +54,34 @@ function startDrag(item, list, itemSelector, startEvent, kind, onCommit){
   const trash = getTrashEl();
   if(trash) trash.classList.add('visible');
 
+  // ---- Edge auto-scroll: speeds up the closer the pointer gets to the true top/bottom edge ----
+  const scrollEl = document.getElementById('main');
+  const AUTOSCROLL_EDGE = 70; // px from viewport edge where auto-scroll kicks in
+  const AUTOSCROLL_MAX_SPEED = 14; // px per frame at the very edge
+  let pointerClientY = startEvent.clientY;
+  let autoScrollRAF = null;
+  function autoScrollStep(){
+    if(scrollEl){
+      const vh = window.innerHeight;
+      let dy = 0;
+      if(pointerClientY < AUTOSCROLL_EDGE){
+        dy = -AUTOSCROLL_MAX_SPEED * (1 - pointerClientY/AUTOSCROLL_EDGE);
+      } else if(pointerClientY > vh - AUTOSCROLL_EDGE){
+        dy = AUTOSCROLL_MAX_SPEED * (1 - (vh - pointerClientY)/AUTOSCROLL_EDGE);
+      }
+      if(dy !== 0) scrollEl.scrollTop += dy;
+    }
+    autoScrollRAF = requestAnimationFrame(autoScrollStep);
+  }
+  autoScrollRAF = requestAnimationFrame(autoScrollStep);
+
   function getSiblings(){
     return Array.from(list.querySelectorAll(itemSelector)).filter(el=> el!==item);
   }
 
   function onMove(ev){
     ev.preventDefault();
+    pointerClientY = ev.clientY;
     const y = ev.clientY - offsetY;
     item.style.top = y + 'px';
 
@@ -110,6 +132,7 @@ function startDrag(item, list, itemSelector, startEvent, kind, onCommit){
   }
 
   function cleanupVisuals(){
+    if(autoScrollRAF) cancelAnimationFrame(autoScrollRAF);
     item.classList.remove('dragging');
     item.style.position = '';
     item.style.left = '';

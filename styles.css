@@ -286,6 +286,11 @@
     margin-top:6px;
   }
   .score-hero .number.negative{ color:var(--rust); }
+  .score-hero .daily-tally{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-top:6px;
+  }
   .score-grid{
     display:grid;
     grid-template-columns: 1fr 1fr;

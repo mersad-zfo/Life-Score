@@ -13,10 +13,19 @@ function renderToday(main){
   const t = todayStr();
   const todays = state.log.filter(l=>l.date===t);
   const total = todays.reduce((s,l)=>s+l.points,0);
+  const dueTasks = state.tasks.filter(task=>{
+    if(!isRecurring(task)) return true;
+    if(task.lastCompletedDate === todayStr()) return true; // completed today — show in Completed Today
+    const status = recurringStatus(task);
+    return status==='due' || status==='overdue';
+  });
+  const tallyDone = state.habits.filter(h=>habitDoneToday(h)).length + dueTasks.filter(task=>taskDoneToday(task)).length;
+  const tallyTotal = state.habits.length + dueTasks.length;
   let html = `
     <div class="score-hero">
       <div class="label">Today's score</div>
       <div class="number ${total<0?'negative':''}">${total>0?'+':''}${total}</div>
+      ${tallyTotal>0 ? `<div class="daily-tally">${tallyDone} of ${tallyTotal} done today</div>` : ''}
     </div>
     <div class="section-label">Habits</div>`;
   if(state.habits.length===0){
@@ -42,12 +51,6 @@ function renderToday(main){
     });
     html += `</div>`;
   }
-  const dueTasks = state.tasks.filter(task=>{
-    if(!isRecurring(task)) return true;
-    if(task.lastCompletedDate === todayStr()) return true; // completed today — show in Completed Today
-    const status = recurringStatus(task);
-    return status==='due' || status==='overdue';
-  });
   const openTasks = dueTasks.filter(task=>!taskDoneToday(task));
   const doneTasks = dueTasks.filter(task=>taskDoneToday(task));
   html += `<div class="section-label">Open tasks</div>`;
@@ -126,7 +129,7 @@ function renderToday(main){
 }
 
 function renderHabits(main){
-  let html = `<div class="section-label">Your habits</div>`;
+  let html = '';
   if(state.habits.length===0){
     html += `<div class="empty"><div class="big">🪴</div>Nothing here yet.<br>Tap + to add your first habit.</div>`;
   } else {
