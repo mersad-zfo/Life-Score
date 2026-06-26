@@ -96,7 +96,7 @@
   body.dark-theme .card{
     box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
   }
-  .card[data-card-habit], .card[data-card-task]{
+  .card[data-card-routine], .card[data-card-task]{
     border:1px solid var(--accent);
   }
   .row{
@@ -453,6 +453,16 @@
     display:inline-block;
   }
   .streak-chip.pop{
+    animation: popAnim .35s ease;
+  }
+  .neglect-chip{
+    font-family:'Newsreader', serif;
+    font-size:15px;
+    font-weight:500;
+    color:var(--rust);
+    display:inline-block;
+  }
+  .neglect-chip.pop{
     animation: popAnim .35s ease;
   }
   @keyframes popAnim{

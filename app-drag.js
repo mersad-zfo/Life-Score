@@ -162,10 +162,10 @@ function startDrag(item, list, itemSelector, startEvent, kind, onCommit){
       cleanupVisuals();
       const id = item.dataset.dragId;
       const name = item.querySelector('.item-name') ? item.querySelector('.item-name').textContent : 'this';
-      const label = kind==='habit' ? 'habit' : 'task';
+      const label = kind==='routine' ? 'routine' : 'task';
       if(confirm(`Remove this ${label}? "${name.trim()}" will be deleted.`)){
-        if(kind==='habit') deleteHabit(id); else deleteTask(id);
-        // deleteHabit/deleteTask already re-render, so nothing else to do
+        if(kind==='routine') deleteRoutine(id); else deleteTask(id);
+        // deleteRoutine/deleteTask already re-render, so nothing else to do
       } else {
         renderMain(); // snap back to original state since nothing was reordered/removed
       }

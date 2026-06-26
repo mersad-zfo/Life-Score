@@ -1,5 +1,5 @@
 const STORE_KEY = 'lifescore_state_v1';
-let state = { habits: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true }, session: { loggedIn: false } };
+let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true }, session: { loggedIn: false } };
 let currentTab = 'today';
 let previousTab = 'today';
 let storageReady = false;
@@ -71,7 +71,7 @@ function fmtDateLabel(){
 function uid(){ return Math.random().toString(36).slice(2,9); }
 
 // ---------- Emoji auto-pick ----------
-const HABIT_FALLBACK_EMOJI = '🎯';
+const ROUTINE_FALLBACK_EMOJI = '🎯';
 const TASK_DEFAULT_EMOJI = '📋';
 const EMOJI_VARIETY = {
   food: ['🍳','🍽️','🥗','🍕'],
@@ -101,7 +101,7 @@ const EMOJI_SINGLE = {
   walk_dog: '🐕', dog: '🐕', pet: '🐾',
   call: '📞', dentist: '🦷', doctor: '🩺',
 };
-function pickHabitEmoji(name){
+function pickRoutineEmoji(name){
   const n = (name||'').toLowerCase();
   for(const key in EMOJI_VARIETY){
     if(n.includes(key)){
@@ -112,7 +112,7 @@ function pickHabitEmoji(name){
   for(const key in EMOJI_SINGLE){
     if(n.includes(key)) return EMOJI_SINGLE[key];
   }
-  return HABIT_FALLBACK_EMOJI;
+  return ROUTINE_FALLBACK_EMOJI;
 }
 
 async function loadState(){
@@ -123,6 +123,7 @@ async function loadState(){
   ensureStateShape();
   pruneStaleCompletedTasks();
   applyDuePenalties();
+  applyRoutineCatchUp();
   applyTheme();
   storageReady = true;
 }
@@ -143,54 +144,145 @@ function showToast(msg){
   t._timer = setTimeout(()=> t.classList.remove('show'), 1800);
 }
 
-// ---------- Habit logic ----------
-function habitDisplayStreak(h){
-  const t = todayStr();
-  if(!h.lastCompletedDate) return 0;
-  const gap = daysBetween(h.lastCompletedDate, t);
-  if(gap === 0) return h.streak;
-  if(gap === 1) return h.streak;
-  return 0;
-}
-function habitDoneToday(h){
-  return h.lastCompletedDate === todayStr();
-}
-function habitReward(streakAfter, base){
-  const bonus = Math.floor(streakAfter/5)*Math.max(1, Math.round(base*0.1));
-  return base + bonus;
-}
-function completeHabit(id){
-  const h = state.habits.find(x=>x.id===id);
-  if(!h || habitDoneToday(h)) return;
-  const t = todayStr();
-  let newStreak;
-  if(h.lastCompletedDate === addDays(t,-1)){
-    newStreak = h.streak + 1;
-  } else {
-    newStreak = 1;
+// ---------- Routine logic (Routine Consistency System) ----------
+// A routine is always in exactly one state: Streak (streak>0), Neglect (neglect>0), or Neutral (both 0).
+// Configurable safety-net thresholds for streak drops on a missed day — edit this array to retune long-term values.
+const ROUTINE_SAFETY_NETS = [7, 14, 30, 60, 90, 180, 270, 365];
+
+function ensureRoutineShape(r){
+  if(r.neglect===undefined) r.neglect = 0;
+  if(r.recoveryChain===undefined) r.recoveryChain = false;
+  if(r.lastEvaluatedDate===undefined){
+    // Migrating older data, or a brand-new routine: don't invent retroactive misses —
+    // just start tracking from "as of yesterday" so today's catch-up loop has nothing to replay.
+    r.lastEvaluatedDate = r.lastCompletedDate || addDays(todayStr(), -1);
   }
-  h.streak = newStreak;
-  h.lastCompletedDate = t;
-  const pts = habitReward(newStreak, h.basePoints);
-  state.log.push({id: uid(), kind:'habit', refId: h.id, name: h.name, points: pts, date: t});
+}
+function routineState(r){
+  if(r.streak > 0) return 'streak';
+  if(r.neglect > 0) return 'neglect';
+  return 'neutral';
+}
+// Largest safety-net value strictly less than `value`; 0 if none (i.e. drop all the way to Neutral).
+function nearestLowerNet(value, nets){
+  let best = 0;
+  for(const n of nets){ if(n < value && n > best) best = n; }
+  return best;
+}
+function routineIncrement(basePoints){
+  return Math.max(1, Math.round(basePoints*0.1));
+}
+// reward formula: streak and neglect are perfect mirrors around basePoints, floored at 0.
+function routineReward(streakAfter, neglectAfter, basePoints){
+  const inc = routineIncrement(basePoints);
+  const reward = basePoints + Math.floor(streakAfter/5)*inc - Math.floor(neglectAfter/5)*inc;
+  return Math.max(0, reward);
+}
+// Pure function: what streak/neglect/recoveryChain would result from completing TODAY, without mutating.
+function routineNextStateOnComplete(r){
+  if(r.streak > 0){
+    return { streak: r.streak + 1, neglect: 0, recoveryChain: false };
+  }
+  if(r.neglect > 0){
+    const newNeglect = Math.round(r.neglect / 2);
+    return { streak: 0, neglect: newNeglect, recoveryChain: newNeglect > 0 };
+  }
+  return { streak: 1, neglect: 0, recoveryChain: false }; // Neutral
+}
+// Preview-only: the reward the user would get if they tapped complete right now (does not mutate).
+function routinePreviewReward(r){
+  const next = routineNextStateOnComplete(r);
+  return routineReward(next.streak, next.neglect, r.basePoints);
+}
+function routineDoneToday(r){
+  return r.lastCompletedDate === todayStr();
+}
+// Apply exactly one missed-day transition in place. Mirrors the completion rules:
+// Streak misses drop to the nearest lower safety net (0 = Neutral).
+// Neglect misses: +1 normally, but a ONE-TIME ×1.5 relapse if this is the first miss right after a recovery completion.
+// Neutral misses: neglect becomes 1.
+function applyRoutineMiss(r){
+  if(r.streak > 0){
+    r.streak = nearestLowerNet(r.streak, ROUTINE_SAFETY_NETS);
+    r.recoveryChain = false;
+  } else if(r.neglect > 0){
+    if(r.recoveryChain){
+      r.neglect = Math.round(r.neglect * 1.5);
+      r.recoveryChain = false; // the relapse multiplier fires once per recovery chain, then it's gone
+    } else {
+      r.neglect += 1;
+    }
+  } else {
+    r.neglect = 1;
+  }
+}
+// Replays every missed day between a routine's last-evaluated date and yesterday, in order —
+// so the once-per-chain relapse rule and net-drop sequencing stay correct regardless of how
+// many days the app was closed. Today itself is never evaluated as a miss while still in progress
+// (same fairness rule used for recurring task penalties).
+function applyRoutineCatchUp(){
+  const t = todayStr();
+  state.routines.forEach(r=>{
+    ensureRoutineShape(r);
+    let d = addDays(r.lastEvaluatedDate, 1);
+    while(d < t){
+      applyRoutineMiss(r);
+      r.lastEvaluatedDate = d;
+      d = addDays(d, 1);
+    }
+  });
+}
+function completeRoutine(id){
+  const r = state.routines.find(x=>x.id===id);
+  if(!r || routineDoneToday(r)) return;
+  ensureRoutineShape(r);
+  const t = todayStr();
+
+  // Snapshot the full pre-completion state so same-day undo can restore it exactly —
+  // halving/net-drops aren't cleanly reversible by un-doing math, so we just restore the snapshot.
+  r.previousSnapshot = {
+    streak: r.streak,
+    neglect: r.neglect,
+    recoveryChain: r.recoveryChain,
+    lastCompletedDate: r.lastCompletedDate,
+    lastEvaluatedDate: r.lastEvaluatedDate
+  };
+
+  const next = routineNextStateOnComplete(r);
+  r.streak = next.streak;
+  r.neglect = next.neglect;
+  r.recoveryChain = next.recoveryChain;
+  r.lastCompletedDate = t;
+  r.lastEvaluatedDate = t;
+
+  const pts = routineReward(r.streak, r.neglect, r.basePoints);
+  r.awardedPoints = pts;
+  state.log.push({id: uid(), kind:'routine', refId: r.id, name: r.name, points: pts, date: t});
   saveState();
   renderMain();
   if(navigator.vibrate) navigator.vibrate(15);
-  triggerBump(`[data-habit="${id}"]`);
+  triggerBump(`[data-routine="${id}"]`);
   triggerPop(`[data-streak="${id}"]`);
-  triggerShine(`[data-card-habit="${id}"]`);
+  triggerPop(`[data-neglect="${id}"]`);
+  triggerShine(`[data-card-routine="${id}"]`);
   playSparkle();
-  showToast(`+${pts} · ${h.name}`);
+  showToast(`+${pts} · ${r.name}`);
 }
-function uncompleteHabit(id){
-  const h = state.habits.find(x=>x.id===id);
-  if(!h || !habitDoneToday(h)) return;
+function uncompleteRoutine(id){
+  const r = state.routines.find(x=>x.id===id);
+  if(!r || !routineDoneToday(r)) return;
   const t = todayStr();
-  // remove today's log entry, roll back streak
-  const idx = state.log.findIndex(l=> l.kind==='habit' && l.refId===id && l.date===t);
+  const idx = state.log.findIndex(l=> l.kind==='routine' && l.refId===id && l.date===t);
   if(idx>-1) state.log.splice(idx,1);
-  h.streak = Math.max(0, h.streak - 1);
-  h.lastCompletedDate = h.streak > 0 ? addDays(t,-1) : null;
+  if(r.previousSnapshot){
+    r.streak = r.previousSnapshot.streak;
+    r.neglect = r.previousSnapshot.neglect;
+    r.recoveryChain = r.previousSnapshot.recoveryChain;
+    r.lastCompletedDate = r.previousSnapshot.lastCompletedDate;
+    r.lastEvaluatedDate = r.previousSnapshot.lastEvaluatedDate;
+    delete r.previousSnapshot;
+  }
+  r.awardedPoints = null;
   saveState();
   renderMain();
 }
@@ -367,17 +459,17 @@ function deleteTask(id){
   saveState();
   renderMain();
 }
-function deleteHabit(id){
-  state.habits = state.habits.filter(h=>h.id!==id);
-  state.log = state.log.filter(l=> !(l.kind==='habit' && l.refId===id));
+function deleteRoutine(id){
+  state.routines = state.routines.filter(h=>h.id!==id);
+  state.log = state.log.filter(l=> !(l.kind==='routine' && l.refId===id));
   saveState();
   renderMain();
 }
-function reorderHabit(id, dir){
-  const i = state.habits.findIndex(h=>h.id===id);
+function reorderRoutine(id, dir){
+  const i = state.routines.findIndex(h=>h.id===id);
   const j = i + dir;
-  if(i<0 || j<0 || j>=state.habits.length) return;
-  [state.habits[i], state.habits[j]] = [state.habits[j], state.habits[i]];
+  if(i<0 || j<0 || j>=state.routines.length) return;
+  [state.routines[i], state.routines[j]] = [state.routines[j], state.routines[i]];
   saveState();
   renderMain();
 }

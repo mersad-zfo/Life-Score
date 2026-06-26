@@ -1,5 +1,5 @@
 // ---------- Init ----------
-const TAB_PAGE_TITLES = { habits: 'Your habits', tasks: 'Your tasks', score: 'Your score', settings: 'Settings' };
+const TAB_PAGE_TITLES = { routines: 'Your routines', tasks: 'Your tasks', score: 'Your score', settings: 'Settings' };
 function updateHeader(){
   const el = document.getElementById('headerInfo');
   if(currentTab==='today'){
@@ -30,7 +30,7 @@ document.getElementById('gearBtn').addEventListener('click', ()=>{
   }
 });
 document.getElementById('fab').addEventListener('click', ()=>{
-  if(currentTab==='habits') openAddHabitModal();
+  if(currentTab==='routines') openAddRoutineModal();
   if(currentTab==='tasks') openAddTaskModal();
 });
 

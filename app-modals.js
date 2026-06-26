@@ -8,36 +8,36 @@ function openModal(html){
   return wrap;
 }
 
-function openAddHabitModal(){
+function openAddRoutineModal(){
   const m = openModal(`
-    <h3>New habit</h3>
+    <h3>New routine</h3>
     <div class="field">
       <label>Name &amp; emoji</label>
       <div class="emoji-field-row">
-        <input id="hEmoji" type="text" value="${HABIT_FALLBACK_EMOJI}" />
+        <input id="hEmoji" type="text" value="${ROUTINE_FALLBACK_EMOJI}" />
         <input id="hName" type="text" placeholder="e.g. Brush teeth" style="flex:1;" />
       </div>
     </div>
     <div class="field"><label>Base points (difficulty)</label><input id="hPoints" type="number" value="10" min="1" /></div>
     <div class="modal-actions">
       <button class="btn-secondary" id="hCancel">Cancel</button>
-      <button class="btn-primary" id="hSave">Add habit</button>
+      <button class="btn-primary" id="hSave">Add routine</button>
     </div>
   `);
   let emojiTouched = false;
   m.querySelector('#hEmoji').addEventListener('input', ()=>{ emojiTouched = true; });
   m.querySelector('#hName').addEventListener('input', (e)=>{
     if(!emojiTouched){
-      m.querySelector('#hEmoji').value = pickHabitEmoji(e.target.value);
+      m.querySelector('#hEmoji').value = pickRoutineEmoji(e.target.value);
     }
   });
   m.querySelector('#hCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#hSave').addEventListener('click', ()=>{
     const name = m.querySelector('#hName').value.trim();
-    const emoji = m.querySelector('#hEmoji').value.trim() || HABIT_FALLBACK_EMOJI;
+    const emoji = m.querySelector('#hEmoji').value.trim() || ROUTINE_FALLBACK_EMOJI;
     const pts = parseInt(m.querySelector('#hPoints').value)||10;
     if(!name){ showToast('Give it a name'); return; }
-    state.habits.push({id: uid(), name, emoji, basePoints: pts, streak:0, lastCompletedDate:null});
+    state.routines.push({id: uid(), name, emoji, basePoints: pts, streak:0, neglect:0, recoveryChain:false, lastCompletedDate:null, lastEvaluatedDate: addDays(todayStr(),-1)});
     saveState();
     m.remove();
     renderMain();
@@ -144,15 +144,15 @@ function openAddTaskModal(){
   setTimeout(()=>m.querySelector('#tName').focus(), 100);
 }
 
-function openEditHabitModal(id){
-  const h = state.habits.find(x=>x.id===id);
+function openEditRoutineModal(id){
+  const h = state.routines.find(x=>x.id===id);
   if(!h) return;
   const m = openModal(`
-    <h3>Edit habit</h3>
+    <h3>Edit routine</h3>
     <div class="field">
       <label>Name &amp; emoji</label>
       <div class="emoji-field-row">
-        <input id="ehEmoji" type="text" value="${escapeHtml(h.emoji||HABIT_FALLBACK_EMOJI)}" />
+        <input id="ehEmoji" type="text" value="${escapeHtml(h.emoji||ROUTINE_FALLBACK_EMOJI)}" />
         <input id="ehName" type="text" value="${escapeHtml(h.name)}" style="flex:1;" />
       </div>
     </div>
@@ -165,7 +165,7 @@ function openEditHabitModal(id){
   m.querySelector('#ehCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#ehSave').addEventListener('click', ()=>{
     const name = m.querySelector('#ehName').value.trim();
-    const emoji = m.querySelector('#ehEmoji').value.trim() || HABIT_FALLBACK_EMOJI;
+    const emoji = m.querySelector('#ehEmoji').value.trim() || ROUTINE_FALLBACK_EMOJI;
     const pts = parseInt(m.querySelector('#ehPoints').value)||1;
     if(!name){ showToast('Give it a name'); return; }
     h.name = name;
@@ -174,7 +174,7 @@ function openEditHabitModal(id){
     saveState();
     m.remove();
     renderMain();
-    showToast('Habit updated');
+    showToast('Routine updated');
   });
   setTimeout(()=>m.querySelector('#ehName').focus(), 100);
 }
@@ -256,7 +256,7 @@ function openResetModal(){
   const m = openModal(`
     <h3>Reset everything?</h3>
     <div class="field" style="color:var(--ink-soft); font-size:14px; line-height:1.5;">
-      This permanently deletes all habits, tasks, and score history. This can't be undone.
+      This permanently deletes all routines, tasks, and score history. This can't be undone.
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" id="rCancel">Cancel</button>
@@ -265,7 +265,7 @@ function openResetModal(){
   `);
   m.querySelector('#rCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#rConfirm').addEventListener('click', async ()=>{
-    state = {habits:[], tasks:[], log:[], profile: state.profile, settings: state.settings};
+    state = {routines:[], tasks:[], log:[], profile: state.profile, settings: state.settings};
     ensureStateShape();
     await saveState();
     applyTheme();

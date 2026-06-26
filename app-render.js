@@ -1,9 +1,9 @@
 // ---------- Rendering ----------
 function renderMain(){
   const main = document.getElementById('main');
-  document.getElementById('fab').style.display = (currentTab==='habits'||currentTab==='tasks') ? 'flex' : 'none';
+  document.getElementById('fab').style.display = (currentTab==='routines'||currentTab==='tasks') ? 'flex' : 'none';
   if(currentTab==='today') return renderToday(main);
-  if(currentTab==='habits') return renderHabits(main);
+  if(currentTab==='routines') return renderRoutines(main);
   if(currentTab==='tasks') return renderTasks(main);
   if(currentTab==='score') return renderScore(main);
   if(currentTab==='settings') return renderSettings(main);
@@ -19,34 +19,39 @@ function renderToday(main){
     const status = recurringStatus(task);
     return status==='due' || status==='overdue';
   });
-  const tallyDone = state.habits.filter(h=>habitDoneToday(h)).length + dueTasks.filter(task=>taskDoneToday(task)).length;
-  const tallyTotal = state.habits.length + dueTasks.length;
+  const tallyDone = state.routines.filter(h=>routineDoneToday(h)).length + dueTasks.filter(task=>taskDoneToday(task)).length;
+  const tallyTotal = state.routines.length + dueTasks.length;
   let html = `
     <div class="score-hero">
       <div class="label">Today's score</div>
       <div class="number ${total<0?'negative':''}">${total>0?'+':''}${total}</div>
       ${tallyTotal>0 ? `<div class="daily-tally">${tallyDone} of ${tallyTotal} done today</div>` : ''}
     </div>
-    <div class="section-label">Habits</div>`;
-  if(state.habits.length===0){
-    html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">No habits yet. Add one from the Habits tab.</div>`;
+    <div class="section-label">Routines</div>`;
+  if(state.routines.length===0){
+    html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">No routines yet. Add one from the Routines tab.</div>`;
   } else {
-    html += `<div id="todayHabitsList">`;
-    state.habits.forEach(h=>{
-      const done = habitDoneToday(h);
-      const streak = habitDisplayStreak(h);
-      const previewStreak = done ? h.streak : (streak>0 ? streak+1 : 1);
-      const pointsPreview = habitReward(previewStreak, h.basePoints);
+    html += `<div id="todayRoutinesList">`;
+    state.routines.forEach(h=>{
+      const done = routineDoneToday(h);
+      const pointsPreview = done ? h.awardedPoints : routinePreviewReward(h);
+      const rState = routineState(h);
+      let subtitleHtml = '';
+      if(rState==='streak'){
+        subtitleHtml = `<div class="item-sub"><span class="streak-chip" data-streak="${h.id}">x${h.streak}🔥</span></div>`;
+      } else if(rState==='neglect'){
+        subtitleHtml = `<div class="item-sub"><span class="neglect-chip" data-neglect="${h.id}">x${h.neglect}⚠️</span></div>`;
+      }
       html += `
-      <div class="card row" data-card-habit="${h.id}" data-drag-item data-drag-id="${h.id}">
+      <div class="card row" data-card-routine="${h.id}" data-drag-item data-drag-id="${h.id}">
         <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
-        <span class="emoji-today">${h.emoji||HABIT_FALLBACK_EMOJI}</span>
+        <span class="emoji-today">${h.emoji||ROUTINE_FALLBACK_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(h.name)}</div>
-          <div class="item-sub">${streak>0? `<span class="streak-chip" data-streak="${h.id}">${streak}X 🔥</span>` : 'Tap to start a streak'}</div>
+          ${subtitleHtml}
         </div>
-        <span class="pill">+${pointsPreview}</span>
-        <button class="btn-done ${done?'done':''}" data-habit="${h.id}">${done? '✓' : ''}</button>
+        <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview>=0?'+':''}${pointsPreview}</span>
+        <button class="btn-done ${done?'done':''}" data-routine="${h.id}">${done? '✓' : ''}</button>
       </div>`;
     });
     html += `</div>`;
@@ -88,8 +93,8 @@ function renderToday(main){
     });
   }
   main.innerHTML = html;
-  const allClear = (state.habits.length>0 || state.tasks.length>0) &&
-    state.habits.every(h=>habitDoneToday(h)) &&
+  const allClear = (state.routines.length>0 || state.tasks.length>0) &&
+    state.routines.every(h=>routineDoneToday(h)) &&
     openTasks.length===0;
   if(allClear && !allClearDismissed){
     const overlay = document.createElement('div');
@@ -105,11 +110,11 @@ function renderToday(main){
     });
     main.appendChild(overlay);
   }
-  main.querySelectorAll('[data-habit]').forEach(btn=>{
+  main.querySelectorAll('[data-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const id = btn.dataset.habit;
-      const h = state.habits.find(x=>x.id===id);
-      if(habitDoneToday(h)) uncompleteHabit(id); else completeHabit(id);
+      const id = btn.dataset.routine;
+      const h = state.routines.find(x=>x.id===id);
+      if(routineDoneToday(h)) uncompleteRoutine(id); else completeRoutine(id);
     });
   });
   main.querySelectorAll('[data-undo-task]').forEach(btn=>{
@@ -118,8 +123,8 @@ function renderToday(main){
   main.querySelectorAll('[data-complete-task-today]').forEach(btn=>{
     btn.addEventListener('click', ()=> completeTask(btn.dataset.completeTaskToday));
   });
-  enableHoldDrag('#todayHabitsList', '[data-drag-item]', '.drag-handle', 'habit', (newOrderIds)=>{
-    state.habits = newOrderIds.map(id=> state.habits.find(h=>h.id===id));
+  enableHoldDrag('#todayRoutinesList', '[data-drag-item]', '.drag-handle', 'routine', (newOrderIds)=>{
+    state.routines = newOrderIds.map(id=> state.routines.find(h=>h.id===id));
     saveState();
   });
   enableHoldDrag('#todayTasksList', '[data-drag-item]', '.drag-handle', 'task', (newOrderIds)=>{
@@ -128,46 +133,50 @@ function renderToday(main){
   });
 }
 
-function renderHabits(main){
+function renderRoutines(main){
   let html = '';
-  if(state.habits.length===0){
-    html += `<div class="empty"><div class="big">🪴</div>Nothing here yet.<br>Tap + to add your first habit.</div>`;
+  if(state.routines.length===0){
+    html += `<div class="empty"><div class="big">🪴</div>Nothing here yet.<br>Tap + to add your first routine.</div>`;
   } else {
-    state.habits.forEach((h, idx)=>{
-      const done = habitDoneToday(h);
-      const streak = habitDisplayStreak(h);
+    state.routines.forEach((h, idx)=>{
+      const done = routineDoneToday(h);
+      const rState = routineState(h);
+      let statusText;
+      if(rState==='streak') statusText = `🔥 x${h.streak} streak`;
+      else if(rState==='neglect') statusText = `⚠️ x${h.neglect} neglect`;
+      else statusText = 'Neutral';
       html += `
-      <div class="card" data-card-habit="${h.id}">
+      <div class="card" data-card-routine="${h.id}">
         <div class="row">
-          <span class="emoji-list">${h.emoji||HABIT_FALLBACK_EMOJI}</span>
+          <span class="emoji-list">${h.emoji||ROUTINE_FALLBACK_EMOJI}</span>
           <div style="flex:1;">
             <div class="item-name">${escapeHtml(h.name)}</div>
-            <div class="item-sub">${streak>0? `🔥 ${streak} day streak` : 'No streak yet'} · base ${h.basePoints} pts</div>
+            <div class="item-sub">${statusText} · base ${h.basePoints} pts</div>
           </div>
-          <button class="btn-done ${done?'done':''}" data-habit="${h.id}">${done? '✓' : ''}</button>
+          <button class="btn-done ${done?'done':''}" data-routine="${h.id}">${done? '✓' : ''}</button>
         </div>
         <div class="row" style="margin-top:8px;">
-          <button class="link-danger" style="font-size:12px;" data-del-habit="${h.id}">Remove</button>
-          <button class="btn-complete-task" data-edit-habit="${h.id}">Edit</button>
+          <button class="link-danger" style="font-size:12px;" data-del-routine="${h.id}">Remove</button>
+          <button class="btn-complete-task" data-edit-routine="${h.id}">Edit</button>
         </div>
       </div>`;
     });
   }
   main.innerHTML = html;
-  main.querySelectorAll('[data-habit]').forEach(btn=>{
+  main.querySelectorAll('[data-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const id = btn.dataset.habit;
-      const h = state.habits.find(x=>x.id===id);
-      if(habitDoneToday(h)) uncompleteHabit(id); else completeHabit(id);
+      const id = btn.dataset.routine;
+      const h = state.routines.find(x=>x.id===id);
+      if(routineDoneToday(h)) uncompleteRoutine(id); else completeRoutine(id);
     });
   });
-  main.querySelectorAll('[data-del-habit]').forEach(btn=>{
+  main.querySelectorAll('[data-del-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      if(confirm('Remove this habit? Its streak history will be lost.')) deleteHabit(btn.dataset.delHabit);
+      if(confirm('Remove this routine? Its streak history will be lost.')) deleteRoutine(btn.dataset.delRoutine);
     });
   });
-  main.querySelectorAll('[data-edit-habit]').forEach(btn=>{
-    btn.addEventListener('click', ()=> openEditHabitModal(btn.dataset.editHabit));
+  main.querySelectorAll('[data-edit-routine]').forEach(btn=>{
+    btn.addEventListener('click', ()=> openEditRoutineModal(btn.dataset.editRoutine));
   });
 }
 
@@ -300,8 +309,8 @@ function renderScore(main){
         <div class="t-value ${s.monthly<0?'negative':''}">${s.monthly>0?'+':''}${s.monthly}</div>
       </div>
       <div class="score-tile">
-        <div class="t-label">Habits tracked</div>
-        <div class="t-value">${state.habits.length}</div>
+        <div class="t-label">Routines tracked</div>
+        <div class="t-value">${state.routines.length}</div>
       </div>
     </div>
   `;
@@ -411,7 +420,7 @@ function renderSettings(main){
       restoreData();
     });
     document.getElementById('logoutBtn').addEventListener('click', ()=>{
-      if(confirm('Log out? Your profile stays saved on this device — you can log back in anytime. Your habits, tasks, and scores are unaffected either way.')){
+      if(confirm('Log out? Your profile stays saved on this device — you can log back in anytime. Your routines, tasks, and scores are unaffected either way.')){
         state.session.loggedIn = false;
         saveState();
         renderSettings(main);
@@ -423,7 +432,7 @@ function renderSettings(main){
   }
   if(state.profile){
     document.getElementById('deleteAccountBtn').addEventListener('click', ()=>{
-      if(confirm('Permanently delete this profile (name and email) from this device? Your habits, tasks, and scores are not affected — only the account itself is removed.')){
+      if(confirm('Permanently delete this profile (name and email) from this device? Your routines, tasks, and scores are not affected — only the account itself is removed.')){
         state.profile = null;
         state.session.loggedIn = false;
         saveState();
@@ -496,7 +505,7 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
   reader.onload = ()=>{
     try{
       const parsed = JSON.parse(reader.result);
-      if(!parsed.habits || !parsed.tasks || !parsed.log){
+      if(!parsed.routines || !parsed.tasks || !parsed.log){
         showToast('That file doesn\'t look like a Life Score backup');
         return;
       }
