@@ -16,6 +16,8 @@ function ensureStateShape(){
     delete state.habits;
   }
   if(!state.routines) state.routines = [];
+  if(!state.tasks) state.tasks = [];
+  if(!state.log) state.log = [];
   if(state.log){
     state.log.forEach(l=>{ if(l.kind==='habit') l.kind = 'routine'; });
   }
@@ -132,8 +134,8 @@ async function loadState(){
     if(raw){ state = JSON.parse(raw); }
   }catch(e){ /* no existing data yet, or storage unavailable */ }
   ensureStateShape();
+  migrateRecurringTasksToRoutines();
   pruneStaleCompletedTasks();
-  applyDuePenalties();
   applyRoutineCatchUp();
   applyTheme();
   storageReady = true;
@@ -155,36 +157,71 @@ function showToast(msg){
   t._timer = setTimeout(()=> t.classList.remove('show'), 1800);
 }
 
-// ---------- Routine logic (Routine Consistency System) ----------
+// ---------- Routine logic (Routine Consistency System — unified across daily/weekly/monthly) ----------
 // A routine is always in exactly one state: Streak (streak>0), Neglect (neglect>0), or Neutral (both 0).
-// Configurable safety-net thresholds for streak drops on a missed day — edit this array to retune long-term values.
-const ROUTINE_SAFETY_NETS = [7, 14, 30, 60, 90, 180, 270, 365];
+// "Occurrence" = a day that counts for consistency purposes: every day for daily routines, only
+// scheduled days for weekly/monthly routines. Misses/completions are always evaluated per occurrence,
+// never per raw calendar day waited.
 
-// Milestone thresholds for the emoji-rank display + celebration triggers. Same numbers drive
-// both streak and neglect badges (mirrored), per the unified-progression design. Note this is
-// intentionally a separate list from ROUTINE_SAFETY_NETS above (different lowest bound, 1 vs 7) —
-// safety nets gate the streak-drop mechanic; these gate the purely visual badge.
-const ROUTINE_MILESTONES = [1, 14, 30, 60, 90, 180, 270, 365];
+// Daily routines: one shared array governs safety nets, reward/neglect scaling, AND confetti.
+const CONSISTENCY_MILESTONES = [7, 14, 30, 60, 90, 180, 270, 365];
+// Weekly/monthly routines: milestones are evenly spaced and generated from a step instead of a
+// fixed array, since occurrence counts are unbounded (a weekly routine can run for years).
+const WEEKLY_MILESTONE_STEP = 10;
+const MONTHLY_MILESTONE_STEP = 5;
+
+// Purely cosmetic emoji-rank thresholds — deliberately a SEPARATE list from the consistency
+// milestones above for daily routines (starts at 1, not 7) so a routine feels "alive" right after
+// the first completion, while the real safety net/reward milestone stays a full week out.
+const EMOJI_MILESTONES = [1, 14, 30, 60, 90, 180, 270, 365];
 const STREAK_RANK_EMOJIS  = ['👏','⭐','💯','🥇','🏆','🔥','👑','👑👑'];
 const NEGLECT_RANK_EMOJIS = ['⚠️','⛔','🚨','🤕','💔','☠️','☠️','☠️☠️'];
-// Index of the highest milestone `value` has reached, or -1 if below the first one (i.e. 0).
-function routineRankIndex(value){
-  let idx = -1;
-  for(let i=0;i<ROUTINE_MILESTONES.length;i++){
-    if(value >= ROUTINE_MILESTONES[i]) idx = i; else break;
+
+// Milestone definition used for safety nets / reward scaling / confetti — NOT the cosmetic
+// emoji-rank thresholds (see routineRankDef below for those).
+function routineMilestoneDef(r){
+  if(r.recurrence==='weekly') return { type:'step', step: WEEKLY_MILESTONE_STEP };
+  if(r.recurrence==='monthly') return { type:'step', step: MONTHLY_MILESTONE_STEP };
+  return { type:'array', values: CONSISTENCY_MILESTONES }; // daily (default)
+}
+// Cosmetic emoji-rank thresholds. Daily gets its own "starts at 1" array; weekly/monthly get the
+// same "starts at 1, then real milestones" relationship via the 'step1' type below, so a routine
+// of any recurrence type feels alive immediately, consistent with daily.
+function routineRankDef(r){
+  if(r.recurrence==='weekly') return { type:'step1', step: WEEKLY_MILESTONE_STEP };
+  if(r.recurrence==='monthly') return { type:'step1', step: MONTHLY_MILESTONE_STEP };
+  return { type:'array', values: EMOJI_MILESTONES };
+}
+// How many milestones (from the given definition) `value` has passed.
+function milestonesPassed(value, def){
+  if(def.type==='array') return def.values.filter(v=>value>=v).length;
+  if(def.type==='step1') return value<1 ? 0 : 1 + Math.floor(value/def.step);
+  return Math.floor(value / def.step); // plain 'step' — used for safety nets / reward scaling, no first-day exception
+}
+// The nearest lower milestone strictly below `value` — used to drop a streak on a missed occurrence.
+function nearestLowerMilestone(value, def){
+  if(def.type==='array'){
+    let best = 0;
+    for(const v of def.values){ if(v < value && v > best) best = v; }
+    return best;
   }
-  return idx;
+  return Math.floor((value-1) / def.step) * def.step;
 }
-function streakEmoji(value){
-  const idx = routineRankIndex(value);
-  return idx>=0 ? STREAK_RANK_EMOJIS[idx] : '';
+function streakEmoji(r){
+  const count = milestonesPassed(r.streak, routineRankDef(r));
+  if(count<=0) return '';
+  return STREAK_RANK_EMOJIS[Math.min(count-1, STREAK_RANK_EMOJIS.length-1)];
 }
-function neglectEmoji(value){
-  const idx = routineRankIndex(value);
-  return idx>=0 ? NEGLECT_RANK_EMOJIS[idx] : '';
+function neglectEmoji(r){
+  const count = milestonesPassed(r.neglect, routineRankDef(r));
+  if(count<=0) return '';
+  return NEGLECT_RANK_EMOJIS[Math.min(count-1, NEGLECT_RANK_EMOJIS.length-1)];
 }
 
 function ensureRoutineShape(r){
+  if(!r.recurrence) r.recurrence = 'daily';
+  if(r.recurrence!=='daily' && !r.schedule) r.schedule = [];
+  if(!r.createdDate) r.createdDate = r.lastCompletedDate || todayStr();
   if(r.neglect===undefined) r.neglect = 0;
   if(r.recoveryChain===undefined) r.recoveryChain = false;
   if(r.lastEvaluatedDate===undefined){
@@ -198,20 +235,32 @@ function routineState(r){
   if(r.neglect > 0) return 'neglect';
   return 'neutral';
 }
-// Largest safety-net value strictly less than `value`; 0 if none (i.e. drop all the way to Neutral).
-function nearestLowerNet(value, nets){
-  let best = 0;
-  for(const n of nets){ if(n < value && n > best) best = n; }
-  return best;
+function routineIncrement(value){
+  return Math.max(1, Math.round(value*0.1));
 }
-function routineIncrement(basePoints){
-  return Math.max(1, Math.round(basePoints*0.1));
+// Daily reward: streak milestones add, neglect milestones subtract, floored at 0.
+// Weekly/monthly reward: fixed rewardValue, only ever scaled UP by streak milestones (no decay).
+function routineReward(r){
+  const def = routineMilestoneDef(r);
+  if(r.recurrence==='daily'){
+    const inc = routineIncrement(r.basePoints);
+    const streakCount = milestonesPassed(r.streak, def);
+    const neglectCount = milestonesPassed(r.neglect, def);
+    return Math.max(0, r.basePoints + streakCount*inc - neglectCount*inc);
+  }
+  const inc = routineIncrement(r.rewardValue);
+  const streakCount = milestonesPassed(r.streak, def);
+  return r.rewardValue + streakCount*inc;
 }
-// reward formula: streak and neglect are perfect mirrors around basePoints, floored at 0.
-function routineReward(streakAfter, neglectAfter, basePoints){
-  const inc = routineIncrement(basePoints);
-  const reward = basePoints + Math.floor(streakAfter/5)*inc - Math.floor(neglectAfter/5)*inc;
-  return Math.max(0, reward);
+// Weekly/monthly only: the penalty for one missed occurrence, scaled by neglect milestones —
+// mirrors how streak scales reward. Computed from r's CURRENT neglect value (caller decides
+// whether that's the pre-miss or post-miss value, depending on whether this is a live preview
+// or an actual logged miss).
+function routinePenalty(r){
+  const def = routineMilestoneDef(r);
+  const inc = routineIncrement(r.penaltyValue);
+  const neglectCount = milestonesPassed(r.neglect, def);
+  return r.penaltyValue + neglectCount*inc;
 }
 // Pure function: what streak/neglect/recoveryChain would result from completing TODAY, without mutating.
 function routineNextStateOnComplete(r){
@@ -224,44 +273,74 @@ function routineNextStateOnComplete(r){
   }
   return { streak: 1, neglect: 0, recoveryChain: false }; // Neutral
 }
+// Pure function: what streak/neglect/recoveryChain would result from MISSING today's occurrence,
+// without mutating. Mirrors routineNextStateOnComplete — same transition rules used by both the
+// real catch-up miss and the live "what would I lose" preview shown while a routine is due.
+function routineNextStateOnMiss(r){
+  const def = routineMilestoneDef(r);
+  if(r.streak > 0){
+    return { streak: nearestLowerMilestone(r.streak, def), neglect: 0, recoveryChain: false };
+  }
+  if(r.neglect > 0){
+    if(r.recoveryChain){
+      return { streak: 0, neglect: Math.round(r.neglect * 1.5), recoveryChain: false };
+    }
+    return { streak: 0, neglect: r.neglect + 1, recoveryChain: false };
+  }
+  return { streak: 0, neglect: 1, recoveryChain: false };
+}
 // Preview-only: the reward the user would get if they tapped complete right now (does not mutate).
 function routinePreviewReward(r){
   const next = routineNextStateOnComplete(r);
-  return routineReward(next.streak, next.neglect, r.basePoints);
+  return routineReward(Object.assign({}, r, next));
+}
+// Preview-only (weekly/monthly): the penalty the user would lose TODAY if they miss this due
+// occurrence — i.e. using the neglect value as it would stand AFTER today's miss, since that's
+// the number that's actually about to be charged, not the number sitting there right now.
+function routinePreviewPenalty(r){
+  const next = routineNextStateOnMiss(r);
+  return routinePenalty(Object.assign({}, r, next));
 }
 function routineDoneToday(r){
   return r.lastCompletedDate === todayStr();
 }
-// Apply exactly one missed-day transition in place. Mirrors the completion rules:
-// Streak misses drop to the nearest lower safety net (0 = Neutral).
-// Neglect misses: +1 normally, but a ONE-TIME ×1.5 relapse if this is the first miss right after a recovery completion.
-// Neutral misses: neglect becomes 1.
-function applyRoutineMiss(r){
-  if(r.streak > 0){
-    r.streak = nearestLowerNet(r.streak, ROUTINE_SAFETY_NETS);
-    r.recoveryChain = false;
-  } else if(r.neglect > 0){
-    if(r.recoveryChain){
-      r.neglect = Math.round(r.neglect * 1.5);
-      r.recoveryChain = false; // the relapse multiplier fires once per recovery chain, then it's gone
-    } else {
-      r.neglect += 1;
-    }
-  } else {
-    r.neglect = 1;
+// Does `dateStr` count as an occurrence for this routine? Every day for daily; only scheduled
+// days for weekly/monthly (reuses the relocated recurring-schedule engine below).
+function isRoutineOccurrenceDay(r, dateStr){
+  if(r.recurrence==='daily') return true;
+  return isScheduledOn(r, dateStr);
+}
+// Is today a scheduled occurrence for this routine? Always true for daily. For weekly/monthly,
+// "due" is strictly today's exact calendar match — there is no backward-looking carryover. Miss
+// today's occurrence and it's gone; the routine simply goes quiet until its next scheduled day.
+function routineIsDueToday(r){
+  return isRoutineOccurrenceDay(r, todayStr());
+}
+// Apply exactly one missed-OCCURRENCE transition in place (only ever called for an actual
+// occurrence day, never a non-scheduled day for weekly/monthly, and never for today while it's
+// still in progress — only once a later day confirms it was truly missed). Daily never logs
+// points, only shrinks future reward. Weekly/monthly ALSO logs a real negative score entry for
+// that missed day, scaled by neglect milestones reached after this miss.
+function applyRoutineMiss(r, missedDate){
+  const next = routineNextStateOnMiss(r);
+  r.streak = next.streak;
+  r.neglect = next.neglect;
+  r.recoveryChain = next.recoveryChain;
+  if(r.recurrence!=='daily'){
+    const penalty = routinePenalty(r); // uses neglect AFTER this miss, consistent with the "after" convention used everywhere else
+    state.log.push({id: uid(), kind:'routine_penalty', refId: r.id, name: r.name, points: -Math.abs(penalty), date: missedDate});
   }
 }
-// Replays every missed day between a routine's last-evaluated date and yesterday, in order —
-// so the once-per-chain relapse rule and net-drop sequencing stay correct regardless of how
-// many days the app was closed. Today itself is never evaluated as a miss while still in progress
-// (same fairness rule used for recurring task penalties).
+// Replays every missed OCCURRENCE between a routine's last-evaluated date and yesterday, in order —
+// so the once-per-chain relapse rule and milestone-drop sequencing stay correct regardless of how
+// many days the app was closed. Today itself is never evaluated while still in progress.
 function applyRoutineCatchUp(){
   const t = todayStr();
   state.routines.forEach(r=>{
     ensureRoutineShape(r);
     let d = addDays(r.lastEvaluatedDate, 1);
     while(d < t){
-      applyRoutineMiss(r);
+      if(isRoutineOccurrenceDay(r, d)) applyRoutineMiss(r, d);
       r.lastEvaluatedDate = d;
       d = addDays(d, 1);
     }
@@ -274,7 +353,7 @@ function completeRoutine(id){
   const t = todayStr();
 
   // Snapshot the full pre-completion state so same-day undo can restore it exactly —
-  // halving/net-drops aren't cleanly reversible by un-doing math, so we just restore the snapshot.
+  // halving/milestone-drops aren't cleanly reversible by un-doing math, so we just restore the snapshot.
   r.previousSnapshot = {
     streak: r.streak,
     neglect: r.neglect,
@@ -283,17 +362,17 @@ function completeRoutine(id){
     lastEvaluatedDate: r.lastEvaluatedDate
   };
 
-  const oldStreak = r.streak;
+  const def = routineMilestoneDef(r);
+  const oldStreakCount = milestonesPassed(r.streak, def);
   const next = routineNextStateOnComplete(r);
   r.streak = next.streak;
   r.neglect = next.neglect;
   r.recoveryChain = next.recoveryChain;
   r.lastCompletedDate = t;
   r.lastEvaluatedDate = t;
+  const crossedStreakMilestone = milestonesPassed(r.streak, def) > oldStreakCount;
 
-  const crossedStreakMilestone = routineRankIndex(r.streak) > routineRankIndex(oldStreak);
-
-  const pts = routineReward(r.streak, r.neglect, r.basePoints);
+  const pts = routineReward(r);
   r.awardedPoints = pts;
   state.log.push({id: uid(), kind:'routine', refId: r.id, name: r.name, points: pts, date: t});
   saveState();
@@ -374,58 +453,43 @@ function triggerConfetti(selector){
     }
   });
 }
+function deleteRoutine(id){
+  state.routines = state.routines.filter(h=>h.id!==id);
+  state.log = state.log.filter(l=> !((l.kind==='routine'||l.kind==='routine_penalty') && l.refId===id));
+  saveState();
+  renderMain();
+}
+function reorderRoutine(id, dir){
+  const i = state.routines.findIndex(h=>h.id===id);
+  const j = i + dir;
+  if(i<0 || j<0 || j>=state.routines.length) return;
+  [state.routines[i], state.routines[j]] = [state.routines[j], state.routines[i]];
+  saveState();
+  renderMain();
+}
 
-// ---------- Task logic ----------
-function isRecurring(task){
-  return task.recurrence==='weekly' || task.recurrence==='monthly';
-}
-function taskCurrentValue(task){
-  // one-time tasks only: linear decay from creation
-  const days = daysBetween(task.createdDate, todayStr());
-  return Math.round(task.startValue - task.decayRate*days);
-}
-function taskDoneToday(task){
-  if(isRecurring(task)) return task.lastCompletedDate === todayStr();
-  return task.completedDate === todayStr();
-}
-function taskEditable(task){
-  return task.createdDate === todayStr();
-}
-function taskDisplayValue(task){
-  return isRecurring(task) ? task.rewardValue : taskCurrentValue(task);
-}
+// ---------- Recurring schedule engine (shared by weekly/monthly routines) ----------
 function daysInMonth(year, monthIndex){
   return new Date(year, monthIndex+1, 0).getDate();
 }
-function isScheduledOn(task, dateStr){
+function isScheduledOn(r, dateStr){
   const d = new Date(dateStr+'T00:00:00');
-  if(task.recurrence==='weekly') return task.schedule.includes(d.getDay());
-  if(task.recurrence==='monthly'){
+  if(r.recurrence==='weekly') return (r.schedule||[]).includes(d.getDay());
+  if(r.recurrence==='monthly'){
     const lastDay = daysInMonth(d.getFullYear(), d.getMonth());
     const dom = d.getDate();
-    if(task.schedule.includes(dom)) return true;
+    if((r.schedule||[]).includes(dom)) return true;
     // if today is the last day of a short month, any selected day beyond it rolls over to today
-    if(dom===lastDay && task.schedule.some(s=>s>lastDay)) return true;
+    if(dom===lastDay && (r.schedule||[]).some(s=>s>lastDay)) return true;
     return false;
   }
   return false;
 }
-// Most recent scheduled date on/before today, not earlier than the task's creation date. Null if none yet.
-function cycleStartDate(task){
-  const t = todayStr();
-  const lookback = task.recurrence==='monthly' ? 31 : 7;
-  for(let i=0;i<=lookback;i++){
-    const d = addDays(t, -i);
-    if(d < task.createdDate) return null;
-    if(isScheduledOn(task, d)) return d;
-  }
-  return null;
-}
-function nextScheduledDate(task, afterDateStr){
-  const lookahead = task.recurrence==='monthly' ? 35 : 8;
+function nextScheduledDate(r, afterDateStr){
+  const lookahead = r.recurrence==='monthly' ? 35 : 8;
   let d = addDays(afterDateStr, 1);
   for(let i=0; i<=lookahead; i++){
-    if(isScheduledOn(task, d)) return d;
+    if(isScheduledOn(r, d)) return d;
     d = addDays(d, 1);
   }
   return null;
@@ -435,55 +499,70 @@ function formatDueLabel(dateStr, recurrence){
   if(recurrence==='weekly') return d.toLocaleDateString('en-US', {weekday:'long'});
   return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
 }
-function recurringStatus(task){
-  // returns 'not_due' | 'due' | 'overdue' | 'done_this_cycle'
-  const cycleStart = cycleStartDate(task);
-  if(!cycleStart) return 'not_due';
-  if(task.lastCompletedDate && task.lastCompletedDate >= cycleStart) return 'done_this_cycle';
-  const t = todayStr();
-  return cycleStart === t ? 'due' : 'overdue';
+// Only weekly/monthly inherit the numeric-value/recurrence-type edit-lock (mirrors the old
+// recurring-task rule, which existed to prevent decay/penalty dodging). Daily routines have no
+// decay to dodge and stay freely editable, same as the original Habit behavior.
+function routineEditable(r){
+  if(r.recurrence==='daily') return true;
+  return r.createdDate === todayStr();
 }
-function taskIsActionableToday(task){
-  if(!isRecurring(task)) return true; // one-time tasks are always actionable until completed
-  const status = recurringStatus(task);
-  return status==='due' || status==='overdue';
+// Routines due/relevant on the Home tab today: all daily routines, plus weekly/monthly routines
+// that are due today (schedule match). Note this doesn't need a separate "done today" check —
+// today's schedule match doesn't change just because it's already been completed today.
+function routinesForToday(){
+  return state.routines.filter(r=> routineIsDueToday(r));
 }
-function applyDuePenalties(){
-  const t = todayStr();
-  state.tasks.forEach(task=>{
-    if(!isRecurring(task)) return;
-    const cycleStart = cycleStartDate(task);
-    if(!cycleStart) return;
-    if(task.lastCompletedDate && task.lastCompletedDate >= cycleStart) return; // already done this cycle
-    let d = cycleStart;
-    while(d < t){ // today is still in progress — never penalize it yet, only days that have fully passed
-      const exists = state.log.some(l=> l.kind==='task_penalty' && l.refId===task.id && l.date===d);
-      if(!exists){
-        state.log.push({id: uid(), kind:'task_penalty', refId: task.id, name: task.name, points: -Math.abs(task.penaltyValue||0), date: d});
-      }
-      d = addDays(d, 1);
+// Converts every pre-existing weekly/monthly TASK into a Routine, preserving id (so log history
+// stays linked), schedule, and reward/penalty. Seeded neutral (streak/neglect 0) — this app has
+// one user and no public install base, so there's no need for elaborate status reconstruction here.
+function migrateRecurringTasksToRoutines(){
+  const toMigrate = state.tasks.filter(t=> t.recurrence==='weekly' || t.recurrence==='monthly');
+  if(toMigrate.length===0) return;
+  toMigrate.forEach(t=>{
+    state.routines.push({
+      id: t.id, name: t.name, emoji: t.emoji, description: t.description,
+      recurrence: t.recurrence, schedule: t.schedule,
+      rewardValue: t.rewardValue, penaltyValue: t.penaltyValue || 5,
+      createdDate: t.createdDate,
+      streak: 0, neglect: 0, recoveryChain: false,
+      lastCompletedDate: t.lastCompletedDate || null,
+      lastEvaluatedDate: t.lastCompletedDate || addDays(todayStr(), -1),
+      awardedPoints: t.awardedPoints || null
+    });
+  });
+  const migratedIds = new Set(toMigrate.map(t=>t.id));
+  state.log.forEach(l=>{
+    if(migratedIds.has(l.refId)){
+      if(l.kind==='task') l.kind = 'routine';
+      if(l.kind==='task_penalty') l.kind = 'routine_penalty';
     }
   });
+  state.tasks = state.tasks.filter(t=> !migratedIds.has(t.id));
+}
+
+// ---------- Task logic (one-time only — recurring tasks now live as Routines) ----------
+function taskCurrentValue(task){
+  // linear decay from creation, can go negative with no floor
+  const days = daysBetween(task.createdDate, todayStr());
+  return Math.round(task.startValue - task.decayRate*days);
+}
+function taskDoneToday(task){
+  return task.completedDate === todayStr();
+}
+function taskEditable(task){
+  return task.createdDate === todayStr();
+}
+function taskDisplayValue(task){
+  return taskCurrentValue(task);
 }
 function completeTask(id){
   const task = state.tasks.find(x=>x.id===id);
   if(!task || taskDoneToday(task)) return;
   const t = todayStr();
-  if(isRecurring(task)){
-    task.previousCompletedDate = task.lastCompletedDate || null;
-    task.lastCompletedDate = t;
-    task.awardedPoints = task.rewardValue;
-    // refund today's penalty if one was already charged before completing
-    const pIdx = state.log.findIndex(l=> l.kind==='task_penalty' && l.refId===id && l.date===t);
-    if(pIdx>-1) state.log.splice(pIdx,1);
-    state.log.push({id: uid(), kind:'task', refId: task.id, name: task.name, points: task.rewardValue, date: t});
-    var val = task.rewardValue;
-  } else {
-    val = taskCurrentValue(task);
-    task.completedDate = t;
-    task.awardedPoints = val;
-    state.log.push({id: uid(), kind:'task', refId: task.id, name: task.name, points: val, date: t});
-  }
+  const val = taskCurrentValue(task);
+  task.completedDate = t;
+  task.awardedPoints = val;
+  state.log.push({id: uid(), kind:'task', refId: task.id, name: task.name, points: val, date: t});
   saveState();
   renderMain();
   if(navigator.vibrate) navigator.vibrate(15);
@@ -497,62 +576,29 @@ function uncompleteTask(id){
   const t = todayStr();
   const idx = state.log.findIndex(l=> l.kind==='task' && l.refId===id && l.date===t);
   if(idx>-1) state.log.splice(idx,1);
-  if(isRecurring(task)){
-    task.lastCompletedDate = task.previousCompletedDate || null;
-    task.awardedPoints = null;
-    // No penalty is added here — today is still in progress. If this task remains
-    // undone, applyDuePenalties() will catch it up (dated to today) the next time
-    // the app is opened on a later day.
-  } else {
-    task.completedDate = null;
-    task.awardedPoints = null;
-  }
+  task.completedDate = null;
+  task.awardedPoints = null;
   saveState();
   renderMain();
 }
 function pruneStaleCompletedTasks(){
   const t = todayStr();
-  state.tasks = state.tasks.filter(task=>{
-    if(isRecurring(task)) return true; // recurring tasks never auto-disappear
-    return !(task.completedDate && task.completedDate !== t);
-  });
+  state.tasks = state.tasks.filter(task=> !(task.completedDate && task.completedDate !== t));
 }
 function deleteTask(id){
   state.tasks = state.tasks.filter(t=>t.id!==id);
   saveState();
   renderMain();
 }
-function deleteRoutine(id){
-  state.routines = state.routines.filter(h=>h.id!==id);
-  state.log = state.log.filter(l=> !(l.kind==='routine' && l.refId===id));
-  saveState();
-  renderMain();
-}
-function reorderRoutine(id, dir){
-  const i = state.routines.findIndex(h=>h.id===id);
-  const j = i + dir;
-  if(i<0 || j<0 || j>=state.routines.length) return;
-  [state.routines[i], state.routines[j]] = [state.routines[j], state.routines[i]];
-  saveState();
-  renderMain();
-}
-function taskRecurrenceType(task){
-  return task.recurrence || 'once';
-}
 function reorderTask(id, dir){
   const i = state.tasks.findIndex(t=>t.id===id);
-  if(i<0) return;
-  const type = taskRecurrenceType(state.tasks[i]);
-  const groupIndices = [];
-  state.tasks.forEach((t, idx)=>{ if(taskRecurrenceType(t)===type) groupIndices.push(idx); });
-  const posInGroup = groupIndices.indexOf(i);
-  const neighborPos = posInGroup + dir;
-  if(neighborPos<0 || neighborPos>=groupIndices.length) return;
-  const j = groupIndices[neighborPos];
+  const j = i + dir;
+  if(i<0 || j<0 || j>=state.tasks.length) return;
   [state.tasks[i], state.tasks[j]] = [state.tasks[j], state.tasks[i]];
   saveState();
   renderMain();
 }
+
 
 function reorderMasterByVisibleOrder(masterArray, visibleIdsInNewOrder){
   const visibleSet = new Set(visibleIdsInNewOrder);
