@@ -9,13 +9,13 @@ function renderToday(main){
   const tallyTotal = dueRoutines.length + state.tasks.length;
   let html = `
     <div class="score-hero">
-      <div class="label">Today's score</div>
+      <div class="label">${tr("Today's score")}</div>
       <div class="number ${total<0?'negative':''}">${total>0?'+':''}${total}</div>
-      ${tallyTotal>0 ? `<div class="daily-tally">${tallyDone} of ${tallyTotal} done today</div>` : ''}
+      ${tallyTotal>0 ? `<div class="daily-tally">${trTallyLine(tallyDone, tallyTotal)}</div>` : ''}
     </div>
-    <div class="section-label">Routines</div>`;
+    <div class="section-label">${tr('Routines')}</div>`;
   if(dueRoutines.length===0){
-    html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">No routines due today.</div>`;
+    html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">${tr('No routines due today.')}</div>`;
   } else {
     html += `<div id="todayRoutinesList">`;
     dueRoutines.forEach(h=>{
@@ -44,9 +44,9 @@ function renderToday(main){
   }
   const openTasks = state.tasks.filter(task=>!taskDoneToday(task));
   const doneTasks = state.tasks.filter(task=>taskDoneToday(task));
-  html += `<div class="section-label">Open tasks</div>`;
+  html += `<div class="section-label">${tr('Open tasks')}</div>`;
   if(openTasks.length===0){
-    html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">No open tasks. Nice.</div>`;
+    html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">${tr('No open tasks. Nice.')}</div>`;
   } else {
     html += `<div id="todayTasksList">`;
     openTasks.forEach(task=>{
@@ -66,7 +66,7 @@ function renderToday(main){
     html += `</div>`;
   }
   if(doneTasks.length>0){
-    html += `<div class="section-label">Completed today</div>`;
+    html += `<div class="section-label">${tr('Completed today')}</div>`;
     doneTasks.forEach(task=>{
       html += `
       <div class="card row task-row-done" data-card-task="${task.id}">
@@ -74,7 +74,7 @@ function renderToday(main){
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(task.name)}</div>
         </div>
-        <button class="btn-undo" data-undo-task="${task.id}">Undo</button>
+        <button class="btn-undo" data-undo-task="${task.id}">${tr('Undo')}</button>
       </div>`;
     });
   }
@@ -87,8 +87,8 @@ function renderToday(main){
     overlay.className = 'all-clear-overlay';
     overlay.innerHTML = `
       <div class="big-emoji">🌿</div>
-      <div class="msg">All clear today</div>
-      <div class="hint">Tap anywhere to keep going</div>
+      <div class="msg">${tr('All clear today')}</div>
+      <div class="hint">${tr('Tap anywhere to keep going')}</div>
     `;
     overlay.addEventListener('click', ()=>{
       allClearDismissed = true;

@@ -1,5 +1,5 @@
 const STORE_KEY = 'lifescore_state_v1';
-let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true }, session: { loggedIn: false } };
+let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true, language: 'en' }, session: { loggedIn: false } };
 let currentTab = 'today';
 let previousTab = 'today';
 let storageReady = false;
@@ -22,9 +22,14 @@ function ensureStateShape(){
     state.log.forEach(l=>{ if(l.kind==='habit') l.kind = 'routine'; });
   }
   if(!state.profile) state.profile = null;
-  if(!state.settings) state.settings = { theme: 'system', sound: true };
+  if(!state.settings) state.settings = { theme: 'system', sound: true, language: 'en' };
   if(state.settings.theme===undefined) state.settings.theme = 'system';
   if(state.settings.sound===undefined) state.settings.sound = true;
+  if(state.settings.language===undefined) state.settings.language = 'en';
+  // Migrate pre-difficulty items: tag them 'normal' so the UI shows a sensible default.
+  // Stored numeric fields (basePoints etc.) are left untouched so existing scores don't shift.
+  state.routines.forEach(r=>{ if(!r.difficulty) r.difficulty = 'normal'; });
+  state.tasks.forEach(t=>{ if(!t.difficulty) t.difficulty = 'normal'; });
   if(!state.session) state.session = { loggedIn: !!state.profile };
   if(state.session.loggedIn===undefined) state.session.loggedIn = !!state.profile;
 }
@@ -79,51 +84,436 @@ function addDays(dateStr, n){
 }
 function fmtDateLabel(){
   const opts = {weekday:'long', month:'long', day:'numeric'};
-  document.getElementById('todayLabel').textContent = new Date().toLocaleDateString(undefined, opts);
+  document.getElementById('todayLabel').textContent = new Date().toLocaleDateString(localeForLang(), opts);
 }
 function uid(){ return Math.random().toString(36).slice(2,9); }
 
-// ---------- Emoji auto-pick ----------
+// ---------- i18n (rough Farsi pass — not RTL, just translated text) ----------
+// tr(key) looks up `key` (the original English string) in the current language's
+// dictionary and returns the translation, or falls back to the English key itself
+// if nothing's there yet. This means nothing breaks if a string is missing —
+// it just silently shows English until someone adds it to LANG_DICT.fa.
+const LANG_DICT = {
+  fa: {
+    // Today / nav / page titles
+    'Home': 'خانه', 'Routines': 'روتین‌ها', 'Tasks': 'کارها', 'Score': 'امتیاز', 'Settings': 'تنظیمات',
+    'Your routines': 'روتین‌های شما', 'Your tasks': 'کارهای شما', 'Your score': 'امتیاز شما',
+    'Loading your data…': 'در حال بارگذاری اطلاعات…',
+    "Today's score": 'امتیاز امروز',
+    'Open tasks': 'کارهای باز',
+    'Completed today': 'تکمیل‌شده امروز',
+    'No routines due today.': 'امروز روتینی موعد ندارد.',
+    'No open tasks. Nice.': 'کار بازی نیست. عالیه.',
+    'No open tasks.': 'کار بازی نیست.',
+    'Undo': 'بازگردانی',
+    'All clear today': 'امروز همه‌چیز تمام شد',
+    'Tap anywhere to keep going': 'برای ادامه هرجا را لمس کنید',
+    // Routines tab
+    'Daily': 'روزانه', 'Weekly': 'هفتگی', 'Monthly': 'ماهانه',
+    'None yet.': 'هنوز چیزی نیست.',
+    'Nothing here yet.': 'هنوز چیزی اینجا نیست.',
+    'Tap + to add your first routine.': 'برای افزودن اولین روتین، + را لمس کنید.',
+    'Remove': 'حذف', 'Edit': 'ویرایش',
+    'Streak': 'رکورد', 'Neglect': 'غفلت', 'Neutral': 'خنثی',
+    'Not due yet': 'هنوز موعدش نرسیده',
+    // Tasks tab
+    'Nothing pending.': 'کاری در انتظار نیست.',
+    'Tap + to add a task.': 'برای افزودن یک کار، + را لمس کنید.',
+    'Mark done': 'انجام شد',
+    'added today': 'امروز اضافه شد',
+    // Score tab
+    'All-time score': 'امتیاز کل',
+    'Today': 'امروز', 'This week': 'این هفته', 'This month': 'این ماه',
+    'Routines tracked': 'روتین‌های ثبت‌شده',
+    // Settings
+    'Back': 'بازگشت',
+    'Account': 'حساب کاربری',
+    'Backup': 'پشتیبان‌گیری', 'Restore': 'بازگردانی اطلاعات', 'Log out': 'خروج از حساب',
+    'Log in to back up your data to this device, or restore it on another.': 'برای پشتیبان‌گیری از اطلاعات روی این دستگاه یا بازگردانی آن روی دستگاه دیگر، وارد شوید.',
+    'Log back in': 'دوباره وارد شوید', 'Sign up / Log in': 'ثبت‌نام / ورود',
+    'Appearance': 'ظاهر برنامه',
+    'System': 'سیستم', 'Light': 'روشن', 'Dark': 'تیره',
+    'Sound': 'صدا', 'Sound on completion': 'صدا هنگام تکمیل',
+    'Language': 'زبان', 'English': 'English', 'Farsi': 'فارسی',
+    'Danger zone': 'منطقه خطر',
+    'Reset everything': 'بازنشانی همه‌چیز', 'Delete account': 'حذف حساب',
+    'Saved to your Downloads folder with the name "life-score-backup"': 'با نام «life-score-backup» در پوشه دانلودهای شما ذخیره شد',
+    'Look for "life-score-backup.json" in your Downloads folder': '«life-score-backup.json» را در پوشه دانلودهای خود پیدا کنید',
+    // Difficulty
+    'Difficulty': 'سختی', 'Easy': 'آسان', 'Normal': 'متوسط', 'Hard': 'سخت', 'Edit routine': 'ویرایش روتین',
+    'Name & emoji': 'نام و ایموجی',
+    'e.g. Brush teeth': 'مثلاً مسواک زدن',
+    '+ Add details': '+ افزودن جزئیات',
+    'Description (optional)': 'توضیحات (اختیاری)',
+    'Add extra detail': 'جزئیات بیشتر اضافه کنید',
+    'Repeats': 'تکرار',
+    'Which day(s) of the week': 'کدام روز(های) هفته',
+    'Which day(s) of the month': 'کدام روز(های) ماه',
+    'Reward value (fixed)': 'مقدار پاداش (ثابت)',
+    'Penalty if missed': 'جزای از دست دادن',
+    'Base points (difficulty)': 'امتیاز پایه (سختی)',
+    'Cancel': 'انصراف', 'Add routine': 'افزودن روتین',
+    'Locked after the first day': 'بعد از روز اول قفل می‌شود',
+    "Repeat type can't be changed after creation": 'نوع تکرار بعد از ساخت قابل تغییر نیست',
+    'Save changes': 'ذخیره تغییرات',
+    // Modals: task
+    'New task': 'کار جدید', 'Edit task': 'ویرایش کار',
+    'e.g. Call dentist': 'مثلاً تماس با دندان‌پزشک',
+    'Add extra detail, e.g. a phone number': 'جزئیات بیشتر، مثلاً یک شماره تلفن',
+    'Starting value': 'مقدار شروع',
+    'Decay per day': 'کاهش در روز',
+    'Add task': 'افزودن کار',
+    // Modals: reset / login
+    'Reset everything?': 'همه‌چیز بازنشانی شود؟',
+    "This permanently deletes all routines, tasks, and score history. This can't be undone.": 'این کار همه روتین‌ها، کارها و تاریخچه امتیاز را برای همیشه حذف می‌کند. این عمل قابل بازگشت نیست.',
+    'Name': 'نام', 'Your name': 'نام شما', 'Email': 'ایمیل', 'Save': 'ذخیره', 'Log in': 'ورود',
+    "This just creates a local profile on this device for now — no account is created on a server, and nothing is verified. It's here so your name can be used in the app, and so it's ready for real accounts in a future version.":
+      'این فقط یک پروفایل محلی روی همین دستگاه می‌سازد — هیچ حسابی روی سرور ساخته نمی‌شود و چیزی تأیید نمی‌شود. این بخش برای این است که نام شما در برنامه استفاده شود و برای حساب‌های واقعی در نسخه‌های آینده آماده باشد.',
+    // Toasts
+    "That email doesn't look right": 'این ایمیل درست به نظر نمی‌رسد',
+    'Enter a name': 'یک نام وارد کنید',
+    'Backup failed — try again': 'پشتیبان‌گیری ناموفق بود — دوباره تلاش کنید',
+    "That file doesn't look like a Life Score backup": 'این فایل شبیه پشتیبان Life Score نیست',
+    'Could not read that file': 'این فایل خوانده نشد',
+    'Data restored': 'اطلاعات بازگردانی شد',
+    'Logged out': 'از حساب خارج شدید',
+    'Account deleted': 'حساب حذف شد',
+    'Give it a name': 'یک نام برایش بگذارید',
+    'Pick at least one day': 'حداقل یک روز انتخاب کنید',
+    'Routine updated': 'روتین به‌روزرسانی شد',
+    'Task updated': 'کار به‌روزرسانی شد',
+    'Everything reset': 'همه‌چیز بازنشانی شد',
+    'Could not save — try again': 'ذخیره نشد — دوباره تلاش کنید',
+    'Something went wrong loading your data': 'مشکلی در بارگذاری اطلاعات شما پیش آمد',
+    // Confirm dialogs
+    'Remove this routine? Its consistency history will be lost.': 'این روتین حذف شود؟ تاریخچه پیوستگی آن از بین می‌رود.',
+    'Remove this task without earning or losing points for it?': 'این کار بدون کسب یا از دست دادن امتیاز حذف شود؟',
+    'Log out? Your profile stays saved on this device — you can log back in anytime. Your routines, tasks, and scores are unaffected either way.':
+      'از حساب خارج شوید؟ پروفایل شما روی این دستگاه ذخیره می‌ماند — هر وقت بخواهید می‌توانید دوباره وارد شوید. روتین‌ها، کارها و امتیازهای شما در هر صورت تغییری نمی‌کنند.',
+    'Permanently delete this profile (name and email) from this device? Your routines, tasks, and scores are not affected — only the account itself is removed.':
+      'این پروفایل (نام و ایمیل) برای همیشه از این دستگاه حذف شود؟ روتین‌ها، کارها و امتیازهای شما تغییری نمی‌کنند — فقط خود حساب حذف می‌شود.',
+  }
+};
+function tr(key){
+  const lang = (state.settings && state.settings.language) || 'en';
+  if(lang!=='en' && LANG_DICT[lang] && LANG_DICT[lang][key]) return LANG_DICT[lang][key];
+  return key;
+}
+function curLang(){ return (state.settings && state.settings.language) || 'en'; }
+// Locale used for built-in date formatting. fa-IR-u-ca-gregory gives Farsi weekday/month
+// names while keeping the Gregorian calendar (no date-math side effects elsewhere).
+function localeForLang(){ return curLang()==='fa' ? 'fa-IR-u-ca-gregory' : 'en-US'; }
+function weekdayShortNames(){
+  return curLang()==='fa'
+    ? ['۱شنبه','۲شنبه','۳شنبه','۴شنبه','۵شنبه','جمعه','شنبه']
+    : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+}
+// Converts Western digits to Eastern Arabic (Persian) numerals for Farsi mode.
+function numFa(n){
+  return String(n).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+}
+// ---- Dynamic-phrase helpers (sentences with a variable in them can't be a flat dict lookup) ----
+function trTallyLine(done,total){
+  if(curLang()==='fa') return `${numFa(done)} از ${numFa(total)} امروز انجام شد`;
+  return `${done} of ${total} done today`;
+}
+function trAddedLabel(days){
+  if(curLang()==='fa') return days===0 ? 'امروز اضافه شد' : `${numFa(days)} روز پیش اضافه شد`;
+  return days===0 ? 'added today' : `added ${days} day${days===1?'':'s'} ago`;
+}
+function trDecaysPerDay(rate){
+  return curLang()==='fa' ? `کاهش ${numFa(rate)}/روز` : `decays ${rate}/day`;
+}
+function trEarned(points){
+  const sign = points>=0 ? '+' : '';
+  return curLang()==='fa' ? `${sign}${numFa(Math.abs(points))} کسب شد` : `${sign}${points} earned`;
+}
+function trNextDue(label){
+  return curLang()==='fa' ? `موعد بعدی: ${label}` : `Next due: ${label}`;
+}
+function trPenaltyIfMissed(val){
+  return curLang()==='fa' ? `-${numFa(Math.abs(val))} جزا (در صورت ازدست‌دادن)` : `-${Math.abs(val)} Penalty (If missed)`;
+}
+function trDueDates(text){
+  return curLang()==='fa' ? `روزهای موعد: ${text}` : `Due dates: ${text}`;
+}
+function trWelcome(name){
+  return curLang()==='fa' ? `خوش آمدی، ${name}` : `Welcome, ${name}`;
+}
+function trTaskDoneToast(val, name){
+  const sign = val>=0 ? '+' : '';
+  return curLang()==='fa' ? `${sign}${numFa(Math.abs(val))} · ${name} انجام شد` : `${sign}${val} · ${name} done`;
+}
+// Updates the bits of static markup in index.html that live outside any render*() function
+// (nav tab labels) — used on init, and as part of applyLanguage() below.
+function applyNavLabels(){
+  // Toggle RTL body class — CSS handles all text-direction changes from here
+  document.body.classList.toggle('lang-fa', curLang()==='fa');
+  const navKeys = { today:'Home', routines:'Routines', tasks:'Tasks', score:'Score' };
+  document.querySelectorAll('nav.tabs button').forEach(btn=>{
+    const key = navKeys[btn.dataset.tab];
+    if(!key) return;
+    const svg = btn.querySelector('svg');
+    btn.innerHTML = '';
+    if(svg) btn.appendChild(svg);
+    btn.appendChild(document.createTextNode(' ' + tr(key)));
+  });
+}
+function applyLanguage(){
+  applyNavLabels();
+  updateHeader();
+  renderMain();
+}
+
+// ---------- Difficulty system ----------
+const DIFFICULTY_POINTS = {
+  daily:   { easy: 2, normal: 4, hard: 6  },
+  weekly:  { easy: 4, normal: 6, hard: 8  },
+  monthly: { easy: 6, normal: 8, hard: 10 },
+  task:    { easy: 6, normal: 8, hard: 12 },
+};
+const WEEKLY_MONTHLY_PENALTY = 3;
+const TASK_DECAY_RATE = 1;
+function difficultyPointsFor(recurrence, diff){
+  const key = recurrence === 'once' ? 'task' : recurrence;
+  return (DIFFICULTY_POINTS[key] || DIFFICULTY_POINTS.task)[diff || 'normal'];
+}
 const ROUTINE_FALLBACK_EMOJI = '🎯';
 const TASK_DEFAULT_EMOJI = '📋';
+
+// Shared pools (reused across related keywords so matches feel varied but consistent)
+const P_SLEEP = ['😴','💤','🛏️','🌙'];
+const P_MEALS = ['🍕','🍔','🍟','🌭','🌮','🌯','🥪','🥙','🥘','🍗','🍖','🥩','🍤','🍙'];
+const P_WATER = ['💧','🚰'];
+const P_COOKING = ['👨‍🍳','👩‍🍳','🧑‍🍳','🍳','🥘'];
+const P_NUTRITION = ['🥗','🥬','🥦','🥕','🍎','🍌','🫐','🍇','🍓','🥝','🍍'];
+const P_BATHING = ['🚿','🛁','🧼'];
+const P_GROOM_TOUCH = ['💆','💆‍♀️'];
+const P_HEALTH = ['⚕️','🩺'];
+const P_SAUNA = ['🧖','🧖‍♀️'];
+const P_WALK = ['🚶','🚶‍♀️','🚶‍♂️'];
+const P_RUN = ['🏃','🏃‍♀️','🏃‍♂️'];
+const P_BIKE = ['🚴','🚴‍♀️','🚴‍♂️'];
+const P_SWIM = ['🏊','🏊‍♀️','🏊‍♂️'];
+const P_GYM = ['🏋️','🏋️‍♀️','🏋️‍♂️','💪'];
+const P_STRETCH = ['🤸','🤸‍♀️','🤸‍♂️'];
+const P_YOGA = ['🧘','🧘‍♀️','🧘‍♂️'];
+const P_MINDFUL = ['🧘','🙏','🪷','🌿','☀️'];
+const P_READ = ['📚','📖','📕','📗','📘','📙','📓','🎓','📝','✏️','🖋️'];
+const P_WRITE = ['✍️','📝','📓','📒','📔','📖','🖊️','🖋️','✒️','✏️'];
+const P_MUSIC = ['🎵','🎶','🎼','🎤','🎧','🎺','🎷','🪕','🪘','🥁','🎻'];
+const P_PHOTO = ['📷','📸'];
+const P_VIDEO = ['🎥','🎬','🎞️'];
+const P_OFFICE = ['💼','🖥️','💻','📊','📈','📉','📅','🗓️','📋'];
+const P_CALL = ['☎️','📞'];
+const P_CAREER = ['💼','👔','🎯'];
+const P_FOCUS = ['🎯','🧠','⌛'];
+const P_PLANNING = ['📋','✅','✔️','☑️','📝','📌'];
+const P_CALENDAR = ['📅','🗓️'];
+const P_CLEAN = ['🧹','🪣','🧽'];
+const P_LAUNDRY = ['👕','👚'];
+const P_ORGANIZE = ['📦','📁','📂','🗂️','🗃️','🏷️'];
+const P_DIY = ['🧰','🔨','🪛','🪚'];
+const P_SOCIAL = ['👥','🫂','💬'];
+const P_ENTERTAIN = ['📺','🎬','🍿','🎮','🕹️','🎲','🎭','🎪'];
+const P_OUTDOOR = ['🏕️','🌄','🌅','🌞','🌳','🌲','🛶','⛰️'];
+const P_TRAVEL = ['✈️','🗺️','🧭'];
+const P_DRIVE = ['🚗','🚕','🚙'];
+const P_BUS = ['🚌','🚎'];
+const P_TRAIN = ['🚆','🚄','🚅'];
+const P_SHOP = ['🛒','🛍️'];
+const P_MONEY = ['💰','💵','💴','💶','💷','💳','🏦'];
+const P_INBOX = ['📤','📥'];
+const P_DIGITAL = ['💻','🖥️','📱','⌨️','🖱️','🌐','☁️','📡','🔋','🔌','💾'];
+const P_PRAY = ['🙏','🛐'];
+const P_CELEBRATE = ['🎉','🎊'];
+const P_BIRTHDAY = ['🎂','🎁','🎈'];
+const P_HAPPY = ['😊','😄'];
+const P_KIND = ['😊','❤️'];
+const P_MISC = ['✨','🌟'];
+
 const EMOJI_VARIETY = {
-  food: ['🍳','🍽️','🥗','🍕'],
-  eat: ['🍳','🍽️','🥗'],
-  cook: ['🍳','🍲','👨‍🍳'],
-  meal: ['🍽️','🍲','🥗'],
-  exercise: ['🏋️','🏃','🤸'],
-  sport: ['⚽','🏀','🎾'],
+  // Sleep
+  'sleep': P_SLEEP, 'sleeping': P_SLEEP, 'slept': P_SLEEP, 'nap': P_SLEEP, 'napping': P_SLEEP,
+  // Meals
+  'lunch': P_MEALS, 'dinner': P_MEALS, 'snack': P_MEALS, 'snacking': P_MEALS, 'dessert': P_MEALS,
+  'food': P_MEALS, 'diet': P_MEALS, 'dieting': P_MEALS, 'eat': P_MEALS, 'eating': P_MEALS, 'ate': P_MEALS,
+  'meal': P_MEALS, 'meals': P_MEALS,
+  // Water
+  'water': P_WATER, 'watering': P_WATER, 'hydration': P_WATER, 'hydrate': P_WATER, 'hydrating': P_WATER,
+  // Cooking
+  'cook': P_COOKING, 'cooking': P_COOKING, 'cooked': P_COOKING, 'bake': P_COOKING, 'baking': P_COOKING, 'baked': P_COOKING,
+  // Nutrition
+  'fruit': P_NUTRITION, 'fruits': P_NUTRITION, 'vegetable': P_NUTRITION, 'vegetables': P_NUTRITION,
+  'veggie': P_NUTRITION, 'veggies': P_NUTRITION, 'protein': P_NUTRITION, 'calorie': P_NUTRITION,
+  'calories': P_NUTRITION, 'nutrition': P_NUTRITION,
+  // Bathing
+  'shower': P_BATHING, 'showering': P_BATHING, 'bath': P_BATHING, 'bathing': P_BATHING,
+  'wash face': P_BATHING, 'washing face': P_BATHING,
+  // Grooming / Recovery (touch-based)
+  'haircare': P_GROOM_TOUCH, 'hair care': P_GROOM_TOUCH, 'massage': P_GROOM_TOUCH,
+  'self care': P_GROOM_TOUCH, 'selfcare': P_GROOM_TOUCH,
+  'sauna': P_SAUNA,
+  // Health
+  'health': P_HEALTH, 'checkup': P_HEALTH, 'check up': P_HEALTH,
+  // Walking & Running
+  'walk': P_WALK, 'walking': P_WALK, 'walked': P_WALK,
+  'run': P_RUN, 'running': P_RUN, 'ran': P_RUN, 'jog': P_RUN, 'jogging': P_RUN, 'jogged': P_RUN,
+  'hike': P_RUN, 'hiking': P_RUN, 'hiked': P_RUN,
+  // Cycling & Swimming
+  'bike': P_BIKE, 'biking': P_BIKE, 'cycle': P_BIKE, 'cycling': P_BIKE,
+  'swim': P_SWIM, 'swimming': P_SWIM, 'swam': P_SWIM,
+  // Gym
+  'gym': P_GYM, 'workout': P_GYM, 'working out': P_GYM, 'worked out': P_GYM,
+  'cardio': P_GYM, 'strength training': P_GYM, 'strength': P_GYM,
+  // Flexibility
+  'stretch': P_STRETCH, 'stretching': P_STRETCH,
+  'yoga': P_YOGA,
+  // Mindfulness
+  'meditate': P_MINDFUL, 'meditation': P_MINDFUL, 'meditating': P_MINDFUL,
+  'breathing': P_MINDFUL, 'breathe': P_MINDFUL, 'gratitude': P_MINDFUL,
+  'reflection': P_MINDFUL, 'reflecting': P_MINDFUL,
+  // Reading & Learning
+  'read': P_READ, 'reading': P_READ, 'study': P_READ, 'studying': P_READ, 'homework': P_READ,
+  'learn': P_READ, 'learning': P_READ, 'practice': P_READ, 'practicing': P_READ,
+  'research': P_READ, 'researching': P_READ, 'flashcards': P_READ, 'notes': P_READ,
+  'audiobook': P_READ, 'audiobooks': P_READ, 'podcast': P_READ, 'podcasts': P_READ,
+  // Writing
+  'write': P_WRITE, 'writing': P_WRITE, 'wrote': P_WRITE, 'journal': P_WRITE,
+  'journaling': P_WRITE, 'blog': P_WRITE, 'blogging': P_WRITE,
+  // Music
+  'music': P_MUSIC, 'sing': P_MUSIC, 'singing': P_MUSIC, 'listen to music': P_MUSIC, 'listening to music': P_MUSIC,
+  // Photography & Media
+  'photography': P_PHOTO, 'photo': P_PHOTO, 'photos': P_PHOTO,
+  'photo editing': P_PHOTO, 'editing photos': P_PHOTO,
+  'video editing': P_VIDEO, 'editing video': P_VIDEO,
+  // Office Work
+  'work': P_OFFICE, 'working': P_OFFICE, 'meeting': P_OFFICE, 'meetings': P_OFFICE, 'presentation': P_OFFICE,
+  'call': P_CALL, 'calling': P_CALL,
+  // Career
+  'interview': P_CAREER, 'interviewing': P_CAREER, 'job search': P_CAREER, 'job hunting': P_CAREER,
+  'resume': P_CAREER, 'networking': P_CAREER,
+  // Focus
+  'deep work': P_FOCUS, 'focus': P_FOCUS, 'focusing': P_FOCUS, 'pomodoro': P_FOCUS,
+  // Planning
+  'calendar': P_CALENDAR, 'to-do list': P_PLANNING, 'to do list': P_PLANNING, 'todo list': P_PLANNING,
+  'planning': P_PLANNING, 'goal review': P_PLANNING, 'goal setting': P_PLANNING, 'habit review': P_PLANNING,
+  // Home Cleaning
+  'clean': P_CLEAN, 'cleaning': P_CLEAN, 'cleaned': P_CLEAN, 'clean room': P_CLEAN, 'cleaning room': P_CLEAN,
+  'vacuum': P_CLEAN, 'vacuuming': P_CLEAN, 'mop': P_CLEAN, 'mopping': P_CLEAN,
+  'laundry': P_LAUNDRY, 'ironing': P_LAUNDRY, 'iron clothes': P_LAUNDRY,
+  // Organization
+  'organize': P_ORGANIZE, 'organizing': P_ORGANIZE, 'organized': P_ORGANIZE,
+  'declutter': P_ORGANIZE, 'decluttering': P_ORGANIZE, 'declutter desktop': P_ORGANIZE,
+  'file documents': P_ORGANIZE, 'filing documents': P_ORGANIZE,
+  // Home Care
+  'diy': P_DIY, 'repairs': P_DIY, 'repairing': P_DIY, 'fix': P_DIY, 'fixing': P_DIY,
+  // Social
+  'friends': P_SOCIAL, 'friend': P_SOCIAL, 'socialize': P_SOCIAL, 'socializing': P_SOCIAL, 'date': P_SOCIAL, 'dating': P_SOCIAL,
+  // Entertainment
+  'watch tv': P_ENTERTAIN, 'watching tv': P_ENTERTAIN, 'movie': P_ENTERTAIN, 'movies': P_ENTERTAIN,
+  'anime': P_ENTERTAIN, 'youtube': P_ENTERTAIN, 'netflix': P_ENTERTAIN,
+  'gaming': P_ENTERTAIN, 'game': P_ENTERTAIN, 'games': P_ENTERTAIN, 'playing games': P_ENTERTAIN,
+  'puzzle': P_ENTERTAIN, 'puzzles': P_ENTERTAIN,
+  // Outdoor
+  'picnic': P_OUTDOOR, 'camping': P_OUTDOOR, 'camp': P_OUTDOOR, 'barbecue': P_OUTDOOR, 'bbq': P_OUTDOOR,
+  'birdwatching': P_OUTDOOR, 'bird watching': P_OUTDOOR, 'explore': P_OUTDOOR, 'exploring': P_OUTDOOR, 'adventure': P_OUTDOOR,
+  // Travel
+  'drive': P_DRIVE, 'driving': P_DRIVE, 'bus': P_BUS, 'train': P_TRAIN,
+  'travel': P_TRAVEL, 'traveling': P_TRAVEL, 'travelling': P_TRAVEL,
+  'pack': P_TRAVEL, 'packing': P_TRAVEL, 'unpack': P_TRAVEL, 'unpacking': P_TRAVEL, 'moving': P_TRAVEL,
+  // Shopping
+  'shop': P_SHOP, 'shopping': P_SHOP, 'shopping list': P_SHOP, 'errands': P_SHOP,
+  // Money
+  'bank': P_MONEY, 'banking': P_MONEY, 'budget': P_MONEY, 'budgeting': P_MONEY, 'budget review': P_MONEY,
+  'expense tracking': P_MONEY, 'tracking expenses': P_MONEY, 'pay bills': P_MONEY, 'paying bills': P_MONEY,
+  'save money': P_MONEY, 'saving money': P_MONEY,
+  // Digital
+  'email inbox': P_INBOX, 'inbox': P_INBOX, 'inbox zero': P_INBOX, 'cleaning inbox': P_INBOX,
+  'backup': P_DIGITAL, 'backing up': P_DIGITAL, 'upload': P_DIGITAL, 'uploading': P_DIGITAL,
+  'download': P_DIGITAL, 'downloading': P_DIGITAL, 'print': P_DIGITAL, 'printing': P_DIGITAL,
+  'scan documents': P_DIGITAL, 'scanning documents': P_DIGITAL, 'charge devices': P_DIGITAL,
+  'charging devices': P_DIGITAL, 'update apps': P_DIGITAL, 'updating apps': P_DIGITAL,
+  'screen time': P_DIGITAL, 'digital detox': P_DIGITAL, 'weather check': P_DIGITAL,
+  // Spiritual
+  'pray': P_PRAY, 'praying': P_PRAY,
+  // Misc
+  'celebrate': P_CELEBRATE, 'celebrating': P_CELEBRATE, 'celebration': P_CELEBRATE,
+  'birthday': P_BIRTHDAY, 'holiday': P_CELEBRATE, 'holidays': P_CELEBRATE,
+  'happiness': P_HAPPY, 'happy': P_HAPPY, 'kindness': P_KIND, 'kind': P_KIND,
+  'random act of kindness': P_KIND,
+  'appointment': P_MISC, 'appointments': P_MISC, 'relax': P_MISC, 'relaxing': P_MISC,
+  'rest': P_MISC, 'resting': P_MISC, 'recharge': P_MISC, 'recharging': P_MISC,
 };
+
 const EMOJI_SINGLE = {
-  brush: '🦷', teeth: '🦷',
-  shower: '🚿', bath: '🚿',
-  workout: '🏋️', gym: '🏋️',
-  walk: '🏃', run: '🏃', jog: '🏃',
-  sleep: '😴', bed: '😴', nap: '😴',
-  water: '💧', drink: '💧', hydrate: '💧',
-  read: '📖', book: '📖',
-  clean: '🧹', tidy: '🧹', dishes: '🧹',
-  study: '📚', homework: '📚',
-  meditate: '🧘', yoga: '🧘',
-  journal: '📝', write: '📝',
-  stretch: '🤸',
-  vitamin: '💊', medication: '💊', medicine: '💊',
-  skincare: '🧴', skin: '🧴',
-  laundry: '🧺',
-  pray: '🙏',
-  walk_dog: '🐕', dog: '🐕', pet: '🐾',
-  call: '📞', dentist: '🦷', doctor: '🩺',
+  // Sleep
+  'wake up': '🌅', 'waking up': '🌅', 'woke up': '🌅',
+  // Meals
+  'breakfast': '🍳',
+  // Oral care
+  'brush teeth': '🪥', 'brushing teeth': '🪥', 'teeth': '🦷', 'floss': '🪥', 'flossing': '🪥',
+  // Grooming
+  'shave': '🪒', 'shaving': '🪒', 'makeup': '💄', 'skincare': '🧴', 'sunscreen': '🧴',
+  // Health
+  'vitamins': '💊', 'vitamin': '💊', 'medication': '💊', 'medicine': '💊', 'meds': '💊',
+  'weigh': '🫀', 'weighing': '🫀', 'weight': '🫀', 'doctor': '🩺', 'dentist': '🩺', 'therapy': '🩺',
+  // Recovery
+  'ice bath': '🧊',
+  // Flexibility
+  'pilates': '🤾',
+  // Art
+  'draw': '🎨', 'drawing': '🎨', 'paint': '🎨', 'painting': '🎨',
+  'craft': '🖼️', 'crafting': '🖼️', 'knit': '🪡', 'knitting': '🪡', 'crochet': '🧶', 'crocheting': '🧶',
+  'design': '🖼️', 'designing': '🖼️',
+  // Music
+  'piano': '🎹', 'guitar': '🎸', 'dance': '💃', 'dancing': '💃',
+  // Photography & Media
+  'content creation': '📱', 'streaming': '📹',
+  // Office / Software
+  'email': '📧', 'coding': '💻', 'code': '💻', 'side project': '💻', 'freelance': '💻', 'freelancing': '💻',
+  // Home cleaning
+  'dishes': '🧽', 'trash': '🗑️', 'garbage': '🗑️',
+  // Home care
+  'bed': '🛏️', 'making bed': '🛏️', 'windows': '🪟',
+  // Gardening
+  'garden': '🪴', 'gardening': '🪴', 'plants': '🪴',
+  // Pets
+  'pet care': '🐾', 'pet': '🐾', 'feed pet': '🐾', 'feeding pet': '🐾',
+  'walk dog': '🐕', 'walking dog': '🐕', 'play with pet': '🐾', 'playing with pet': '🐾',
+  // Family
+  'family time': '🏡', 'childcare': '🏡', 'feed baby': '🏡', 'feeding baby': '🏡',
+  'call parents': '🏡', 'calling parents': '🏡', 'call family': '🏡', 'calling family': '🏡',
+  // Social
+  'text': '💬', 'texting': '💬',
+  // Outdoor
+  'beach': '🏖️', 'fishing': '🎣', 'fish': '🎣', 'stargazing': '🔭',
+  // Money
+  'invest': '📈', 'investing': '📈',
+  // Vehicle
+  'car wash': '🚗', 'refuel': '⛽', 'refueling': '⛽', 'maintenance': '🔧',
+  // Spiritual
+  'church': '🛐', 'mosque': '🛐', 'temple': '🛐',
+  // Misc
+  'morning routine': '🌅', 'evening routine': '🌇', 'night routine': '🌙',
 };
+
+// Whole-word/phrase matching: avoids false positives like "eat" matching inside
+// "heating" or "treat". Multi-word keys (e.g. "side project") match as a phrase.
+function wholeWordMatch(text, key){
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+}
 function pickRoutineEmoji(name){
-  const n = (name||'').toLowerCase();
+  const n = name || '';
   for(const key in EMOJI_VARIETY){
-    if(n.includes(key)){
+    if(wholeWordMatch(n, key)){
       const pool = EMOJI_VARIETY[key];
       return pool[Math.floor(Math.random()*pool.length)];
     }
   }
   for(const key in EMOJI_SINGLE){
-    if(n.includes(key)) return EMOJI_SINGLE[key];
+    if(wholeWordMatch(n, key)) return EMOJI_SINGLE[key];
   }
   return ROUTINE_FALLBACK_EMOJI;
 }
@@ -145,7 +535,7 @@ async function saveState(){
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
   }catch(e){
     console.error('Save failed', e);
-    showToast('Could not save — try again');
+    showToast(tr('Could not save — try again'));
   }
 }
 
@@ -496,8 +886,8 @@ function nextScheduledDate(r, afterDateStr){
 }
 function formatDueLabel(dateStr, recurrence){
   const d = new Date(dateStr+'T00:00:00');
-  if(recurrence==='weekly') return d.toLocaleDateString('en-US', {weekday:'long'});
-  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  if(recurrence==='weekly') return d.toLocaleDateString(localeForLang(), {weekday:'long'});
+  return d.toLocaleDateString(localeForLang(), {month:'short', day:'numeric'});
 }
 // Only weekly/monthly inherit the numeric-value/recurrence-type edit-lock (mirrors the old
 // recurring-task rule, which existed to prevent decay/penalty dodging). Daily routines have no
@@ -568,7 +958,7 @@ function completeTask(id){
   if(navigator.vibrate) navigator.vibrate(15);
   triggerShine(`[data-card-task="${id}"]`);
   playSparkle();
-  showToast(`${val>=0?'+':''}${val} · ${task.name} done`);
+  showToast(trTaskDoneToast(val, task.name));
 }
 function uncompleteTask(id){
   const task = state.tasks.find(x=>x.id===id);

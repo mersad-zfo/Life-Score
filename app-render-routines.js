@@ -3,9 +3,9 @@ function renderDailyRoutineCard(r){
   const done = routineDoneToday(r);
   const rState = routineState(r);
   let stateText;
-  if(rState==='streak') stateText = `${streakEmoji(r)} ×${r.streak} · Streak`;
-  else if(rState==='neglect') stateText = `${neglectEmoji(r)} ×${r.neglect} · Neglect`;
-  else stateText = 'Neutral';
+  if(rState==='streak') stateText = `${streakEmoji(r)} ×${r.streak} · ${tr('Streak')}`;
+  else if(rState==='neglect') stateText = `${neglectEmoji(r)} ×${r.neglect} · ${tr('Neglect')}`;
+  else stateText = tr('Neutral');
   return `
   <div class="card" data-card-routine="${r.id}">
     <div class="row">
@@ -18,8 +18,8 @@ function renderDailyRoutineCard(r){
       <button class="btn-done ${done?'done':''}" data-routine="${r.id}">${done? '✓' : ''}</button>
     </div>
     <div class="row" style="margin-top:8px;">
-      <button class="link-danger" style="font-size:12px;" data-del-routine="${r.id}">Remove</button>
-      <button class="btn-complete-task" data-edit-routine="${r.id}">Edit</button>
+      <button class="link-danger" style="font-size:12px;" data-del-routine="${r.id}">${tr('Remove')}</button>
+      <button class="btn-complete-task" data-edit-routine="${r.id}">${tr('Edit')}</button>
     </div>
   </div>`;
 }
@@ -31,23 +31,23 @@ function renderRecurringRoutineCard(r){
   const isDue = routineIsDueToday(r);
   const done = routineDoneToday(r);
   const pointsPreview = done ? r.awardedPoints : routinePreviewReward(r);
-  const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const names = weekdayShortNames();
   const scheduleText = r.recurrence==='weekly'
     ? (r.schedule||[]).slice().sort((a,b)=>a-b).map(d=>names[d]).join(', ')
     : (r.schedule||[]).slice().sort((a,b)=>a-b).join(', ');
 
   const rState = routineState(r);
   let stateText;
-  if(rState==='streak') stateText = `${streakEmoji(r)} ×${r.streak} · Streak`;
-  else if(rState==='neglect') stateText = `${neglectEmoji(r)} ×${r.neglect} · Neglect`;
-  else stateText = 'Neutral';
+  if(rState==='streak') stateText = `${streakEmoji(r)} ×${r.streak} · ${tr('Streak')}`;
+  else if(rState==='neglect') stateText = `${neglectEmoji(r)} ×${r.neglect} · ${tr('Neglect')}`;
+  else stateText = tr('Neutral');
 
   let secondaryText;
   if(!isDue){
     const next = nextScheduledDate(r, todayStr());
-    secondaryText = next ? `Next due: ${formatDueLabel(next, r.recurrence)}` : 'Not due yet';
+    secondaryText = next ? trNextDue(formatDueLabel(next, r.recurrence)) : tr('Not due yet');
   } else {
-    secondaryText = `-${Math.abs(routinePreviewPenalty(r))} Penalty (If missed)`;
+    secondaryText = trPenaltyIfMissed(routinePreviewPenalty(r));
   }
 
   // Same circular checkmark as daily routines. Only ever clickable while genuinely due today
@@ -69,15 +69,15 @@ function renderRecurringRoutineCard(r){
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(r.name)}</div>
         <div class="item-sub">${stateText}${secondaryText?` · ${secondaryText}`:''}</div>
-        <div class="item-sub">Due dates: ${scheduleText}</div>
+        <div class="item-sub">${trDueDates(scheduleText)}</div>
         ${r.description ? `<div class="item-sub" style="margin-top:5px; color:var(--ink);">${escapeHtml(r.description)}</div>` : ''}
       </div>
       <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview>=0?'+':''}${pointsPreview}</span>
       ${doneBtnHtml}
     </div>
     <div class="row" style="margin-top:8px;">
-      <button class="link-danger" style="font-size:12px;" data-del-routine="${r.id}">Remove</button>
-      <button class="btn-complete-task" data-edit-routine="${r.id}">Edit</button>
+      <button class="link-danger" style="font-size:12px;" data-del-routine="${r.id}">${tr('Remove')}</button>
+      <button class="btn-complete-task" data-edit-routine="${r.id}">${tr('Edit')}</button>
     </div>
   </div>`;
 }
@@ -89,18 +89,18 @@ function renderRoutines(main){
   function group(title, list, cardFn){
     let h = `<div class="task-group-title">${title}</div>`;
     if(list.length===0){
-      h += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">None yet.</div>`;
+      h += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">${tr('None yet.')}</div>`;
     } else {
       list.forEach(r=> h += cardFn(r));
     }
     return h;
   }
   if(state.routines.length===0){
-    html += `<div class="empty"><div class="big">🪴</div>Nothing here yet.<br>Tap + to add your first routine.</div>`;
+    html += `<div class="empty"><div class="big">🪴</div>${tr('Nothing here yet.')}<br>${tr('Tap + to add your first routine.')}</div>`;
   } else {
-    html += group('Daily', daily, renderDailyRoutineCard);
-    html += group('Weekly', weekly, renderRecurringRoutineCard);
-    html += group('Monthly', monthly, renderRecurringRoutineCard);
+    html += group(tr('Daily'), daily, renderDailyRoutineCard);
+    html += group(tr('Weekly'), weekly, renderRecurringRoutineCard);
+    html += group(tr('Monthly'), monthly, renderRecurringRoutineCard);
   }
   main.innerHTML = html;
   main.querySelectorAll('[data-routine]').forEach(btn=>{
@@ -112,7 +112,7 @@ function renderRoutines(main){
   });
   main.querySelectorAll('[data-del-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      if(confirm('Remove this routine? Its consistency history will be lost.')) deleteRoutine(btn.dataset.delRoutine);
+      if(confirm(tr('Remove this routine? Its consistency history will be lost.'))) deleteRoutine(btn.dataset.delRoutine);
     });
   });
   main.querySelectorAll('[data-edit-routine]').forEach(btn=>{

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-score-v28';
+const CACHE_NAME = 'life-score-v32';
 const ASSETS = [
   './',
   './index.html',

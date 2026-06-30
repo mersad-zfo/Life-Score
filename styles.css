@@ -636,6 +636,10 @@
     background:var(--accent);
     color:#fff;
   }
+  .seg-locked{
+    pointer-events:none;
+    opacity:0.55;
+  }
   .toggle-row{
     display:flex; align-items:center; justify-content:space-between;
     background:var(--paper);
@@ -751,4 +755,38 @@
     font-size:12px;
     color:var(--ink-soft);
     margin-top:14px;
+  }
+
+  /* ---- Farsi RTL text direction ---- */
+  /* Only text content flips; layout, icons, and nav stay LTR. */
+  body.lang-fa .item-name,
+  body.lang-fa .item-sub,
+  body.lang-fa .section-label,
+  body.lang-fa .task-group-title,
+  body.lang-fa .settings-group-title,
+  body.lang-fa .modal h3,
+  body.lang-fa .field label,
+  body.lang-fa .lock-note,
+  body.lang-fa .acc-name,
+  body.lang-fa .acc-email,
+  body.lang-fa .credit-line,
+  body.lang-fa .add-details-link {
+    direction: rtl;
+    unicode-bidi: plaintext;
+    text-align: right;
+  }
+  /* Centered elements: flip bidi but keep centering */
+  body.lang-fa .score-hero .label,
+  body.lang-fa .score-tile .t-label,
+  body.lang-fa .daily-tally,
+  body.lang-fa .all-clear-overlay .msg,
+  body.lang-fa .all-clear-overlay .hint,
+  body.lang-fa .empty {
+    direction: rtl;
+    unicode-bidi: plaintext;
+    text-align: center;
+  }
+  /* Day-grid weekday buttons: RTL so numbered names read correctly (e.g. شنبه۱) */
+  body.lang-fa .recur-day-grid button {
+    direction: rtl;
   }

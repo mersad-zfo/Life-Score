@@ -6,7 +6,7 @@ function updateHeader(){
     el.innerHTML = `<div class="wordmark">Life Score</div><div class="date" id="todayLabel"></div>`;
     fmtDateLabel();
   } else {
-    el.innerHTML = `<div class="wordmark page-title">${TAB_PAGE_TITLES[currentTab]}</div>`;
+    el.innerHTML = `<div class="wordmark page-title">${tr(TAB_PAGE_TITLES[currentTab])}</div>`;
   }
 }
 function setTab(tab){
@@ -38,10 +38,11 @@ document.getElementById('fab').addEventListener('click', ()=>{
   const splashStart = Date.now();
   try{
     await loadState();
+    applyNavLabels(); // static nav-tab text isn't covered by any render*() function
     setTab('today');
   }catch(e){
     console.error('Failed to load saved data', e);
-    showToast('Something went wrong loading your data');
+    showToast(tr('Something went wrong loading your data'));
   }
   if('serviceWorker' in navigator){
     try{
