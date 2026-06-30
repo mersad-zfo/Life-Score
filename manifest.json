@@ -2,7 +2,6 @@
   "name": "Life Score",
   "short_name": "Life Score",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
   "background_color": "#FAFAF7",
   "theme_color": "#FAFAF7",
