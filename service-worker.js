@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-score-v34';
+const CACHE_NAME = 'life-score-v35';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './app-render-today.js',
   './app-render-routines.js',
   './app-render-tasks.js',
+  './app-render-progression.js',
   './app-render-score.js',
   './app-render-settings.js',
   './app-modals.js',

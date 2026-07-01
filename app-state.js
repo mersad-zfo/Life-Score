@@ -125,6 +125,7 @@ const LANG_DICT = {
     // Score tab
     'All-time score': 'امتیاز کل',
     'All-time rating': 'رتبه کل',
+    'Progression': 'پیشرفت',
     'Today': 'امروز', 'This week': 'این هفته', 'This month': 'این ماه',
     'Routines tracked': 'روتین‌های ثبت‌شده',
     // Settings

@@ -20,15 +20,10 @@ function scoreFractionHtml(received, base){
 
 function renderScore(main){
   const s = getScores();
-  const today = todayStr();
   const rToday    = getTodayRating();
   const rWeek     = getWeekRating();
   const rMonth    = getCurrentMonthRating();
   const rAllTime  = getAllTimeRating();
-
-  // Hero uses all-time data
-  const heroReceived = Math.max(0, Math.round(s.allTime.received));
-  const heroBase     = Math.round(s.allTime.base);
 
   let html = `
     <div class="score-hero">
@@ -55,6 +50,12 @@ function renderScore(main){
         <div class="t-rating-label">${rAllTime ? tr(rAllTime) : tr('no rating yet')}</div>
       </div>
     </div>
+    <div class="section-label" style="margin-top:28px;">${tr('Progression')}</div>
+    <div id="progressionContainer"></div>
   `;
   main.innerHTML = html;
+
+  // Reset drill-down state every time the Score tab is opened fresh
+  resetProgression();
+  renderProgression(document.getElementById('progressionContainer'));
 }
