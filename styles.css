@@ -300,20 +300,63 @@
     margin-top:18px;
   }
   .score-tile{
-    background:var(--paper);
-    border:1px solid var(--line);
     border-radius:14px;
     padding:14px;
+    border-left: 3px solid transparent;
   }
   .score-tile .t-label{
     font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft);
   }
-  .score-tile .t-value{
+  /* Fraction display inside tiles */
+  .score-tile .t-fraction{
+    margin-top:6px;
     font-family:'Newsreader', serif;
-    font-size:28px;
-    margin-top:4px;
+    font-size:26px;
+    line-height:1.1;
   }
-  .score-tile .t-value.negative{ color:var(--rust); }
+  .sf-received{ font-weight:700; color:var(--ink); }
+  .sf-slash{ font-weight:400; color:var(--ink-soft); margin:0 1px; }
+  .sf-base{ font-weight:400; color:var(--ink-soft); }
+  .sf-none{ font-weight:400; color:var(--ink-soft); font-size:22px; }
+  /* All-time rating label inside its tile */
+  .score-tile .t-rating-label{
+    margin-top:6px;
+    font-family:'Newsreader', serif;
+    font-size:20px;
+    font-weight:700;
+    color:var(--ink);
+    line-height:1.2;
+  }
+  /* Tile rating color variants — tinted bg + left border (same system as Home pill) */
+  .score-tile.rating-none{
+    background:var(--paper);
+    border-left-color:var(--line);
+  }
+  .score-tile.rating-notgood{
+    background:rgba(234,179,8,0.10);
+    border-left-color:#d4a307;
+  }
+  .score-tile.rating-good{
+    background:rgba(120,190,80,0.12);
+    border-left-color:#5aab35;
+  }
+  .score-tile.rating-great{
+    background:rgba(22,150,70,0.11);
+    border-left-color:#16a34a;
+  }
+  .score-tile.rating-awesome{
+    background:rgba(147,51,234,0.10);
+    border-left-color:#9333ea;
+  }
+  /* Hero fraction (all-time score display) */
+  .score-hero-fraction{
+    margin-top:4px;
+    font-family:'Newsreader', serif;
+    font-size:38px;
+    line-height:1.1;
+  }
+  .score-hero-fraction .sf-received{ font-size:38px; }
+  .score-hero-fraction .sf-base{ font-size:28px; }
 
   .empty{
     text-align:center;
@@ -805,8 +848,8 @@
     color: var(--ink);
   }
   .rating-pill.rating-none {
-    background: var(--paper);
-    border-left-color: var(--line);
+    background: rgba(234,179,8,0.10);
+    border-left-color: #d4a307;
     color: var(--ink-soft);
     font-weight: 400;
     font-size: 13px;

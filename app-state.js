@@ -124,6 +124,7 @@ const LANG_DICT = {
     'added today': 'امروز اضافه شد',
     // Score tab
     'All-time score': 'امتیاز کل',
+    'All-time rating': 'رتبه کل',
     'Today': 'امروز', 'This week': 'این هفته', 'This month': 'این ماه',
     'Routines tracked': 'روتین‌های ثبت‌شده',
     // Settings
@@ -207,10 +208,12 @@ function curLang(){ return (state.settings && state.settings.language) || 'en'; 
 // Locale used for built-in date formatting. fa-IR-u-ca-gregory gives Farsi weekday/month
 // names while keeping the Gregorian calendar (no date-math side effects elsewhere).
 function localeForLang(){ return curLang()==='fa' ? 'fa-IR-u-ca-gregory' : 'en-US'; }
+// Week starts Saturday. Day indices in display order: Sat(6),Sun(0),Mon(1),Tue(2),Wed(3),Thu(4),Fri(5)
+const WEEK_DAY_ORDER = [6,0,1,2,3,4,5];
 function weekdayShortNames(){
   return curLang()==='fa'
-    ? ['۱شنبه','۲شنبه','۳شنبه','۴شنبه','۵شنبه','جمعه','شنبه']
-    : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    ? ['شنبه','۱شنبه','۲شنبه','۳شنبه','۴شنبه','۵شنبه','جمعه']
+    : ['Sat','Sun','Mon','Tue','Wed','Thu','Fri'];
 }
 // Converts Western digits to Eastern Arabic (Persian) numerals for Farsi mode.
 function numFa(n){
@@ -274,7 +277,7 @@ const DIFFICULTY_POINTS = {
   daily:   { easy: 20, normal: 40, hard: 60  },
   weekly:  { easy: 40, normal: 60, hard: 80  },
   monthly: { easy: 60, normal: 80, hard: 100 },
-  task:    { easy: 60, normal: 80, hard: 120 },
+  task:    { easy: 20, normal: 60, hard: 100 },
 };
 const WEEKLY_MONTHLY_PENALTY = 30;
 const TASK_DECAY_RATE = 10;
@@ -1156,13 +1159,24 @@ function startOfWeek(dateStr){
 function scoreForRange(filterFn){
   return state.log.filter(filterFn).reduce((sum,l)=>sum+l.points,0);
 }
+
+// Returns { received, base } for a date range — used by the Score tab tiles.
+// received = all log points (routines + tasks, floored at 0 for display).
+// base = routine base points only (no tasks, no streak/neglect).
+function getPeriodData(from, to){
+  const {base, received} = aggregatePeriod(from, to);
+  return {base, received};
+}
+
 function getScores(){
   const t = todayStr();
-  const weekStart = startOfWeek(t);
-  const monthPrefix = t.slice(0,7);
-  const daily = scoreForRange(l=>l.date===t);
-  const weekly = scoreForRange(l=> l.date>=weekStart && l.date<=t);
-  const monthly = scoreForRange(l=> l.date.slice(0,7)===monthPrefix);
-  const allTime = scoreForRange(()=>true);
-  return {daily, weekly, monthly, allTime};
+  const weekStart = getWeekStart(t);   // Saturday-based (matches rating system)
+  const monthStart = t.slice(0,7)+'-01';
+  const monthEnd = monthEndStr(t.slice(0,7));
+  return {
+    daily:   getPeriodData(t, t),
+    weekly:  getPeriodData(weekStart, t),
+    monthly: getPeriodData(monthStart, monthEnd),
+    allTime: getPeriodData(state.settings.ratingStartDate || t, t),
+  };
 }

@@ -13,7 +13,7 @@ function buildDayGrid(idPrefix, type, selected){
   if(type==='weekly'){
     const names = weekdayShortNames();
     return `<div class="recur-day-grid" id="${idPrefix}DayGrid">` +
-      names.map((n,i)=>`<button type="button" data-day="${i}" class="${(selected||[]).includes(i)?'active':''}">${n}</button>`).join('') +
+      WEEK_DAY_ORDER.map((dayIdx,i)=>`<button type="button" data-day="${dayIdx}" class="${(selected||[]).includes(dayIdx)?'active':''}">${names[i]}</button>`).join('') +
       `</div>`;
   } else {
     let h = `<div class="recur-day-grid" id="${idPrefix}DayGrid">`;
