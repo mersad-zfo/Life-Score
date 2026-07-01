@@ -790,3 +790,46 @@
   body.lang-fa .recur-day-grid button {
     direction: rtl;
   }
+
+  /* ---- Rating pill (Home tab score hero) ---- */
+  .rating-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 14px 5px 11px;
+    border-radius: 10px;
+    border-left: 3px solid transparent;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 8px auto 4px;
+    color: var(--ink);
+  }
+  .rating-pill.rating-none {
+    background: var(--paper);
+    border-left-color: var(--line);
+    color: var(--ink-soft);
+    font-weight: 400;
+    font-size: 13px;
+  }
+  .rating-pill.rating-notgood {
+    background: rgba(234,179,8,0.10);
+    border-left-color: #d4a307;
+  }
+  .rating-pill.rating-good {
+    background: rgba(120,190,80,0.12);
+    border-left-color: #5aab35;
+  }
+  .rating-pill.rating-great {
+    background: rgba(22,150,70,0.11);
+    border-left-color: #16a34a;
+  }
+  .rating-pill.rating-awesome {
+    background: rgba(147,51,234,0.10);
+    border-left-color: #9333ea;
+  }
+  /* Rating pill is centered in score-hero — keep it centered in Farsi too */
+  body.lang-fa .rating-pill {
+    direction: rtl;
+    unicode-bidi: plaintext;
+    text-align: center;
+  }

@@ -1,4 +1,15 @@
 // ---------- Home tab ----------
+function ratingPillHtml(rating){
+  const classMap = {
+    'NOT GOOD':  'rating-notgood',
+    'GOOD':      'rating-good',
+    'GREAT!':    'rating-great',
+    'AWESOME!!!':'rating-awesome',
+  };
+  if(!rating) return `<div class="rating-pill rating-none">${tr('no rating yet')}</div>`;
+  return `<div class="rating-pill ${classMap[rating]||'rating-none'}">${tr(rating)}</div>`;
+}
+
 function renderToday(main){
   const t = todayStr();
   const todays = state.log.filter(l=>l.date===t);
@@ -7,10 +18,12 @@ function renderToday(main){
   const dueRoutines = routinesForToday();
   const tallyDone = dueRoutines.filter(h=>routineDoneToday(h)).length + state.tasks.filter(task=>taskDoneToday(task)).length;
   const tallyTotal = dueRoutines.length + state.tasks.length;
+  const todayRating = getTodayRating();
   let html = `
     <div class="score-hero">
       <div class="label">${tr("Today's score")}</div>
       <div class="number ${total<0?'negative':''}">${total>0?'+':''}${total}</div>
+      ${ratingPillHtml(todayRating)}
       ${tallyTotal>0 ? `<div class="daily-tally">${trTallyLine(tallyDone, tallyTotal)}</div>` : ''}
     </div>
     <div class="section-label">${tr('Routines')}</div>`;
