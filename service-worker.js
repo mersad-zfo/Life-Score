@@ -1,4 +1,7 @@
-const CACHE_NAME = 'life-score-v35';
+importScripts('./app-notif-db.js');
+importScripts('./app-notif-shared.js');
+
+const CACHE_NAME = 'life-score-v38';
 const ASSETS = [
   './',
   './index.html',
@@ -6,7 +9,14 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './styles.css',
-  './app-state.js',
+  './app-state-core.js',
+  './app-i18n.js',
+  './app-rating.js',
+  './app-consistency.js',
+  './app-emoji.js',
+  './app-notif-db.js',
+  './app-notif-shared.js',
+  './app-notifications.js',
   './app-drag.js',
   './app-render-core.js',
   './app-render-today.js',
@@ -49,4 +59,74 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => cached);
     })
   );
+});
+
+// ---------- Push notifications ----------
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch(e) { /* non-JSON payload, ignore */ }
+  const title = data.title || 'Life Score';
+  const body = data.body || '';
+
+  event.waitUntil((async ()=>{
+    // Record it locally first (works even if the app is never reopened right away — this is
+    // what makes the in-app bell badge correct, not just the OS-level notification).
+    await notifDbAdd({ title, body, receivedAt: Date.now() });
+    await notifDbPruneOld();
+
+    await self.registration.showNotification(title, {
+      body,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+    });
+
+    // If the app happens to already be open, tell it to refresh the bell badge right away
+    // instead of waiting for the next reload.
+    const clientsList = await self.clients.matchAll({ type: 'window' });
+    clientsList.forEach(c => c.postMessage({ type: 'life-score-push-received' }));
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async ()=>{
+    const clientsList = await self.clients.matchAll({ type: 'window' });
+    if(clientsList.length > 0){
+      clientsList[0].focus();
+      clientsList[0].postMessage({ type: 'life-score-notification-clicked' });
+    } else {
+      await self.clients.openWindow('./index.html');
+    }
+  })());
+});
+
+// ---------- Reliability: subscription rotation ----------
+// Browsers occasionally invalidate and silently replace a push subscription behind the scenes
+// (key rotation, browser-side cleanup, etc.) and fire this event when they do. Without handling
+// it, notifications would just quietly stop working until someone happened to toggle the
+// Settings switch off and back on. This runs even if the app is closed, which is exactly why the
+// deviceId has to be readable from IndexedDB (app-notif-db.js) rather than localStorage.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async ()=>{
+    try{
+      const deviceId = await notifMetaGet('deviceId');
+      if(!deviceId) return; // never subscribed from this browser profile — nothing to reconnect
+
+      const newSubscription = event.newSubscription || await self.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(NOTIF_VAPID_PUBLIC_KEY),
+      });
+
+      await notifPostToWorker('/api/device', {
+        deviceId,
+        subscription: newSubscription.toJSON(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        enabled: true,
+      });
+    }catch(e){
+      // Best effort — if this fails, the next time the app is opened, reconfirmDeviceIfNeeded()
+      // in app-notifications.js will notice the subscription changed and fix it then.
+      console.warn('pushsubscriptionchange: resubscribe failed', e);
+    }
+  })());
 });

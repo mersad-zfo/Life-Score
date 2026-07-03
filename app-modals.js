@@ -8,6 +8,44 @@ function openModal(html){
   return wrap;
 }
 
+// ---------- Notifications popover ----------
+async function openNotificationsModal(){
+  let list = [];
+  try{ list = await notifDbGetAll(); }catch(e){ /* IndexedDB unavailable */ }
+
+  const itemsHtml = list.length ? list.map(n=>`
+    <div class="notif-item">
+      <div class="notif-title">${escapeHtml(n.title)}</div>
+      ${n.body ? `<div class="notif-body">${escapeHtml(n.body)}</div>` : ''}
+      <div class="notif-time">${new Date(n.receivedAt).toLocaleString()}</div>
+    </div>
+  `).join('') : `<div class="notif-empty">${tr('No notifications yet')}</div>`;
+
+  const scrim = document.createElement('div');
+  scrim.className = 'notif-scrim';
+  const pop = document.createElement('div');
+  pop.className = 'notif-popover';
+  pop.innerHTML = `
+    <div class="notif-popover-head">
+      <h3>${tr('Notifications')}</h3>
+      <button class="notif-popover-close" id="notifPopClose">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="notif-list">${itemsHtml}</div>
+  `;
+  document.body.appendChild(scrim);
+  document.body.appendChild(pop);
+
+  const close = ()=>{ scrim.remove(); pop.remove(); };
+  scrim.addEventListener('click', close);
+  pop.querySelector('#notifPopClose').addEventListener('click', close);
+
+  try{
+    await notifDbMarkAllRead();
+    refreshBellBadge();
+  }catch(e){ /* IndexedDB unavailable */ }
+}
 // ---------- Day grid (weekly / monthly schedule picker) ----------
 function buildDayGrid(idPrefix, type, selected){
   if(type==='weekly'){

@@ -2,6 +2,7 @@
 const TAB_PAGE_TITLES = { routines: 'Your routines', tasks: 'Your tasks', score: 'Your score', settings: 'Settings' };
 function updateHeader(){
   const el = document.getElementById('headerInfo');
+  document.getElementById('bellBtn').style.display = currentTab==='settings' ? 'none' : '';
   if(currentTab==='today'){
     el.innerHTML = `<div class="wordmark">Life Score</div><div class="date" id="todayLabel"></div>`;
     fmtDateLabel();
@@ -17,6 +18,9 @@ function setTab(tab){
 }
 document.querySelectorAll('nav.tabs button').forEach(b=>{
   b.addEventListener('click', ()=> setTab(b.dataset.tab));
+});
+document.getElementById('bellBtn').addEventListener('click', ()=>{
+  openNotificationsModal();
 });
 document.getElementById('gearBtn').addEventListener('click', ()=>{
   if(currentTab!=='settings'){
@@ -51,6 +55,8 @@ document.getElementById('fab').addEventListener('click', ()=>{
       console.warn('Service worker registration failed', e);
     }
   }
+  refreshBellBadge();
+  checkNotificationPermissionState().then(()=> reconfirmDeviceIfNeeded());
   const elapsed = Date.now() - splashStart;
   const minSplash = 900;
   setTimeout(()=>{

@@ -1,5 +1,6 @@
 // ---------- Settings tab + Account flows ----------
 function renderSettings(main){
+  checkNotificationPermissionState().then(changed=>{ if(changed) renderSettings(main); });
   const theme = state.settings.theme;
   const sound = state.settings.sound;
   const lang = state.settings.language || 'en';
@@ -58,6 +59,13 @@ function renderSettings(main){
     </div>
 
     <div class="settings-group">
+      <div class="toggle-row">
+        <div class="item-name">${tr('Notifications')}</div>
+        <div class="switch ${state.settings.notificationsEnabled?'on':''}" id="notifSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+
+    <div class="settings-group">
       <div class="settings-group-title">${tr('Sound')}</div>
       <div class="toggle-row">
         <div>
@@ -100,6 +108,14 @@ function renderSettings(main){
       applyLanguage();
       renderSettings(main);
     });
+  });
+  document.getElementById('notifSwitch').addEventListener('click', async ()=>{
+    if(state.settings.notificationsEnabled){
+      await disablePushNotifications();
+    } else {
+      await enablePushNotifications();
+    }
+    renderSettings(main);
   });
   document.getElementById('soundSwitch').addEventListener('click', ()=>{
     state.settings.sound = !state.settings.sound;
