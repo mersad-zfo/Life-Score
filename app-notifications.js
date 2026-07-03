@@ -46,9 +46,9 @@ function saveNotifSyncSnapshot(endpoint, timezone, enabled){
   saveState();
 }
 
-async function enablePushNotifications(){
+async function enablePushNotifications(silent){
   if(!('serviceWorker' in navigator) || !('PushManager' in window)){
-    showToast(tr("Notifications aren't supported on this browser"));
+    if(!silent) showToast(tr("Notifications aren't supported on this browser"));
     return false;
   }
   try{
@@ -56,7 +56,7 @@ async function enablePushNotifications(){
     if(permission !== 'granted'){
       state.settings.notificationsEnabled = false;
       saveState();
-      showToast(tr('Notification permission was not granted'));
+      if(!silent) showToast(tr('Notification permission was not granted'));
       return false;
     }
     const registration = await navigator.serviceWorker.ready;
@@ -79,9 +79,23 @@ async function enablePushNotifications(){
     return true;
   }catch(e){
     console.error('enablePushNotifications failed', e);
-    showToast(tr('Could not enable notifications — try again'));
+    if(!silent) showToast(tr('Could not enable notifications — try again'));
     return false;
   }
+}
+
+// ---------- First-launch permission prompt ----------
+// Notification.requestPermission() only ever shows the actual OS/browser prompt once — while
+// permission is still 'default' (never decided). Any call after that (granted OR denied)
+// resolves immediately with no UI. So checking for 'default' IS checking "has this
+// browser/install ever been asked" — no separate first-launch flag needed. This naturally
+// covers a fresh install and a full reinstall/site-data-clear the same way, since both reset
+// permission back to 'default'.
+async function promptForNotificationsIfFirstLaunch(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission !== 'default') return;
+  await enablePushNotifications(true); // silent — success still toasts "Notifications enabled",
+                                        // but "not supported"/"not granted" stay quiet on a cold open
 }
 
 async function disablePushNotifications(){

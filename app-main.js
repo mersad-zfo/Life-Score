@@ -57,6 +57,7 @@ document.getElementById('fab').addEventListener('click', ()=>{
   }
   refreshBellBadge();
   checkNotificationPermissionState().then(()=> reconfirmDeviceIfNeeded());
+  promptForNotificationsIfFirstLaunch();
   const elapsed = Date.now() - splashStart;
   const minSplash = 900;
   setTimeout(()=>{
