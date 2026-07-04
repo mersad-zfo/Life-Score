@@ -106,6 +106,7 @@ function renderSettings(main){
       state.settings.language = btn.dataset.lang;
       saveState();
       applyLanguage();
+      reconfirmDeviceIfNeeded(); // so push notifications switch language right away, not just next app open
       renderSettings(main);
     });
   });

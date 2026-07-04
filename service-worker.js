@@ -1,7 +1,7 @@
 importScripts('./app-notif-db.js');
 importScripts('./app-notif-shared.js');
 
-const CACHE_NAME = 'life-score-v38';
+const CACHE_NAME = 'life-score-v39';
 const ASSETS = [
   './',
   './index.html',
@@ -62,29 +62,22 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ---------- Push notifications ----------
+// These two fixed daily pushes are deliberately NOT added to the in-app bell inbox — that inbox
+// is reserved for richer, condition-based notifications (streaks, milestones, etc.) that will be
+// generated entirely client-side later. Push and in-app are two separate, decoupled categories.
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch(e) { /* non-JSON payload, ignore */ }
   const title = data.title || 'Life Score';
   const body = data.body || '';
 
-  event.waitUntil((async ()=>{
-    // Record it locally first (works even if the app is never reopened right away — this is
-    // what makes the in-app bell badge correct, not just the OS-level notification).
-    await notifDbAdd({ title, body, receivedAt: Date.now() });
-    await notifDbPruneOld();
-
-    await self.registration.showNotification(title, {
+  event.waitUntil(
+    self.registration.showNotification(title, {
       body,
       icon: './icon-192.png',
       badge: './icon-192.png',
-    });
-
-    // If the app happens to already be open, tell it to refresh the bell badge right away
-    // instead of waiting for the next reload.
-    const clientsList = await self.clients.matchAll({ type: 'window' });
-    clientsList.forEach(c => c.postMessage({ type: 'life-score-push-received' }));
-  })());
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

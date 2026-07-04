@@ -41,8 +41,8 @@ function notifPlatform(){
   return 'other';
 }
 
-function saveNotifSyncSnapshot(endpoint, timezone, enabled){
-  state.settings.notifLastSync = { endpoint, timezone, enabled, dateStr: todayLocalDateStr() };
+function saveNotifSyncSnapshot(endpoint, timezone, enabled, language){
+  state.settings.notifLastSync = { endpoint, timezone, enabled, language, dateStr: todayLocalDateStr() };
   saveState();
 }
 
@@ -69,10 +69,11 @@ async function enablePushNotifications(silent){
     }
     const deviceId = await notifDeviceId();
     const timezone = currentTimezone();
+    const language = state.settings.language || 'en';
     await notifPostToWorker('/api/device', {
-      deviceId, subscription: subscription.toJSON(), platform: notifPlatform(), timezone, enabled: true,
+      deviceId, subscription: subscription.toJSON(), platform: notifPlatform(), timezone, language, enabled: true,
     });
-    saveNotifSyncSnapshot(subscription.endpoint, timezone, true);
+    saveNotifSyncSnapshot(subscription.endpoint, timezone, true, language);
     state.settings.notificationsEnabled = true;
     saveState();
     showToast(tr('Notifications enabled'));
@@ -153,17 +154,18 @@ async function reconfirmDeviceIfNeeded(){
     if(!subscription) return; // no valid subscription — checkNotificationPermissionState handles this case
 
     const timezone = currentTimezone();
+    const language = state.settings.language || 'en';
     const today = todayLocalDateStr();
     const last = state.settings.notifLastSync;
     const unchanged = last && last.endpoint===subscription.endpoint && last.timezone===timezone
-      && last.enabled===true && last.dateStr===today;
+      && last.enabled===true && last.language===language && last.dateStr===today;
     if(unchanged) return;
 
     const deviceId = await notifDeviceId();
     await notifPostToWorker('/api/device', {
-      deviceId, subscription: subscription.toJSON(), platform: notifPlatform(), timezone, enabled: true,
+      deviceId, subscription: subscription.toJSON(), platform: notifPlatform(), timezone, language, enabled: true,
     });
-    saveNotifSyncSnapshot(subscription.endpoint, timezone, true);
+    saveNotifSyncSnapshot(subscription.endpoint, timezone, true, language);
   }catch(e){ console.error('reconfirmDeviceIfNeeded failed', e); }
 }
 
