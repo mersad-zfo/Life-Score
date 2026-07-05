@@ -155,11 +155,43 @@ function renderProgYearView(container){
   container.querySelector('#progNext').addEventListener('click', ()=>{ if(canNext){ progYear++; renderProgYearView(container); }});
   container.querySelectorAll('[data-prog-month]').forEach(el=>{
     el.addEventListener('click', ()=>{
-      progMonth = parseInt(el.dataset.progMonth);
-      progView = 'month';
-      renderProgression(container);
+      openProgressionPopover(parseInt(el.dataset.progMonth));
     });
   });
+}
+
+// ---- Full-screen popover (month → week → day drill-down) ----
+// Year view above always stays inline in the Score tab. Tapping a month opens this popover, and
+// week/day navigation happens INSIDE it (renderProgWeekView/renderProgDayView below re-render into
+// the same popover body via their own back-button handlers) — never a second popover. Month view
+// (the popover's entry point) has no in-popover back step of its own — only the X closes it.
+function openProgressionPopover(month){
+  progMonth = month;
+  progView = 'month';
+  progWeekRange = null;
+  progDay = null;
+
+  const scrim = document.createElement('div');
+  scrim.className = 'prog-pop-scrim';
+  const card = document.createElement('div');
+  card.className = 'prog-pop-card';
+  card.innerHTML = `
+    <div class="prog-pop-head">
+      <h3>${tr('Progression')}</h3>
+      <button class="notif-popover-close" id="progPopClose">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="prog-pop-body" id="progPopBody"></div>
+  `;
+  document.body.appendChild(scrim);
+  document.body.appendChild(card);
+
+  const close = ()=>{ scrim.remove(); card.remove(); };
+  scrim.addEventListener('click', close);
+  card.querySelector('#progPopClose').addEventListener('click', close);
+
+  renderProgression(card.querySelector('#progPopBody'));
 }
 
 // ---- Month view: monthly hero + 4 custom-week tiles ----
@@ -178,14 +210,10 @@ function renderProgMonthView(container){
   });
 
   container.innerHTML = `
-    ${progBackBtn(String(progYear))}
     ${progHeroHtml(heroLabel, received, base)}
     <div class="score-grid" style="margin-top:12px;">${tilesHtml}</div>
   `;
 
-  container.querySelector('#progBack').addEventListener('click', ()=>{
-    progView='year'; renderProgression(container);
-  });
   container.querySelectorAll('[data-prog-week]').forEach(el=>{
     el.addEventListener('click', ()=>{
       progWeekRange = JSON.parse(el.dataset.progWeek);

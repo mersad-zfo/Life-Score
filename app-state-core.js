@@ -34,6 +34,8 @@ function ensureStateShape(){
   if(state.settings.notificationsEnabled===undefined) state.settings.notificationsEnabled = false;
   if(state.settings.deviceId===undefined) state.settings.deviceId = null;
   if(state.settings.notifLastSync===undefined) state.settings.notifLastSync = null;
+  // Category 2 "once per calendar day per condition" banner suppression — see app-notif-triggers.js.
+  if(state.settings.notifBannerLedger===undefined) state.settings.notifBannerLedger = { date: todayStr(), keys: [] };
   // Migrate pre-difficulty items: tag them 'normal' so the UI shows a sensible default.
   // Stored numeric fields (basePoints etc.) are left untouched so existing scores don't shift.
   state.routines.forEach(r=>{ if(!r.difficulty) r.difficulty = 'normal'; });

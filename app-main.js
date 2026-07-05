@@ -1,8 +1,8 @@
 // ---------- Init ----------
-const TAB_PAGE_TITLES = { routines: 'Your routines', tasks: 'Your tasks', score: 'Your score', settings: 'Settings' };
+const TAB_PAGE_TITLES = { routines: 'Your routines', tasks: 'Your tasks', score: 'Your score', settings: 'Settings', notifications: 'Notifications' };
 function updateHeader(){
   const el = document.getElementById('headerInfo');
-  document.getElementById('bellBtn').style.display = currentTab==='settings' ? 'none' : '';
+  document.getElementById('bellBtn').style.display = (currentTab==='settings' || currentTab==='notifications') ? 'none' : '';
   if(currentTab==='today'){
     el.innerHTML = `<div class="wordmark">Life Score</div><div class="date" id="todayLabel"></div>`;
     fmtDateLabel();
@@ -44,6 +44,7 @@ document.getElementById('fab').addEventListener('click', ()=>{
     await loadState();
     applyNavLabels(); // static nav-tab text isn't covered by any render*() function
     setTab('today');
+    runSilentNotificationCatchUp(); // Category 2: weekly/monthly rating finalized — never a banner
   }catch(e){
     console.error('Failed to load saved data', e);
     showToast(tr('Something went wrong loading your data'));

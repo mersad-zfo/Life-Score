@@ -7,6 +7,7 @@ function renderMain(){
   if(currentTab==='tasks') return renderTasks(main);
   if(currentTab==='score') return renderScore(main);
   if(currentTab==='settings') return renderSettings(main);
+  if(currentTab==='notifications') return renderNotificationsPage(main);
 }
 
 function escapeHtml(s){

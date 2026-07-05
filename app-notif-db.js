@@ -6,6 +6,15 @@
 // bell list next time you open it.
 //
 // A notification here is: { id (auto), title, body, receivedAt (ms timestamp), read (bool) }
+// Category 2 (local, condition-triggered) entries add a few more fields — see
+// ARCHITECTURE.md "Push Notification Architecture" / app-notif-triggers.js:
+//   category          'congrats' | 'warning' | 'info' — picks the 🏆/❗/❕ icon, never shown as text
+//   key               stable source signature (e.g. "ms:<routineId>:<date>") used to find/remove/
+//                     re-add the exact entry a condition caused, so undo/redo stays reactive
+//                     without ever matching on message text
+//   hiddenFromPopover set when the user taps "x" in the bell popover — hides it from that short
+//                     list only; it still lives in history until it 30-day-prunes or is trashed
+//                     from the full Notifications page
 
 const NOTIF_DB_NAME = 'lifescore-notifications';
 const NOTIF_STORE = 'notifications';
@@ -97,6 +106,60 @@ async function notifDbMarkAllRead(){
 async function notifDbUnreadCount(){
   const all = await notifDbGetAll();
   return all.filter(n=> !n.read).length;
+}
+
+// ---------- Category 2 helpers (key-based lookup, popover-hide, real delete) ----------
+// Small dataset (single user, 30-day retention) — plain getAll()+filter is plenty, no need for
+// a dedicated IDB index on `key`.
+async function notifDbFindByKey(key){
+  const all = await notifDbGetAll();
+  return all.find(n=> n.key===key) || null;
+}
+
+async function notifDbDeleteByKey(key){
+  const db = await notifDbOpen();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(NOTIF_STORE, 'readwrite');
+    const store = tx.objectStore(NOTIF_STORE);
+    const req = store.openCursor();
+    req.onsuccess = ()=>{
+      const cursor = req.result;
+      if(cursor){
+        if(cursor.value.key===key) cursor.delete();
+        cursor.continue();
+      }
+    };
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+// Bell popover "x" — hides from that short list only, and counts as read. The entry stays in
+// history (full Notifications page) until it 30-day-prunes or is explicitly trashed there.
+async function notifDbDismissFromPopover(id){
+  const db = await notifDbOpen();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(NOTIF_STORE, 'readwrite');
+    const store = tx.objectStore(NOTIF_STORE);
+    const req = store.get(id);
+    req.onsuccess = ()=>{
+      const val = req.result;
+      if(val) store.put({ ...val, read: true, hiddenFromPopover: true });
+    };
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+// Full Notifications page trash icon — a real, permanent delete (unlike the popover's "x").
+async function notifDbDeleteOne(id){
+  const db = await notifDbOpen();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(NOTIF_STORE, 'readwrite');
+    tx.objectStore(NOTIF_STORE).delete(id);
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = ()=> reject(tx.error);
+  });
 }
 
 // Keeps the store from growing forever on a device that's never opened the notifications

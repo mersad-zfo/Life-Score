@@ -9,18 +9,32 @@ function openModal(html){
 }
 
 // ---------- Notifications popover ----------
-async function openNotificationsModal(){
+// Icon (🏆/❗/❕) + title + subtitle, at most 6 most-recent (excluding any hidden via the "x"),
+// plus a permanent "show more" row into the full Notifications page. The "x" only hides an item
+// from THIS list — see notifDbDismissFromPopover — it stays in history until it 30-day-prunes or
+// is trashed from the full page.
+async function notifPopoverListHtml(){
   let list = [];
   try{ list = await notifDbGetAll(); }catch(e){ /* IndexedDB unavailable */ }
-
-  const itemsHtml = list.length ? list.map(n=>`
-    <div class="notif-item">
-      <div class="notif-title">${escapeHtml(n.title)}</div>
-      ${n.body ? `<div class="notif-body">${escapeHtml(n.body)}</div>` : ''}
-      <div class="notif-time">${new Date(n.receivedAt).toLocaleString()}</div>
+  const visible = list.filter(n=> !n.hiddenFromPopover).slice(0, 6);
+  const itemsHtml = visible.length ? visible.map(n=>`
+    <div class="notif-item" data-notif-id="${n.id}">
+      <div class="notif-icon">${NOTIF_ICONS[n.category] || ''}</div>
+      <div class="notif-text">
+        <div class="notif-title">${escapeHtml(n.title)}</div>
+        ${n.body ? `<div class="notif-body">${escapeHtml(n.body)}</div>` : ''}
+      </div>
+      <button class="notif-dismiss" data-dismiss="${n.id}" aria-label="${tr('Delete')}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
     </div>
   `).join('') : `<div class="notif-empty">${tr('No notifications yet')}</div>`;
-
+  return `
+    <div class="notif-list">${itemsHtml}</div>
+    <div class="notif-show-more" id="notifShowMore">${tr('Show more')}</div>
+  `;
+}
+async function openNotificationsModal(){
   const scrim = document.createElement('div');
   scrim.className = 'notif-scrim';
   const pop = document.createElement('div');
@@ -32,7 +46,7 @@ async function openNotificationsModal(){
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="notif-list">${itemsHtml}</div>
+    <div id="notifPopBody">${await notifPopoverListHtml()}</div>
   `;
   document.body.appendChild(scrim);
   document.body.appendChild(pop);
@@ -40,6 +54,25 @@ async function openNotificationsModal(){
   const close = ()=>{ scrim.remove(); pop.remove(); };
   scrim.addEventListener('click', close);
   pop.querySelector('#notifPopClose').addEventListener('click', close);
+
+  async function rerenderBody(){
+    pop.querySelector('#notifPopBody').innerHTML = await notifPopoverListHtml();
+    wireBody();
+  }
+  function wireBody(){
+    pop.querySelectorAll('[data-dismiss]').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.dismiss);
+        try{ await notifDbDismissFromPopover(id); }catch(err){ /* IndexedDB unavailable */ }
+        refreshBellBadge();
+        rerenderBody();
+      });
+    });
+    const showMore = pop.querySelector('#notifShowMore');
+    if(showMore) showMore.addEventListener('click', ()=>{ close(); openNotificationsPage(); });
+  }
+  wireBody();
 
   try{
     await notifDbMarkAllRead();
@@ -219,6 +252,7 @@ function openAddRoutineModal(){
     saveState();
     m.remove();
     renderMain();
+    evaluateNpCapNotifications();
   });
   setTimeout(()=>m.querySelector('#hName').focus(), 100);
 }
@@ -227,8 +261,8 @@ function openAddRoutineModal(){
 function openEditRoutineModal(id){
   const h = state.routines.find(x=>x.id===id);
   if(!h) return;
-  // Recurrence type locked forever. Difficulty (and numeric values) locked after first day
-  // for weekly/monthly to prevent dodge; daily stays editable (no decay to exploit).
+  // Recurrence type locked forever. Difficulty is always editable now (routineEditable() always
+  // returns true) — weekly/monthly used to lock it after the first day, daily never did.
   const diffLocked = !routineEditable(h);
   const m = openModal(`
     <h3>${tr('Edit routine')}</h3>
@@ -281,6 +315,7 @@ function openEditRoutineModal(id){
     m.remove();
     renderMain();
     showToast(tr('Routine updated'));
+    evaluateNpCapNotifications();
   });
   setTimeout(()=>m.querySelector('#ehName').focus(), 100);
 }
@@ -325,6 +360,7 @@ function openAddTaskModal(){
     saveState();
     m.remove();
     renderMain();
+    evaluateNpCapNotifications();
   });
   setTimeout(()=>m.querySelector('#tName').focus(), 100);
 }
@@ -375,6 +411,7 @@ function openEditTaskModal(id){
     m.remove();
     renderMain();
     showToast(tr('Task updated'));
+    evaluateNpCapNotifications();
   });
   setTimeout(()=>m.querySelector('#etName').focus(), 100);
 }

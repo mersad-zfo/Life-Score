@@ -170,6 +170,8 @@ function routineIsDueToday(r){
 // points, only shrinks future reward. Weekly/monthly ALSO logs a real negative score entry for
 // that missed day, scaled by neglect milestones reached after this miss.
 function applyRoutineMiss(r, missedDate){
+  const def = routineMilestoneDef(r);
+  const oldNeglectCount = milestonesPassed(r.neglect, def);
   const next = routineNextStateOnMiss(r);
   r.streak = next.streak;
   r.neglect = next.neglect;
@@ -178,6 +180,8 @@ function applyRoutineMiss(r, missedDate){
     const penalty = routinePenalty(r); // uses neglect AFTER this miss, consistent with the "after" convention used everywhere else
     state.log.push({id: uid(), kind:'routine_penalty', refId: r.id, name: r.name, points: -Math.abs(penalty), date: missedDate});
   }
+  // Silent Category 2 notification — a miss is only ever discovered during catch-up, never live.
+  notifyNeglectMilestoneIfCrossed(r, missedDate, oldNeglectCount, milestonesPassed(r.neglect, def));
 }
 // Replays every missed OCCURRENCE between a routine's last-evaluated date and yesterday, in order —
 // so the once-per-chain relapse rule and milestone-drop sequencing stay correct regardless of how
@@ -212,6 +216,7 @@ function completeRoutine(id){
 
   const def = routineMilestoneDef(r);
   const oldStreakCount = milestonesPassed(r.streak, def);
+  const wasNeglected = r.neglect > 0;
   const next = routineNextStateOnComplete(r);
   r.streak = next.streak;
   r.neglect = next.neglect;
@@ -219,6 +224,7 @@ function completeRoutine(id){
   r.lastCompletedDate = t;
   r.lastEvaluatedDate = t;
   const crossedStreakMilestone = milestonesPassed(r.streak, def) > oldStreakCount;
+  const recoveredFromNeglect = wasNeglected && r.neglect===0;
 
   const pts = routineReward(r);
   r.awardedPoints = pts;
@@ -233,6 +239,8 @@ function completeRoutine(id){
   playSparkle();
   if(crossedStreakMilestone) triggerConfetti(`[data-card-routine="${id}"]`);
   showToast(`+${pts} · ${r.name}`);
+  evaluateRoutineCompletionNotifications(r, t, { crossedStreakMilestone, recoveredFromNeglect });
+  evaluateNpCapNotifications();
 }
 function uncompleteRoutine(id){
   const r = state.routines.find(x=>x.id===id);
@@ -251,6 +259,8 @@ function uncompleteRoutine(id){
   r.awardedPoints = null;
   saveState();
   renderMain();
+  clearRoutineCompletionNotifications(id, t);
+  evaluateNpCapNotifications();
 }
 function triggerBump(selector){
   requestAnimationFrame(()=>{
@@ -306,6 +316,7 @@ function deleteRoutine(id){
   state.log = state.log.filter(l=> !((l.kind==='routine'||l.kind==='routine_penalty') && l.refId===id));
   saveState();
   renderMain();
+  evaluateNpCapNotifications();
 }
 function reorderRoutine(id, dir){
   const i = state.routines.findIndex(h=>h.id===id);
@@ -347,12 +358,11 @@ function formatDueLabel(dateStr, recurrence){
   if(recurrence==='weekly') return d.toLocaleDateString(localeForLang(), {weekday:'long'});
   return d.toLocaleDateString(localeForLang(), {month:'short', day:'numeric'});
 }
-// Only weekly/monthly inherit the numeric-value/recurrence-type edit-lock (mirrors the old
-// recurring-task rule, which existed to prevent decay/penalty dodging). Daily routines have no
-// decay to dodge and stay freely editable, same as the original Habit behavior.
+// All routines are freely editable at all times, same as daily always was — weekly/monthly used
+// to lock difficulty after the first day to prevent decay/penalty dodging, but that lock has been
+// removed (single-user app, not worth the friction).
 function routineEditable(r){
-  if(r.recurrence==='daily') return true;
-  return r.createdDate === todayStr();
+  return true;
 }
 // Routines due/relevant on the Home tab today: all daily routines, plus weekly/monthly routines
 // that are due today (schedule match). Note this doesn't need a separate "done today" check —
@@ -417,6 +427,7 @@ function completeTask(id){
   triggerShine(`[data-card-task="${id}"]`);
   playSparkle();
   showToast(trTaskDoneToast(val, task.name));
+  evaluateNpCapNotifications();
 }
 function uncompleteTask(id){
   const task = state.tasks.find(x=>x.id===id);
@@ -428,6 +439,7 @@ function uncompleteTask(id){
   task.awardedPoints = null;
   saveState();
   renderMain();
+  evaluateNpCapNotifications();
 }
 function pruneStaleCompletedTasks(){
   const t = todayStr();
@@ -437,6 +449,7 @@ function deleteTask(id){
   state.tasks = state.tasks.filter(t=>t.id!==id);
   saveState();
   renderMain();
+  evaluateNpCapNotifications();
 }
 function reorderTask(id, dir){
   const i = state.tasks.findIndex(t=>t.id===id);

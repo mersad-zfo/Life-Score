@@ -119,6 +119,17 @@ const LANG_DICT = {
       'از حساب خارج شوید؟ پروفایل شما روی این دستگاه ذخیره می‌ماند — هر وقت بخواهید می‌توانید دوباره وارد شوید. روتین‌ها، کارها و امتیازهای شما در هر صورت تغییری نمی‌کنند.',
     'Permanently delete this profile (name and email) from this device? Your routines, tasks, and scores are not affected — only the account itself is removed.':
       'این پروفایل (نام و ایمیل) برای همیشه از این دستگاه حذف شود؟ روتین‌ها، کارها و امتیازهای شما تغییری نمی‌کنند — فقط خود حساب حذف می‌شود.',
+    // Category 2 notifications
+    'New Milestone!': 'نقطه عطف جدید!',
+    'You made it back!!': 'برگشتی!!',
+    'Be careful!': 'مراقب باش!',
+    'Daily Rating limit.': 'محدودیت رتبه روزانه.',
+    'Weekly Rating limit.': 'محدودیت رتبه هفتگی.',
+    'Monthly Rating limit.': 'محدودیت رتبه ماهانه.',
+    'Show more': 'مشاهده بیشتر',
+    'Delete this notification from your history?': 'این اعلان برای همیشه از تاریخچه حذف شود؟',
+    'Delete': 'حذف',
+    "This can't be undone.": 'این کار قابل بازگشت نیست.',
   }
 };
 function tr(key){
@@ -172,6 +183,66 @@ function trWelcome(name){
 function trTaskDoneToast(val, name){
   const sign = val>=0 ? '+' : '';
   return curLang()==='fa' ? `${sign}${numFa(Math.abs(val))} · ${name} انجام شد` : `${sign}${val} · ${name} done`;
+}
+
+// ---- Category 2 notification message builders ----
+// Kept together and separate from the trigger-detection logic in app-notif-triggers.js —
+// this file owns *text*, that file owns *when*. Wording here is a first pass; the
+// occurrences/triggers are the stable part, not this exact phrasing (see DECISIONS.md).
+function trMilestoneNotifBody(emoji, streakCount, routineName){
+  if(curLang()==='fa'){
+    return `تبریک! به نقطه عطف «${emoji}×${numFa(streakCount)} رکورد» در «${routineName}» رسیدی! این از این به بعد یکی از تور ایمنی‌های تو خواهد بود.`;
+  }
+  return `Congratulations — you just reached the "${emoji}×${streakCount} Streak" milestone on "${routineName}"! This will be one of your safety-nets moving forward.`;
+}
+function trRecoveryNotifBody(routineName){
+  if(curLang()==='fa'){
+    return `با روتین «${routineName}» که قبلاً مورد غفلت واقع شده بود، دوباره به مسیر برگشتی! به‌خاطر پشتکارت بهت افتخار می‌کنم.`;
+  }
+  return `You're back on track with "${routineName}", a routine that was neglected before. I'm proud of your determination.`;
+}
+function trNeglectNotifBody(emoji, neglectCount, routineName){
+  if(curLang()==='fa'){
+    return `به «${emoji}×${numFa(neglectCount)} غفلت» در «${routineName}» رسیدی. هیچ‌وقت برای برگشتن دیر نیست — برنامه کمکت می‌کنه سریع‌تر از چیزی که فکرش رو بکنی این عدد رو کم کنی!`;
+  }
+  return `You just reached "${emoji}×${neglectCount} neglect" on "${routineName}". It's never too late to get back on track — the app will help you shrink that counter faster than you think!`;
+}
+// period: 'weekly' | 'monthly'. rating: 'NOT GOOD' | 'GOOD' | 'GREAT!' | 'AWESOME!!!'
+function trRatingNotifTitle(period, rating){
+  const ratingLabel = tr(rating);
+  if(curLang()==='fa'){
+    const periodWord = period==='weekly' ? 'هفتگی' : 'ماهانه';
+    return `رتبه ${periodWord} «${ratingLabel}»${rating==='NOT GOOD' ? '.' : '!'}`;
+  }
+  const periodWord = period==='weekly' ? 'weekly' : 'monthly';
+  return rating==='NOT GOOD' ? `"${ratingLabel}" ${periodWord} rating.` : `"${ratingLabel}" ${periodWord} rating!`;
+}
+function trRatingNotifBody(period, rating){
+  const pEn = period==='weekly' ? 'week' : 'month';
+  if(curLang()==='fa'){
+    const pFa = period==='weekly' ? 'هفتگی' : 'ماهانه';
+    const pFaNoun = period==='weekly' ? 'هفته' : 'ماه';
+    if(rating==='AWESOME!!!') return `رتبه ${pFa} شما «فوق‌العاده!!!» شد — یعنی از سقف انتظار هم فراتر رفتی. همینطور ادامه بده!`;
+    if(rating==='GREAT!')     return `رتبه ${pFa} شما «عالی!» شد. کارت واقعاً خوب بود!`;
+    if(rating==='GOOD')       return `رتبه این ${pFaNoun} شما «خوب» شد! بد نیست، و مطمئنم دفعه بعد پتانسیل رسیدن به رتبه‌های بالاتر رو داری.`;
+    return `رتبه این ${pFaNoun} شما «خوب نیست» شد. اشکالی نداره — مطمئنم با کمی تلاش، ${pFaNoun}‌های بعدی جبران می‌کنی و رتبه کلی‌ات رو نجات می‌دی.`;
+  }
+  if(rating==='AWESOME!!!') return `Your ${pEn}ly rating was AWESOME!!! You blew right past the top of the scale — keep this up.`;
+  if(rating==='GREAT!')     return `Your ${pEn}ly rating was GREAT! That's some seriously solid work.`;
+  if(rating==='GOOD')       return `Your rating for this ${pEn} was GOOD! That's pretty good, and I'm sure you have the potential to get higher ratings next time.`;
+  return `Your rating for this ${pEn} was NOT GOOD. That's ok — I'm sure with a bit of effort you'll make up for it in the upcoming ${pEn}s to save your overall rating!`;
+}
+function trDailyNpCapBody(){
+  if(curLang()==='fa') return `رتبه فعلی شما به «خوب» و «خوب نیست» محدود شده. برای باز شدن «عالی!» و «فوق‌العاده!!!» حداقل ۵ مورد در لیست روزانه‌تان داشته باشید.`;
+  return `Your current rating is limited to "GOOD" and "NOT GOOD". Have at least 5 items in your daily list to unlock "GREAT!" and "AWESOME!!!".`;
+}
+function trWeeklyNpCapBody(count){
+  if(curLang()==='fa') return `این هفته، ${numFa(count)} روز با محدودیت رتبه روزانه داشتید. یک روز دیگر مثل این و رتبه هفتگی‌تان هم محدود می‌شود. سعی کنید موارد بیشتری به لیست روزانه‌تان اضافه کنید.`;
+  return `This week, you had ${count} days with daily rating limit. Another day like that and your weekly rating will be limited too. Try to add more items to your daily list.`;
+}
+function trMonthlyNpCapBody(count){
+  if(curLang()==='fa') return `این ماه، ${numFa(count)} روز با محدودیت رتبه روزانه داشتید. یک روز دیگر مثل این و رتبه ماهانه‌تان هم محدود می‌شود. سعی کنید موارد بیشتری به لیست روزانه‌تان اضافه کنید.`;
+  return `This month, you had ${count} days with daily rating limit. Another day like that and your monthly rating will be limited too. Try to add more items to your daily list.`;
 }
 // Updates the bits of static markup in index.html that live outside any render*() function
 // (nav tab labels) — used on init, and as part of applyLanguage() below.
