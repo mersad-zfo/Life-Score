@@ -340,6 +340,11 @@ function openAddTaskModal(){
     </div>
   `);
   wireDifficultyPicker(m, 't');
+  let emojiTouched = false;
+  m.querySelector('#tEmoji').addEventListener('input', ()=>{ emojiTouched = true; });
+  m.querySelector('#tName').addEventListener('input', (e)=>{
+    if(!emojiTouched) m.querySelector('#tEmoji').value = pickTaskEmoji(e.target.value);
+  });
   m.querySelector('#tAddDetailsLink').addEventListener('click', ()=>{
     m.querySelector('#tDescField').style.display = 'block';
     m.querySelector('#tAddDetailsLink').style.display = 'none';

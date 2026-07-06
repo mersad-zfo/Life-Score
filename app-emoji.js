@@ -1,7 +1,8 @@
 // ---------- Auto emoji picker ----------
-// Keyword pools, the EMOJI_VARIETY/EMOJI_SINGLE dictionaries, and whole-word matching used to
-// auto-suggest an emoji from a routine's name. Currently Routines-only (see BACKLOG.md #2/#3
-// for extending this to Tasks and adding a Farsi dictionary).
+// Keyword pools, the EMOJI_VARIETY/EMOJI_SINGLE/EMOJI_OBJECTS dictionaries, and whole-word
+// matching used to auto-suggest an emoji from a routine's or task's name. Shared by both
+// Routines and Tasks via pickRoutineEmoji()/pickTaskEmoji() (see BACKLOG.md for a Farsi
+// dictionary as a possible future extension).
 // (Split out of the former monolithic app-state.js — see ARCHITECTURE.md.)
 const ROUTINE_FALLBACK_EMOJI = '🎯';
 const TASK_DEFAULT_EMOJI = '📋';
@@ -13,6 +14,7 @@ const P_WATER = ['💧','🚰'];
 const P_COOKING = ['👨‍🍳','👩‍🍳','🧑‍🍳','🍳','🥘'];
 const P_NUTRITION = ['🥗','🥬','🥦','🥕','🍎','🍌','🫐','🍇','🍓','🥝','🍍'];
 const P_BATHING = ['🚿','🛁','🧼'];
+const P_WASH = ['🧼','🧽'];
 const P_GROOM_TOUCH = ['💆','💆‍♀️'];
 const P_HEALTH = ['⚕️','🩺'];
 const P_SAUNA = ['🧖','🧖‍♀️'];
@@ -75,6 +77,12 @@ const EMOJI_VARIETY = {
   // Bathing
   'shower': P_BATHING, 'showering': P_BATHING, 'bath': P_BATHING, 'bathing': P_BATHING,
   'wash face': P_BATHING, 'washing face': P_BATHING,
+  // Washing (general)
+  'wash': P_WASH, 'washing': P_WASH, 'washed': P_WASH,
+  'wash hands': P_WASH, 'washing hands': P_WASH, 'hand wash': P_WASH,
+  'wash dishes': P_WASH, 'washing dishes': P_WASH,
+  'wash car': P_WASH, 'washing car': P_WASH,
+  'wash clothes': P_LAUNDRY, 'washing clothes': P_LAUNDRY,
   // Grooming / Recovery (touch-based)
   'haircare': P_GROOM_TOUCH, 'hair care': P_GROOM_TOUCH, 'massage': P_GROOM_TOUCH,
   'self care': P_GROOM_TOUCH, 'selfcare': P_GROOM_TOUCH,
@@ -202,7 +210,7 @@ const EMOJI_SINGLE = {
   // Home care
   'bed': '🛏️', 'making bed': '🛏️', 'windows': '🪟',
   // Gardening
-  'garden': '🪴', 'gardening': '🪴', 'plants': '🪴',
+  'garden': '🪴', 'gardening': '🪴', 'plant': '🪴', 'plants': '🪴',
   // Pets
   'pet care': '🐾', 'pet': '🐾', 'feed pet': '🐾', 'feeding pet': '🐾',
   'walk dog': '🐕', 'walking dog': '🐕', 'play with pet': '🐾', 'playing with pet': '🐾',
@@ -223,13 +231,105 @@ const EMOJI_SINGLE = {
   'morning routine': '🌅', 'evening routine': '🌇', 'night routine': '🌙',
 };
 
+// Common physical objects, singular and plural. Checked last (after EMOJI_VARIETY/EMOJI_SINGLE)
+// so a specific activity phrase (e.g. "wash dishes") still wins over a bare noun match.
+const EMOJI_OBJECTS = {
+  // Electronics
+  'phone': '📱', 'phones': '📱', 'smartphone': '📱', 'smartphones': '📱', 'cellphone': '📱', 'cellphones': '📱',
+  'computer': '🖥️', 'computers': '🖥️', 'desktop': '🖥️', 'desktops': '🖥️',
+  'laptop': '💻', 'laptops': '💻',
+  'tablet': '📱', 'tablets': '📱',
+  'keyboard': '⌨️', 'keyboards': '⌨️',
+  'mouse': '🖱️', 'printer': '🖨️', 'printers': '🖨️',
+  'camera': '📷', 'cameras': '📷',
+  'tv': '📺', 'tvs': '📺', 'television': '📺', 'televisions': '📺',
+  'radio': '📻', 'radios': '📻',
+  'speaker': '🔊', 'speakers': '🔊',
+  'headphone': '🎧', 'headphones': '🎧', 'earbud': '🎧', 'earbuds': '🎧',
+  'battery': '🔋', 'batteries': '🔋',
+  'charger': '🔌', 'chargers': '🔌',
+  'flashlight': '🔦', 'flashlights': '🔦',
+  'lightbulb': '💡', 'lightbulbs': '💡', 'bulb': '💡', 'bulbs': '💡', 'lamp': '💡', 'lamps': '💡',
+  'watch': '⌚', 'watches': '⌚',
+  'clock': '🕐', 'clocks': '🕐', 'alarm clock': '⏰', 'alarm clocks': '⏰',
+  'calculator': '🧮', 'calculators': '🧮',
+
+  // Furniture & household
+  'chair': '🪑', 'chairs': '🪑',
+  'sofa': '🛋️', 'sofas': '🛋️', 'couch': '🛋️', 'couches': '🛋️',
+  'mirror': '🪞', 'mirrors': '🪞',
+  'door': '🚪', 'doors': '🚪',
+  'key': '🔑', 'keys': '🔑',
+  'lock': '🔒', 'locks': '🔒',
+  'candle': '🕯️', 'candles': '🕯️',
+  'toilet paper': '🧻',
+  'soap': '🧼', 'soaps': '🧼',
+  'ladder': '🪜', 'ladders': '🪜',
+
+  // Kitchen & dining
+  'plate': '🍽️', 'plates': '🍽️',
+  'mug': '☕', 'mugs': '☕',
+  'fork': '🍴', 'forks': '🍴',
+  'knife': '🔪', 'knives': '🔪',
+  'spoon': '🥄', 'spoons': '🥄',
+  'pot': '🍲', 'pots': '🍲',
+  'pan': '🍳', 'pans': '🍳',
+  'kettle': '🫖', 'kettles': '🫖',
+
+  // Books, stationery & office
+  'book': '📚', 'books': '📚',
+  'notebook': '📓', 'notebooks': '📓',
+  'pen': '🖊️', 'pens': '🖊️',
+  'pencil': '✏️', 'pencils': '✏️',
+  'folder': '📁', 'folders': '📁',
+  'envelope': '✉️', 'envelopes': '✉️',
+  'letter': '✉️', 'letters': '✉️',
+  'scissors': '✂️',
+  'ruler': '📏', 'rulers': '📏',
+  'paperclip': '📎', 'paperclips': '📎',
+  'newspaper': '📰', 'newspapers': '📰',
+  'magazine': '📰', 'magazines': '📰',
+
+  // Clothing & accessories
+  'shirt': '👕', 'shirts': '👕',
+  'shoe': '👟', 'shoes': '👟',
+  'sock': '🧦', 'socks': '🧦',
+  'hat': '🧢', 'hats': '🧢',
+  'glasses': '👓',
+  'bag': '👜', 'bags': '👜',
+  'backpack': '🎒', 'backpacks': '🎒',
+  'wallet': '👛', 'wallets': '👛',
+  'umbrella': '☂️', 'umbrellas': '☂️',
+  'ring': '💍', 'rings': '💍',
+  'suitcase': '🧳', 'suitcases': '🧳', 'luggage': '🧳',
+  'passport': '🛂', 'passports': '🛂',
+
+  // Tools
+  'hammer': '🔨', 'hammers': '🔨',
+  'screwdriver': '🪛', 'screwdrivers': '🪛',
+  'wrench': '🔧', 'wrenches': '🔧',
+  'saw': '🪚', 'saws': '🪚',
+  'toolbox': '🧰', 'toolboxes': '🧰',
+
+  // Misc
+  'box': '📦', 'boxes': '📦',
+  'gift': '🎁', 'gifts': '🎁', 'present': '🎁', 'presents': '🎁',
+  'flower': '🌸', 'flowers': '💐',
+  'tree': '🌳', 'trees': '🌳',
+  'coin': '🪙', 'coins': '🪙',
+  'receipt': '🧾', 'receipts': '🧾',
+  'basketball': '🏀', 'basketballs': '🏀',
+  'football': '⚽', 'footballs': '⚽', 'soccer ball': '⚽', 'soccer balls': '⚽',
+  'guitar': '🎸', 'guitars': '🎸', 'piano': '🎹', 'pianos': '🎹',
+};
+
 // Whole-word/phrase matching: avoids false positives like "eat" matching inside
 // "heating" or "treat". Multi-word keys (e.g. "side project") match as a phrase.
 function wholeWordMatch(text, key){
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
 }
-function pickRoutineEmoji(name){
+function pickEmoji(name, fallback){
   const n = name || '';
   for(const key in EMOJI_VARIETY){
     if(wholeWordMatch(n, key)){
@@ -240,5 +340,14 @@ function pickRoutineEmoji(name){
   for(const key in EMOJI_SINGLE){
     if(wholeWordMatch(n, key)) return EMOJI_SINGLE[key];
   }
-  return ROUTINE_FALLBACK_EMOJI;
+  for(const key in EMOJI_OBJECTS){
+    if(wholeWordMatch(n, key)) return EMOJI_OBJECTS[key];
+  }
+  return fallback;
+}
+function pickRoutineEmoji(name){
+  return pickEmoji(name, ROUTINE_FALLBACK_EMOJI);
+}
+function pickTaskEmoji(name){
+  return pickEmoji(name, TASK_DEFAULT_EMOJI);
 }
