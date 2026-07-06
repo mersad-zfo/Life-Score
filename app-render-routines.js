@@ -14,7 +14,7 @@ function renderDailyRoutineCard(r){
         <div class="item-name">${escapeHtml(r.name)}</div>
         <div class="item-sub">${stateText}</div>
       </div>
-      <span class="pill">+${r.basePoints}</span>
+      <span class="pill">${r.basePoints}</span>
       <button class="btn-done ${done?'done':''}" data-routine="${r.id}">${done? '✓' : ''}</button>
     </div>
     <div class="row" style="margin-top:8px;">
@@ -72,7 +72,7 @@ function renderRecurringRoutineCard(r){
         <div class="item-sub">${trDueDates(scheduleText)}</div>
         ${r.description ? `<div class="item-sub" style="margin-top:5px; color:var(--ink);">${escapeHtml(r.description)}</div>` : ''}
       </div>
-      <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview>=0?'+':''}${pointsPreview}</span>
+      <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview}</span>
       ${doneBtnHtml}
     </div>
     <div class="row" style="margin-top:8px;">

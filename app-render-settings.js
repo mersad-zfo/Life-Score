@@ -6,13 +6,6 @@ function renderSettings(main){
   const lang = state.settings.language || 'en';
   const isLoggedIn = state.profile && state.session.loggedIn;
   let html = `
-    <div class="back-row">
-      <button id="backFromSettings">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-        ${tr('Back')}
-      </button>
-    </div>
-
     <div class="settings-group">
       <div class="settings-group-title">${tr('Account')}</div>
       ${isLoggedIn ? `
@@ -88,11 +81,6 @@ function renderSettings(main){
   `;
   main.innerHTML = html;
 
-  document.getElementById('backFromSettings').addEventListener('click', ()=>{
-    backupTapped = false;
-    restoreTapped = false;
-    setTab(previousTab);
-  });
   main.querySelectorAll('[data-theme]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       state.settings.theme = btn.dataset.theme;

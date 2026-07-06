@@ -1,11 +1,25 @@
 // ---------- Init ----------
 const TAB_PAGE_TITLES = { routines: 'Your routines', tasks: 'Your tasks', score: 'Your score', settings: 'Settings', notifications: 'Notifications' };
+function headerBackAction(){
+  if(currentTab==='settings'){ backupTapped = false; restoreTapped = false; }
+  setTab(previousTab);
+}
 function updateHeader(){
   const el = document.getElementById('headerInfo');
   document.getElementById('bellBtn').style.display = (currentTab==='settings' || currentTab==='notifications') ? 'none' : '';
   if(currentTab==='today'){
     el.innerHTML = `<div class="wordmark">Life Score</div><div class="date" id="todayLabel"></div>`;
     fmtDateLabel();
+  } else if(currentTab==='settings' || currentTab==='notifications'){
+    // Page-level back lives right under the title here, not inline in the page content.
+    el.innerHTML = `
+      <div class="wordmark page-title page-title-with-back">${tr(TAB_PAGE_TITLES[currentTab])}</div>
+      <button class="header-back-btn" id="headerBackBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        ${tr('Back')}
+      </button>
+    `;
+    document.getElementById('headerBackBtn').addEventListener('click', headerBackAction);
   } else {
     el.innerHTML = `<div class="wordmark page-title">${tr(TAB_PAGE_TITLES[currentTab])}</div>`;
   }

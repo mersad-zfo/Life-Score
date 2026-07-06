@@ -181,7 +181,10 @@ function applyRoutineMiss(r, missedDate){
     state.log.push({id: uid(), kind:'routine_penalty', refId: r.id, name: r.name, points: -Math.abs(penalty), date: missedDate});
   }
   // Silent Category 2 notification — a miss is only ever discovered during catch-up, never live.
-  notifyNeglectMilestoneIfCrossed(r, missedDate, oldNeglectCount, milestonesPassed(r.neglect, def));
+  const newNeglectCount = milestonesPassed(r.neglect, def);
+  const crossedNeglectMilestone = newNeglectCount > oldNeglectCount;
+  if(crossedNeglectMilestone) r.neglectMilestoneHit = true; // remembered across the halving-down recovery, until neglect fully clears
+  notifyNeglectMilestoneIfCrossed(r, missedDate, oldNeglectCount, newNeglectCount);
 }
 // Replays every missed OCCURRENCE between a routine's last-evaluated date and yesterday, in order —
 // so the once-per-chain relapse rule and milestone-drop sequencing stay correct regardless of how
@@ -210,6 +213,7 @@ function completeRoutine(id){
     streak: r.streak,
     neglect: r.neglect,
     recoveryChain: r.recoveryChain,
+    neglectMilestoneHit: r.neglectMilestoneHit,
     lastCompletedDate: r.lastCompletedDate,
     lastEvaluatedDate: r.lastEvaluatedDate
   };
@@ -217,6 +221,7 @@ function completeRoutine(id){
   const def = routineMilestoneDef(r);
   const oldStreakCount = milestonesPassed(r.streak, def);
   const wasNeglected = r.neglect > 0;
+  const hadNeglectMilestone = !!r.neglectMilestoneHit;
   const next = routineNextStateOnComplete(r);
   r.streak = next.streak;
   r.neglect = next.neglect;
@@ -224,7 +229,10 @@ function completeRoutine(id){
   r.lastCompletedDate = t;
   r.lastEvaluatedDate = t;
   const crossedStreakMilestone = milestonesPassed(r.streak, def) > oldStreakCount;
-  const recoveredFromNeglect = wasNeglected && r.neglect===0;
+  // Only counts as "got back on track" if a real neglect milestone (x7/x14/x30…) was crossed at
+  // some point during this episode — not just any single missed day that clears on the next check-in.
+  const recoveredFromNeglect = wasNeglected && r.neglect===0 && hadNeglectMilestone;
+  if(r.neglect===0) r.neglectMilestoneHit = false; // episode fully over — reset for the next one
 
   const pts = routineReward(r);
   r.awardedPoints = pts;
@@ -240,7 +248,7 @@ function completeRoutine(id){
   if(crossedStreakMilestone) triggerConfetti(`[data-card-routine="${id}"]`);
   showToast(`+${pts} · ${r.name}`);
   evaluateRoutineCompletionNotifications(r, t, { crossedStreakMilestone, recoveredFromNeglect });
-  evaluateNpCapNotifications();
+  evaluateLiveDailyNotifications();
 }
 function uncompleteRoutine(id){
   const r = state.routines.find(x=>x.id===id);
@@ -252,6 +260,7 @@ function uncompleteRoutine(id){
     r.streak = r.previousSnapshot.streak;
     r.neglect = r.previousSnapshot.neglect;
     r.recoveryChain = r.previousSnapshot.recoveryChain;
+    r.neglectMilestoneHit = r.previousSnapshot.neglectMilestoneHit;
     r.lastCompletedDate = r.previousSnapshot.lastCompletedDate;
     r.lastEvaluatedDate = r.previousSnapshot.lastEvaluatedDate;
     delete r.previousSnapshot;
@@ -260,7 +269,7 @@ function uncompleteRoutine(id){
   saveState();
   renderMain();
   clearRoutineCompletionNotifications(id, t);
-  evaluateNpCapNotifications();
+  evaluateLiveDailyNotifications();
 }
 function triggerBump(selector){
   requestAnimationFrame(()=>{
@@ -316,7 +325,7 @@ function deleteRoutine(id){
   state.log = state.log.filter(l=> !((l.kind==='routine'||l.kind==='routine_penalty') && l.refId===id));
   saveState();
   renderMain();
-  evaluateNpCapNotifications();
+  evaluateLiveDailyNotifications();
 }
 function reorderRoutine(id, dir){
   const i = state.routines.findIndex(h=>h.id===id);
@@ -427,7 +436,7 @@ function completeTask(id){
   triggerShine(`[data-card-task="${id}"]`);
   playSparkle();
   showToast(trTaskDoneToast(val, task.name));
-  evaluateNpCapNotifications();
+  evaluateLiveDailyNotifications();
 }
 function uncompleteTask(id){
   const task = state.tasks.find(x=>x.id===id);
@@ -439,7 +448,7 @@ function uncompleteTask(id){
   task.awardedPoints = null;
   saveState();
   renderMain();
-  evaluateNpCapNotifications();
+  evaluateLiveDailyNotifications();
 }
 function pruneStaleCompletedTasks(){
   const t = todayStr();
@@ -449,7 +458,7 @@ function deleteTask(id){
   state.tasks = state.tasks.filter(t=>t.id!==id);
   saveState();
   renderMain();
-  evaluateNpCapNotifications();
+  evaluateLiveDailyNotifications();
 }
 function reorderTask(id, dir){
   const i = state.tasks.findIndex(t=>t.id===id);

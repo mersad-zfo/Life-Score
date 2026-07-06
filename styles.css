@@ -76,6 +76,16 @@
   header.top .wordmark.page-title{
     font-size:27px;
   }
+  header.top .wordmark.page-title-with-back{
+    font-size:19px;
+    margin-bottom:5px;
+  }
+  .header-back-btn{
+    color:var(--ink-soft);
+    font-size:13px;
+    display:flex; align-items:center; gap:4px;
+  }
+  .header-back-btn:active{ opacity:0.6; }
   header.top .date{
     font-size:12px;
     color:var(--ink-soft);
@@ -688,13 +698,18 @@
   .notif-title{ font-weight:600; font-size:14px; }
   .notif-body{ font-size:13px; color:var(--ink-soft); margin-top:2px; line-height:1.4; }
   .notif-time{ font-size:11px; color:var(--ink-soft); margin-top:4px; opacity:0.7; }
-  .notif-dismiss, .notif-trash{
+  .notif-dismiss{
     flex-shrink:0; width:26px; height:26px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
     color:var(--ink-soft); margin-top:1px;
   }
+  .notif-trash{
+    flex-shrink:0; width:26px; height:26px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--rust); margin-top:1px;
+  }
   .notif-dismiss:active{ background:var(--accent-soft); color:var(--accent); }
-  .notif-trash:active{ background:var(--rust-soft); color:var(--rust); }
+  .notif-trash:active{ background:var(--rust-soft); }
   .notif-show-more{
     text-align:center; padding:12px 4px 2px; font-size:13px; font-weight:600;
     color:var(--accent);
@@ -953,27 +968,6 @@
     100%{ left:150%; }
   }
 
-  /* Empty-state overlay */
-  .all-clear-overlay{
-    position:fixed; inset:0;
-    background:var(--bg);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    z-index:50;
-    text-align:center;
-    padding:20px;
-  }
-  .all-clear-overlay .big-emoji{ font-size:54px; margin-bottom:14px; }
-  .all-clear-overlay .msg{
-    font-family:'Newsreader', serif;
-    font-size:22px;
-    color:var(--ink);
-  }
-  .all-clear-overlay .hint{
-    font-size:12px;
-    color:var(--ink-soft);
-    margin-top:14px;
-  }
-
   /* ---- Farsi RTL text direction ---- */
   /* Only text content flips; layout, icons, and nav stay LTR. */
   body.lang-fa .item-name,
@@ -987,7 +981,12 @@
   body.lang-fa .acc-name,
   body.lang-fa .acc-email,
   body.lang-fa .credit-line,
-  body.lang-fa .add-details-link {
+  body.lang-fa .add-details-link,
+  body.lang-fa .notif-title,
+  body.lang-fa .notif-body,
+  body.lang-fa .notif-time,
+  body.lang-fa .nb-title,
+  body.lang-fa .nb-body {
     direction: rtl;
     unicode-bidi: plaintext;
     text-align: right;
@@ -996,9 +995,9 @@
   body.lang-fa .score-hero .label,
   body.lang-fa .score-tile .t-label,
   body.lang-fa .daily-tally,
-  body.lang-fa .all-clear-overlay .msg,
-  body.lang-fa .all-clear-overlay .hint,
-  body.lang-fa .empty {
+  body.lang-fa .empty,
+  body.lang-fa .notif-empty,
+  body.lang-fa .notif-show-more {
     direction: rtl;
     unicode-bidi: plaintext;
     text-align: center;

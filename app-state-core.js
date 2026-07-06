@@ -7,7 +7,6 @@ let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme
 let currentTab = 'today';
 let previousTab = 'today';
 let storageReady = false;
-let allClearDismissed = false;
 let backupTapped = false;
 let restoreTapped = false;
 

@@ -87,10 +87,11 @@ function clearRoutineCompletionNotifications(routineId, t){
   notifSetCondition(`recover:${routineId}:${t}`, false, 'congrats', null, false);
 }
 
-// ---------- LIVE: NP-cap notices ----------
+// ---------- LIVE: NP-cap notices + "all clear today" ----------
 // Re-checked after any routine/task complete, uncomplete, add, edit, or delete — all of those can
-// change today's due-item count or received points, which is all these three conditions depend on.
-function evaluateNpCapNotifications(){
+// change today's due-item count, received points, or whether anything is still left open, which
+// is all these four conditions depend on.
+function evaluateLiveDailyNotifications(){
   if(!state.settings.ratingStartDate) return;
   const today = todayStr();
 
@@ -107,6 +108,13 @@ function evaluateNpCapNotifications(){
   const monthNp = aggregatePeriod(monthStr+'-01', today).npCount;
   notifSetCondition(`npcap:monthly:${monthStr}`, monthNp>=17, 'info',
     ()=>({ title: tr('Monthly Rating limit.'), body: trMonthlyNpCapBody(monthNp) }), true);
+
+  const dueRoutines = routinesForToday();
+  const openTasks = state.tasks.filter(t=> !taskDoneToday(t));
+  const somethingExists = dueRoutines.length>0 || state.tasks.length>0;
+  const allClear = somethingExists && dueRoutines.every(r=>routineDoneToday(r)) && openTasks.length===0;
+  notifSetCondition(`allclear:${today}`, allClear, 'congrats',
+    ()=>({ title: tr('All clear today'), body: trAllClearBody() }), true);
 }
 
 // ---------- SILENT: neglect milestone ----------

@@ -12,17 +12,16 @@ function ratingPillHtml(rating){
 
 function renderToday(main){
   const t = todayStr();
-  const todays = state.log.filter(l=>l.date===t);
-  const total = todays.reduce((s,l)=>s+l.points,0);
   // Routines due today: all daily routines + weekly/monthly routines that are due/overdue/done-today.
   const dueRoutines = routinesForToday();
   const tallyDone = dueRoutines.filter(h=>routineDoneToday(h)).length + state.tasks.filter(task=>taskDoneToday(task)).length;
   const tallyTotal = dueRoutines.length + state.tasks.length;
   const todayRating = getTodayRating();
+  const todayScore = getScores().daily;
   let html = `
     <div class="score-hero">
       <div class="label">${tr("Today's score")}</div>
-      <div class="number ${total<0?'negative':''}">${total>0?'+':''}${total}</div>
+      <div class="score-hero-fraction">${scoreFractionHtml(todayScore.received, todayScore.base)}</div>
       ${ratingPillHtml(todayRating)}
       ${tallyTotal>0 ? `<div class="daily-tally">${trTallyLine(tallyDone, tallyTotal)}</div>` : ''}
     </div>
@@ -49,7 +48,7 @@ function renderToday(main){
           <div class="item-name">${escapeHtml(h.name)}</div>
           ${subtitleHtml}
         </div>
-        <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview>=0?'+':''}${pointsPreview}</span>
+        <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview}</span>
         <button class="btn-done ${done?'done':''}" data-routine="${h.id}">${done? '✓' : ''}</button>
       </div>`;
     });
@@ -72,7 +71,7 @@ function renderToday(main){
           <div class="item-name">${escapeHtml(task.name)}</div>
           ${task.description ? `<div class="item-sub">${escapeHtml(task.description)}</div>` : ''}
         </div>
-        <span class="pill ${val<0?'negative':''}">${val>=0?'+':''}${val}</span>
+        <span class="pill ${val<0?'negative':''}">${val}</span>
         <button class="btn-done-square" data-complete-task-today="${task.id}">✓</button>
       </div>`;
     });
@@ -92,23 +91,6 @@ function renderToday(main){
     });
   }
   main.innerHTML = html;
-  const allClear = (dueRoutines.length>0 || state.tasks.length>0) &&
-    dueRoutines.every(h=>routineDoneToday(h)) &&
-    openTasks.length===0;
-  if(allClear && !allClearDismissed){
-    const overlay = document.createElement('div');
-    overlay.className = 'all-clear-overlay';
-    overlay.innerHTML = `
-      <div class="big-emoji">🌿</div>
-      <div class="msg">${tr('All clear today')}</div>
-      <div class="hint">${tr('Tap anywhere to keep going')}</div>
-    `;
-    overlay.addEventListener('click', ()=>{
-      allClearDismissed = true;
-      overlay.remove();
-    });
-    main.appendChild(overlay);
-  }
   main.querySelectorAll('[data-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.routine;

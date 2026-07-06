@@ -34,17 +34,8 @@ async function renderNotificationsPage(main){
     </div>
   `).join('') : `<div class="notif-empty">${tr('No notifications yet')}</div>`;
 
-  main.innerHTML = `
-    <div class="back-row">
-      <button id="backFromNotifications">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-        ${tr('Back')}
-      </button>
-    </div>
-    <div class="notif-page-list">${itemsHtml}</div>
-  `;
+  main.innerHTML = `<div class="notif-page-list">${itemsHtml}</div>`;
 
-  main.querySelector('#backFromNotifications').addEventListener('click', ()=> setTab(previousTab));
   try{ await notifDbMarkAllRead(); refreshBellBadge(); }catch(e){ /* IndexedDB unavailable */ }
   main.querySelectorAll('[data-trash]').forEach(btn=>{
     btn.addEventListener('click', async ()=>{

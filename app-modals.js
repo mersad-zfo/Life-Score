@@ -233,7 +233,7 @@ function openAddRoutineModal(){
     const base = {
       id: uid(), name, emoji, description, recurrence, difficulty,
       createdDate: todayStr(),
-      streak:0, neglect:0, recoveryChain:false,
+      streak:0, neglect:0, recoveryChain:false, neglectMilestoneHit:false,
       lastCompletedDate:null, lastEvaluatedDate: addDays(todayStr(),-1),
       awardedPoints: null
     };
@@ -252,7 +252,7 @@ function openAddRoutineModal(){
     saveState();
     m.remove();
     renderMain();
-    evaluateNpCapNotifications();
+    evaluateLiveDailyNotifications();
   });
   setTimeout(()=>m.querySelector('#hName').focus(), 100);
 }
@@ -315,7 +315,7 @@ function openEditRoutineModal(id){
     m.remove();
     renderMain();
     showToast(tr('Routine updated'));
-    evaluateNpCapNotifications();
+    evaluateLiveDailyNotifications();
   });
   setTimeout(()=>m.querySelector('#ehName').focus(), 100);
 }
@@ -360,7 +360,7 @@ function openAddTaskModal(){
     saveState();
     m.remove();
     renderMain();
-    evaluateNpCapNotifications();
+    evaluateLiveDailyNotifications();
   });
   setTimeout(()=>m.querySelector('#tName').focus(), 100);
 }
@@ -411,7 +411,7 @@ function openEditTaskModal(id){
     m.remove();
     renderMain();
     showToast(tr('Task updated'));
-    evaluateNpCapNotifications();
+    evaluateLiveDailyNotifications();
   });
   setTimeout(()=>m.querySelector('#etName').focus(), 100);
 }

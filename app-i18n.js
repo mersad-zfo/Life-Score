@@ -244,6 +244,10 @@ function trMonthlyNpCapBody(count){
   if(curLang()==='fa') return `این ماه، ${numFa(count)} روز با محدودیت رتبه روزانه داشتید. یک روز دیگر مثل این و رتبه ماهانه‌تان هم محدود می‌شود. سعی کنید موارد بیشتری به لیست روزانه‌تان اضافه کنید.`;
   return `This month, you had ${count} days with daily rating limit. Another day like that and your monthly rating will be limited too. Try to add more items to your daily list.`;
 }
+function trAllClearBody(){
+  if(curLang()==='fa') return `همه روتین‌ها و کارهای امروز انجام شد. بقیه روز رو راحت باش — جاش رو داری.`;
+  return `Every routine and task on today's list is checked off. Take the rest of the day easy — you've earned it.`;
+}
 // Updates the bits of static markup in index.html that live outside any render*() function
 // (nav tab labels) — used on init, and as part of applyLanguage() below.
 function applyNavLabels(){

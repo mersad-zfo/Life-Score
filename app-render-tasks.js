@@ -12,7 +12,7 @@ function renderTaskCard(task){
         <div class="item-sub">${subInfo}</div>
         ${task.description ? `<div class="item-sub" style="margin-top:5px; color:var(--ink);">${escapeHtml(task.description)}</div>` : ''}
       </div>
-      <span class="pill ${val<0?'negative':''}">${val>=0?'+':''}${val}</span>
+      <span class="pill ${val<0?'negative':''}">${val}</span>
     </div>
     <div class="row" style="margin-top:10px;">
       <div style="display:flex; gap:14px; align-items:center;">

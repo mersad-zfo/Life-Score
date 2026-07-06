@@ -85,6 +85,18 @@ function assertShapeEqual(actual, expected, message) {
   assert.strictEqual(JSON.stringify(actual), JSON.stringify(expected), message);
 }
 
+// getWeekRating()/getTodayRating()/getCurrentMonthRating()/getAllTimeRating() take no arguments
+// and internally call todayStr() (which defaults to the real system clock) to know "now". Any
+// test asserting on one of these needs "today" pinned to the date its fixture data was built
+// around, or the assertion silently depends on what day the suite happens to run on. `todayStr`
+// is a plain global function in the sandbox (the vm context's global object), so reassigning it
+// here really does redirect every internal no-arg call to it for the duration of `fn`.
+function withFixedToday(dateStr, fn) {
+  const real = app.todayStr;
+  app.todayStr = (d) => (d === undefined ? dateStr : real(d));
+  try { return fn(); } finally { app.todayStr = real; }
+}
+
 // =====================================================================================
 section('calcRating — tier boundaries');
 // =====================================================================================
@@ -234,7 +246,7 @@ test('getWeekRating: caps at GOOD when >=4 NP days in the week (all-NP state)', 
     app.state.log.push({ id: 'l' + d, kind: 'routine', refId: 'r1', name: 'r1', points: 40, date: d });
     d = app.addDays(d, 1);
   }
-  const rating = app.getWeekRating();
+  const rating = withFixedToday(today, () => app.getWeekRating());
   // received==base (100%) would normally be GREAT!, but every day is NP (only 1 routine due,
   // <5 threshold) so the week-level NP cap (>=4 NP days) must clamp it to GOOD.
   assert.strictEqual(rating, 'GOOD');
@@ -263,7 +275,7 @@ test('getAllTimeRating: caps at GOOD when >60% of all-time days are NP (no overl
     app.state.log.push({ id: 'l' + d, kind: 'routine', refId: 'r1', name: 'r1', points: 40, date: d });
     d = app.addDays(d, 1);
   }
-  const rating = app.getAllTimeRating();
+  const rating = withFixedToday(today, () => app.getAllTimeRating());
   assert.strictEqual(rating, 'GOOD'); // every day NP (only 1 routine due) -> 100% NP, no overlook earned
 });
 
