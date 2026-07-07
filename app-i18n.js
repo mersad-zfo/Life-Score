@@ -150,7 +150,7 @@ function formatTimeLabel(timeStr){
   const parts = timeStr.split(':');
   const h = parseInt(parts[0], 10), mnt = parseInt(parts[1], 10);
   if(isNaN(h) || isNaN(mnt)) return '';
-  return new Date(2000,0,1,h,mnt).toLocaleTimeString(localeForLang(), {hour:'numeric', minute:'2-digit'});
+  return new Date(2000,0,1,h,mnt).toLocaleTimeString(localeForLang(), {hour:'2-digit', minute:'2-digit', hour12:false});
 }
 function timeChipHtml(timeStr){
   if(!timeStr) return '';

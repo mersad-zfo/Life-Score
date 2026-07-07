@@ -193,8 +193,12 @@ function readRecurrence(m, idPrefix){
 
 // ---------- Shared "+ Add time & details" row (time input + description textarea) ----------
 // Collapsed behind a link until tapped, same idea as the old description-only field it replaces,
-// but now reveals a time input (native <input type="time">, not free text) alongside a taller
-// textarea in the same row. Used identically by all 4 routine/task add/edit modals.
+// but now reveals a native time input alongside a taller textarea in the same row. Used
+// identically by all 4 routine/task add/edit modals.
+//
+// Native <input type="time"> follows whatever 12h/24h clock format the device itself is set to
+// (same as its own status bar) — there's no reliable way to force one or the other from the web
+// page, so this intentionally just mirrors the device rather than fighting it.
 function timeDetailsFieldsHtml(prefix, timeVal, descVal, descPlaceholder){
   const hasExisting = !!(timeVal || descVal);
   return `
@@ -236,17 +240,7 @@ function openAddRoutineModal(){
         <input id="hName" type="text" placeholder="${tr('e.g. Brush teeth')}" style="flex:1;" />
       </div>
     </div>
-    <a class="add-details-link" id="hAddDetailsLink">${tr('+ Add time & details')}</a>
-    <div class="time-details-row" id="hDetailsField" style="display:none;">
-      <div class="field time-field">
-        <label>${tr('Time')}</label>
-        <input id="hTime" type="time" />
-      </div>
-      <div class="field desc-field">
-        <label>${tr('Description (optional)')}</label>
-        <textarea id="hDesc" rows="2" placeholder="${tr('Add extra detail')}"></textarea>
-      </div>
-    </div>
+    ${timeDetailsFieldsHtml('h', null, null)}
     ${buildRecurrencePicker('h', 'daily')}
     <div id="hRecurFields">${routineRecurrenceFieldsHtml('h', 'daily', null, false)}</div>
     <div class="modal-actions">
