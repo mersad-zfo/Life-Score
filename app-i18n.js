@@ -71,6 +71,8 @@ const LANG_DICT = {
     'Name & emoji': 'نام و ایموجی',
     'e.g. Brush teeth': 'مثلاً مسواک زدن',
     '+ Add details': '+ افزودن جزئیات',
+    '+ Add time & details': '+ افزودن زمان و جزئیات',
+    'Time': 'زمان',
     'Description (optional)': 'توضیحات (اختیاری)',
     'Add extra detail': 'جزئیات بیشتر اضافه کنید',
     'Repeats': 'تکرار',
@@ -141,6 +143,19 @@ function curLang(){ return (state.settings && state.settings.language) || 'en'; 
 // Locale used for built-in date formatting. fa-IR-u-ca-gregory gives Farsi weekday/month
 // names while keeping the Gregorian calendar (no date-math side effects elsewhere).
 function localeForLang(){ return curLang()==='fa' ? 'fa-IR-u-ca-gregory' : 'en-US'; }
+
+// Formats a "HH:MM" (24h, from <input type="time">) into a locale-appropriate display string.
+function formatTimeLabel(timeStr){
+  if(!timeStr) return '';
+  const parts = timeStr.split(':');
+  const h = parseInt(parts[0], 10), mnt = parseInt(parts[1], 10);
+  if(isNaN(h) || isNaN(mnt)) return '';
+  return new Date(2000,0,1,h,mnt).toLocaleTimeString(localeForLang(), {hour:'numeric', minute:'2-digit'});
+}
+function timeChipHtml(timeStr){
+  if(!timeStr) return '';
+  return `<span class="item-time">🕐 ${formatTimeLabel(timeStr)}</span>`;
+}
 // Week starts Saturday. Day indices in display order: Sat(6),Sun(0),Mon(1),Tue(2),Wed(3),Thu(4),Fri(5)
 const WEEK_DAY_ORDER = [6,0,1,2,3,4,5];
 function weekdayShortNames(){

@@ -3,14 +3,17 @@ function renderTaskCard(task){
   const val = taskDisplayValue(task);
   const days = daysBetween(task.createdDate, todayStr());
   const subInfo = `${trAddedLabel(days)} · ${trDecaysPerDay(task.decayRate)}`;
+  const lines = [];
+  if(task.time) lines.push(`<div class="item-sub">${timeChipHtml(task.time)}</div>`);
+  if(task.description) lines.push(`<div class="item-sub" style="color:var(--ink);">${escapeHtml(task.description)}</div>`);
+  lines.push(`<div class="item-sub">${subInfo}</div>`);
   return `
   <div class="card" data-card-task="${task.id}">
     <div class="row">
       <span class="emoji-list">${task.emoji||TASK_DEFAULT_EMOJI}</span>
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(task.name)}</div>
-        <div class="item-sub">${subInfo}</div>
-        ${task.description ? `<div class="item-sub" style="margin-top:5px; color:var(--ink);">${escapeHtml(task.description)}</div>` : ''}
+        ${lines.join('')}
       </div>
       <span class="pill ${val<0?'negative':''}">${val}</span>
     </div>

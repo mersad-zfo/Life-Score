@@ -34,12 +34,15 @@ function renderToday(main){
       const done = routineDoneToday(h);
       const pointsPreview = done ? h.awardedPoints : routinePreviewReward(h);
       const rState = routineState(h);
-      let subtitleHtml = '';
+      const lines = [];
       if(rState==='streak'){
-        subtitleHtml = `<div class="item-sub"><span class="streak-chip" data-streak="${h.id}">${streakEmoji(h)} ×${h.streak}</span></div>`;
+        lines.push(`<div class="item-sub"><span class="streak-chip" data-streak="${h.id}">${streakEmoji(h)} ×${h.streak}</span></div>`);
       } else if(rState==='neglect'){
-        subtitleHtml = `<div class="item-sub"><span class="neglect-chip" data-neglect="${h.id}">${neglectEmoji(h)} ×${h.neglect}</span></div>`;
+        lines.push(`<div class="item-sub"><span class="neglect-chip" data-neglect="${h.id}">${neglectEmoji(h)} ×${h.neglect}</span></div>`);
       }
+      if(h.time) lines.push(`<div class="item-sub">${timeChipHtml(h.time)}</div>`);
+      if(h.description) lines.push(`<div class="item-sub">${escapeHtml(h.description)}</div>`);
+      const subtitleHtml = lines.join('');
       html += `
       <div class="card row" data-card-routine="${h.id}" data-drag-item data-drag-id="${h.id}">
         <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
@@ -63,13 +66,16 @@ function renderToday(main){
     html += `<div id="todayTasksList">`;
     openTasks.forEach(task=>{
       const val = taskDisplayValue(task);
+      const taskLines = [];
+      if(task.time) taskLines.push(`<div class="item-sub">${timeChipHtml(task.time)}</div>`);
+      if(task.description) taskLines.push(`<div class="item-sub">${escapeHtml(task.description)}</div>`);
       html += `
       <div class="card row" data-card-task="${task.id}" data-drag-item data-drag-id="${task.id}">
         <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
         <span class="emoji-today">${task.emoji||TASK_DEFAULT_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(task.name)}</div>
-          ${task.description ? `<div class="item-sub">${escapeHtml(task.description)}</div>` : ''}
+          ${taskLines.join('')}
         </div>
         <span class="pill ${val<0?'negative':''}">${val}</span>
         <button class="btn-done-square" data-complete-task-today="${task.id}">✓</button>

@@ -351,3 +351,23 @@ function pickRoutineEmoji(name){
 function pickTaskEmoji(name){
   return pickEmoji(name, TASK_DEFAULT_EMOJI);
 }
+
+// ---------- Emoji field: restrict to a single grapheme ----------
+// Plain .length/substring would split compound emoji (flags, ZWJ sequences like 👨‍🍳) across
+// UTF-16 code units — Intl.Segmenter's grapheme granularity treats those as one unit correctly.
+function getGraphemes(str){
+  if(typeof Intl !== 'undefined' && Intl.Segmenter){
+    const segmenter = new Intl.Segmenter(undefined, {granularity:'grapheme'});
+    return Array.from(segmenter.segment(str||''), s=>s.segment);
+  }
+  return Array.from(str||''); // fallback: splits by code point, good enough for most single emoji
+}
+// Keeps the LAST grapheme typed (not the first) — an emoji keyboard usually inserts a new emoji
+// next to whatever's already there rather than replacing it, so "most recent wins" is what makes
+// tapping a new emoji actually replace the old one instead of getting stuck on the first pick.
+function limitToOneGrapheme(el){
+  el.addEventListener('input', ()=>{
+    const graphemes = getGraphemes(el.value);
+    if(graphemes.length > 1) el.value = graphemes[graphemes.length-1];
+  });
+}

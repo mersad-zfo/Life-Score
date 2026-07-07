@@ -6,13 +6,17 @@ function renderDailyRoutineCard(r){
   if(rState==='streak') stateText = `${streakEmoji(r)} ×${r.streak} · ${tr('Streak')}`;
   else if(rState==='neglect') stateText = `${neglectEmoji(r)} ×${r.neglect} · ${tr('Neglect')}`;
   else stateText = tr('Neutral');
+  const lines = [];
+  if(r.time) lines.push(`<div class="item-sub">${timeChipHtml(r.time)}</div>`);
+  if(r.description) lines.push(`<div class="item-sub" style="color:var(--ink);">${escapeHtml(r.description)}</div>`);
+  lines.push(`<div class="item-sub">${stateText}</div>`);
   return `
   <div class="card" data-card-routine="${r.id}">
     <div class="row">
       <span class="emoji-list">${r.emoji||ROUTINE_FALLBACK_EMOJI}</span>
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(r.name)}</div>
-        <div class="item-sub">${stateText}</div>
+        ${lines.join('')}
       </div>
       <span class="pill">${r.basePoints}</span>
       <button class="btn-done ${done?'done':''}" data-routine="${r.id}">${done? '✓' : ''}</button>
@@ -62,15 +66,19 @@ function renderRecurringRoutineCard(r){
     doneBtnHtml = `<button class="btn-done" style="opacity:0.35; cursor:default;"></button>`;
   }
 
+  const lines = [];
+  if(r.time) lines.push(`<div class="item-sub">${timeChipHtml(r.time)}</div>`);
+  if(r.description) lines.push(`<div class="item-sub" style="color:var(--ink);">${escapeHtml(r.description)}</div>`);
+  lines.push(`<div class="item-sub">${stateText}${secondaryText?` · ${secondaryText}`:''}</div>`);
+  lines.push(`<div class="item-sub">${trDueDates(scheduleText)}</div>`);
+
   return `
   <div class="card ${!isDue?'not-due':''}" data-card-routine="${r.id}">
     <div class="row">
       <span class="emoji-list">${r.emoji||ROUTINE_FALLBACK_EMOJI}</span>
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(r.name)}</div>
-        <div class="item-sub">${stateText}${secondaryText?` · ${secondaryText}`:''}</div>
-        <div class="item-sub">${trDueDates(scheduleText)}</div>
-        ${r.description ? `<div class="item-sub" style="margin-top:5px; color:var(--ink);">${escapeHtml(r.description)}</div>` : ''}
+        ${lines.join('')}
       </div>
       <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview}</span>
       ${doneBtnHtml}

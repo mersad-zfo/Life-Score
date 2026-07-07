@@ -191,6 +191,40 @@ function readRecurrence(m, idPrefix){
   return btn ? btn.dataset.rec : 'daily';
 }
 
+// ---------- Shared "+ Add time & details" row (time input + description textarea) ----------
+// Collapsed behind a link until tapped, same idea as the old description-only field it replaces,
+// but now reveals a time input (native <input type="time">, not free text) alongside a taller
+// textarea in the same row. Used identically by all 4 routine/task add/edit modals.
+function timeDetailsFieldsHtml(prefix, timeVal, descVal, descPlaceholder){
+  const hasExisting = !!(timeVal || descVal);
+  return `
+    <a class="add-details-link" id="${prefix}AddDetailsLink" style="${hasExisting?'display:none;':''}">${tr('+ Add time & details')}</a>
+    <div class="time-details-row" id="${prefix}DetailsField" style="${hasExisting?'':'display:none;'}">
+      <div class="field time-field">
+        <label>${tr('Time')}</label>
+        <input id="${prefix}Time" type="time" value="${escapeHtml(timeVal||'')}" />
+      </div>
+      <div class="field desc-field">
+        <label>${tr('Description (optional)')}</label>
+        <textarea id="${prefix}Desc" rows="2" placeholder="${descPlaceholder||tr('Add extra detail')}">${escapeHtml(descVal||'')}</textarea>
+      </div>
+    </div>
+  `;
+}
+function wireTimeDetailsToggle(m, prefix){
+  const link = m.querySelector(`#${prefix}AddDetailsLink`);
+  link.addEventListener('click', ()=>{
+    m.querySelector(`#${prefix}DetailsField`).style.display = 'flex';
+    link.style.display = 'none';
+  });
+}
+function readTimeDetails(m, prefix){
+  return {
+    time: m.querySelector(`#${prefix}Time`).value || null,
+    description: m.querySelector(`#${prefix}Desc`).value.trim()
+  };
+}
+
 // ---------- Add Routine ----------
 function openAddRoutineModal(){
   const m = openModal(`
@@ -202,8 +236,17 @@ function openAddRoutineModal(){
         <input id="hName" type="text" placeholder="${tr('e.g. Brush teeth')}" style="flex:1;" />
       </div>
     </div>
-    <a class="add-details-link" id="hAddDetailsLink">${tr('+ Add details')}</a>
-    <div class="field" id="hDescField" style="display:none;"><label>${tr('Description (optional)')}</label><input id="hDesc" type="text" placeholder="${tr('Add extra detail')}" /></div>
+    <a class="add-details-link" id="hAddDetailsLink">${tr('+ Add time & details')}</a>
+    <div class="time-details-row" id="hDetailsField" style="display:none;">
+      <div class="field time-field">
+        <label>${tr('Time')}</label>
+        <input id="hTime" type="time" />
+      </div>
+      <div class="field desc-field">
+        <label>${tr('Description (optional)')}</label>
+        <textarea id="hDesc" rows="2" placeholder="${tr('Add extra detail')}"></textarea>
+      </div>
+    </div>
     ${buildRecurrencePicker('h', 'daily')}
     <div id="hRecurFields">${routineRecurrenceFieldsHtml('h', 'daily', null, false)}</div>
     <div class="modal-actions">
@@ -213,25 +256,23 @@ function openAddRoutineModal(){
   `);
   wireRecurFields(m, 'h', false);
   wireRecurrencePicker(m, 'h', false);
+  wireTimeDetailsToggle(m, 'h');
   let emojiTouched = false;
+  limitToOneGrapheme(m.querySelector('#hEmoji'));
   m.querySelector('#hEmoji').addEventListener('input', ()=>{ emojiTouched = true; });
   m.querySelector('#hName').addEventListener('input', (e)=>{
     if(!emojiTouched) m.querySelector('#hEmoji').value = pickRoutineEmoji(e.target.value);
-  });
-  m.querySelector('#hAddDetailsLink').addEventListener('click', ()=>{
-    m.querySelector('#hDescField').style.display = 'block';
-    m.querySelector('#hAddDetailsLink').style.display = 'none';
   });
   m.querySelector('#hCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#hSave').addEventListener('click', ()=>{
     const name = m.querySelector('#hName').value.trim();
     const emoji = m.querySelector('#hEmoji').value.trim() || ROUTINE_FALLBACK_EMOJI;
-    const description = m.querySelector('#hDesc').value.trim();
+    const {time, description} = readTimeDetails(m, 'h');
     const recurrence = readRecurrence(m, 'h');
     const difficulty = readDifficulty(m, 'h');
     if(!name){ showToast(tr('Give it a name')); return; }
     const base = {
-      id: uid(), name, emoji, description, recurrence, difficulty,
+      id: uid(), name, emoji, description, time, recurrence, difficulty,
       createdDate: todayStr(),
       streak:0, neglect:0, recoveryChain:false, neglectMilestoneHit:false,
       lastCompletedDate:null, lastEvaluatedDate: addDays(todayStr(),-1),
@@ -273,8 +314,7 @@ function openEditRoutineModal(id){
         <input id="ehName" type="text" value="${escapeHtml(h.name)}" style="flex:1;" />
       </div>
     </div>
-    <a class="add-details-link" id="ehAddDetailsLink" style="${h.description?'display:none;':''}">${tr('+ Add details')}</a>
-    <div class="field" id="ehDescField" style="${h.description?'':'display:none;'}"><label>${tr('Description (optional)')}</label><input id="ehDesc" type="text" value="${escapeHtml(h.description||'')}" placeholder="${tr('Add extra detail')}" /></div>
+    ${timeDetailsFieldsHtml('eh', h.time, h.description)}
     ${buildRecurrencePickerLocked('eh', h.recurrence)}
     <div id="ehRecurFields">${routineRecurrenceFieldsHtml('eh', h.recurrence, h, diffLocked)}</div>
     <div class="modal-actions">
@@ -283,19 +323,18 @@ function openEditRoutineModal(id){
     </div>
   `);
   wireRecurFields(m, 'eh', diffLocked);
-  m.querySelector('#ehAddDetailsLink').addEventListener('click', ()=>{
-    m.querySelector('#ehDescField').style.display = 'block';
-    m.querySelector('#ehAddDetailsLink').style.display = 'none';
-  });
+  wireTimeDetailsToggle(m, 'eh');
+  limitToOneGrapheme(m.querySelector('#ehEmoji'));
   m.querySelector('#ehCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#ehSave').addEventListener('click', ()=>{
     const name = m.querySelector('#ehName').value.trim();
     const emoji = m.querySelector('#ehEmoji').value.trim() || ROUTINE_FALLBACK_EMOJI;
-    const description = m.querySelector('#ehDesc').value.trim();
+    const {time, description} = readTimeDetails(m, 'eh');
     if(!name){ showToast(tr('Give it a name')); return; }
     h.name = name;
     h.emoji = emoji;
     h.description = description;
+    h.time = time;
     if(!diffLocked){
       const difficulty = readDifficulty(m, 'eh');
       h.difficulty = difficulty;
@@ -331,8 +370,7 @@ function openAddTaskModal(){
         <input id="tName" type="text" placeholder="${tr('e.g. Call dentist')}" style="flex:1;" />
       </div>
     </div>
-    <a class="add-details-link" id="tAddDetailsLink">${tr('+ Add details')}</a>
-    <div class="field" id="tDescField" style="display:none;"><label>${tr('Description (optional)')}</label><input id="tDesc" type="text" placeholder="${tr('Add extra detail, e.g. a phone number')}" /></div>
+    ${timeDetailsFieldsHtml('t', null, null, tr('Add extra detail, e.g. a phone number'))}
     ${buildDifficultyPicker('t', 'normal', false)}
     <div class="modal-actions">
       <button class="btn-secondary" id="tCancel">${tr('Cancel')}</button>
@@ -340,24 +378,22 @@ function openAddTaskModal(){
     </div>
   `);
   wireDifficultyPicker(m, 't');
+  wireTimeDetailsToggle(m, 't');
   let emojiTouched = false;
+  limitToOneGrapheme(m.querySelector('#tEmoji'));
   m.querySelector('#tEmoji').addEventListener('input', ()=>{ emojiTouched = true; });
   m.querySelector('#tName').addEventListener('input', (e)=>{
     if(!emojiTouched) m.querySelector('#tEmoji').value = pickTaskEmoji(e.target.value);
-  });
-  m.querySelector('#tAddDetailsLink').addEventListener('click', ()=>{
-    m.querySelector('#tDescField').style.display = 'block';
-    m.querySelector('#tAddDetailsLink').style.display = 'none';
   });
   m.querySelector('#tCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#tSave').addEventListener('click', ()=>{
     const name = m.querySelector('#tName').value.trim();
     const emoji = m.querySelector('#tEmoji').value.trim() || TASK_DEFAULT_EMOJI;
-    const description = m.querySelector('#tDesc').value.trim();
+    const {time, description} = readTimeDetails(m, 't');
     if(!name){ showToast(tr('Give it a name')); return; }
     const difficulty = readDifficulty(m, 't');
     state.tasks.push({
-      id: uid(), name, emoji, description, difficulty, recurrence:'once',
+      id: uid(), name, emoji, description, time, difficulty, recurrence:'once',
       createdDate: todayStr(), completedDate: null, awardedPoints: null,
       startValue: difficultyPointsFor('task', difficulty),
       decayRate: TASK_DECAY_RATE
@@ -384,8 +420,7 @@ function openEditTaskModal(id){
         <input id="etName" type="text" value="${escapeHtml(task.name)}" style="flex:1;" />
       </div>
     </div>
-    <a class="add-details-link" id="etAddDetailsLink" style="${task.description?'display:none;':''}">${tr('+ Add details')}</a>
-    <div class="field" id="etDescField" style="${task.description?'':'display:none;'}"><label>${tr('Description (optional)')}</label><input id="etDesc" type="text" value="${escapeHtml(task.description||'')}" placeholder="${tr('Add extra detail')}" /></div>
+    ${timeDetailsFieldsHtml('et', task.time, task.description, tr('Add extra detail, e.g. a phone number'))}
     ${buildDifficultyPicker('et', task.difficulty || 'normal', diffLocked)}
     <div class="modal-actions">
       <button class="btn-secondary" id="etCancel">${tr('Cancel')}</button>
@@ -393,19 +428,18 @@ function openEditTaskModal(id){
     </div>
   `);
   if(!diffLocked) wireDifficultyPicker(m, 'et');
-  m.querySelector('#etAddDetailsLink').addEventListener('click', ()=>{
-    m.querySelector('#etDescField').style.display = 'block';
-    m.querySelector('#etAddDetailsLink').style.display = 'none';
-  });
+  wireTimeDetailsToggle(m, 'et');
+  limitToOneGrapheme(m.querySelector('#etEmoji'));
   m.querySelector('#etCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#etSave').addEventListener('click', ()=>{
     const name = m.querySelector('#etName').value.trim();
     const emoji = m.querySelector('#etEmoji').value.trim() || TASK_DEFAULT_EMOJI;
-    const description = m.querySelector('#etDesc').value.trim();
+    const {time, description} = readTimeDetails(m, 'et');
     if(!name){ showToast(tr('Give it a name')); return; }
     task.name = name;
     task.emoji = emoji;
     task.description = description;
+    task.time = time;
     if(!diffLocked){
       const difficulty = readDifficulty(m, 'et');
       task.difficulty = difficulty;
