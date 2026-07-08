@@ -189,6 +189,32 @@ function trNextDue(label){
 function trPenaltyIfMissed(val){
   return curLang()==='fa' ? `-${numFa(Math.abs(val))} جزا (در صورت ازدست‌دادن)` : `-${Math.abs(val)} Penalty (If missed)`;
 }
+// ---- Task due-date states (Not due yet / Due / Overdue) ----
+function trTaskDueDateLine(dateStr){
+  const label = formatDueLabel(dateStr, 'monthly'); // month/day format, locale-aware
+  return curLang()==='fa' ? `موعد: ${label}` : `Due ${label}`;
+}
+function trTaskDueTodayLine(rate){
+  return curLang()==='fa' ? `امروز موعد است · کاهش ${numFa(rate)}/روز (در صورت ازدست‌دادن)` : `Due Today · decays ${rate}/day (if missed)`;
+}
+function trTaskOverdueLine(rate){
+  return curLang()==='fa' ? `⚠️ ازدست‌رفته · کاهش ${numFa(rate)}/روز (در صورت ازدست‌دادن)` : `⚠️ Overdue · decays ${rate}/day (if missed)`;
+}
+function trTaskCurrentDecayLine(amount){
+  return curLang()==='fa' ? `کاهش فعلی: -${numFa(Math.abs(amount))}` : `Current decay: -${Math.abs(amount)}`;
+}
+function trTaskDueTodayShort(){
+  return curLang()==='fa' ? 'امروز موعد است' : 'Due Today';
+}
+function trTaskOverdueShort(){
+  return curLang()==='fa' ? '⚠️ ازدست‌رفته' : '⚠️ Overdue';
+}
+function trUpcomingSectionLabel(){
+  return curLang()==='fa' ? 'پیش‌رو' : 'Upcoming';
+}
+function trTaskDueDateFieldLabel(){
+  return curLang()==='fa' ? 'موعد انجام' : 'Due date';
+}
 function trDueDates(text){
   return curLang()==='fa' ? `روزهای موعد: ${text}` : `Due dates: ${text}`;
 }

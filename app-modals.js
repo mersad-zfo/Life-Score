@@ -364,6 +364,10 @@ function openAddTaskModal(){
         <input id="tName" type="text" placeholder="${tr('e.g. Call dentist')}" style="flex:1;" />
       </div>
     </div>
+    <div class="field">
+      <label>${trTaskDueDateFieldLabel()}</label>
+      <input id="tDueDate" type="date" value="${todayStr()}" min="${todayStr()}" />
+    </div>
     ${timeDetailsFieldsHtml('t', null, null, tr('Add extra detail, e.g. a phone number'))}
     ${buildDifficultyPicker('t', 'normal', false)}
     <div class="modal-actions">
@@ -386,9 +390,10 @@ function openAddTaskModal(){
     const {time, description} = readTimeDetails(m, 't');
     if(!name){ showToast(tr('Give it a name')); return; }
     const difficulty = readDifficulty(m, 't');
+    const dueDate = m.querySelector('#tDueDate').value || todayStr();
     state.tasks.push({
       id: uid(), name, emoji, description, time, difficulty, recurrence:'once',
-      createdDate: todayStr(), completedDate: null, awardedPoints: null,
+      createdDate: todayStr(), dueDate, completedDate: null, awardedPoints: null,
       startValue: difficultyPointsFor('task', difficulty),
       decayRate: TASK_DECAY_RATE
     });
@@ -413,6 +418,11 @@ function openEditTaskModal(id){
         <input id="etEmoji" type="text" value="${escapeHtml(task.emoji||TASK_DEFAULT_EMOJI)}" />
         <input id="etName" type="text" value="${escapeHtml(task.name)}" style="flex:1;" />
       </div>
+    </div>
+    <div class="field">
+      <label>${trTaskDueDateFieldLabel()}</label>
+      <input id="etDueDate" type="date" value="${task.dueDate}" min="${todayStr()}" ${diffLocked?'disabled':''} class="${diffLocked?'seg-locked':''}" />
+      ${diffLocked ? `<div class="lock-note" style="margin-top:4px;">${tr('Locked after the first day')}</div>` : ''}
     </div>
     ${timeDetailsFieldsHtml('et', task.time, task.description, tr('Add extra detail, e.g. a phone number'))}
     ${buildDifficultyPicker('et', task.difficulty || 'normal', diffLocked)}
@@ -439,6 +449,8 @@ function openEditTaskModal(id){
       task.difficulty = difficulty;
       task.startValue = difficultyPointsFor('task', difficulty);
       task.decayRate = TASK_DECAY_RATE;
+      const dueDate = m.querySelector('#etDueDate').value;
+      if(dueDate) task.dueDate = dueDate;
     }
     saveState();
     m.remove();

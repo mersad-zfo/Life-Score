@@ -42,15 +42,13 @@ function getDailyLogPoints(dateStr){
   if(start && dateStr < start) return 0;
   return state.log.filter(e=>e.date===dateStr).reduce((sum,e)=>sum+(e.points||0), 0);
 }
-// Is this day "not-productive"? (fewer than 5 routines-due + tasks-in-play)
+// Is this day "not-productive"? (fewer than 5 routines due — tasks no longer count toward this,
+// see DECISIONS.md: tasks-only setups were exploiting the old combined threshold for pure bonus points)
 function isNotProductiveDay(dateStr){
   const start = state.settings.ratingStartDate;
   if(start && dateStr < start) return true;
   const dueRoutines = state.routines.filter(r=>wasRoutineDueOn(r, dateStr)).length;
-  const activeTasks = state.tasks.filter(t=>
-    t.createdDate<=dateStr && (t.completedDate===null || t.completedDate>=dateStr)
-  ).length;
-  return (dueRoutines + activeTasks) < 5;
+  return dueRoutines < 5;
 }
 // Apply NP cap: clamps GREAT!/AWESOME!!! to GOOD when limited.
 function applyRatingCap(rating, limited){

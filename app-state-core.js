@@ -39,6 +39,9 @@ function ensureStateShape(){
   // Stored numeric fields (basePoints etc.) are left untouched so existing scores don't shift.
   state.routines.forEach(r=>{ if(!r.difficulty) r.difficulty = 'normal'; });
   state.tasks.forEach(t=>{ if(!t.difficulty) t.difficulty = 'normal'; });
+  // Migration: tasks created before the due-date feature have no dueDate — default it to
+  // createdDate so they behave exactly as before (immediately due, decay starts right away).
+  state.tasks.forEach(t=>{ if(!t.dueDate) t.dueDate = t.createdDate; });
   if(!state.session) state.session = { loggedIn: !!state.profile };
   if(state.session.loggedIn===undefined) state.session.loggedIn = !!state.profile;
 }

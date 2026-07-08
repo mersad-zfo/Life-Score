@@ -14,8 +14,11 @@ function renderToday(main){
   const t = todayStr();
   // Routines due today: all daily routines + weekly/monthly routines that are due/overdue/done-today.
   const dueRoutines = routinesForToday();
-  const tallyDone = dueRoutines.filter(h=>routineDoneToday(h)).length + state.tasks.filter(task=>taskDoneToday(task)).length;
-  const tallyTotal = dueRoutines.length + state.tasks.length;
+  // Upcoming (not-due-yet) tasks are hidden from Home entirely, so they shouldn't pad the tally
+  // denominator either — unless completed early, in which case they're a real "done today" win.
+  const tasksForTally = state.tasks.filter(task=> taskState(task)!=='upcoming' || taskDoneToday(task));
+  const tallyDone = dueRoutines.filter(h=>routineDoneToday(h)).length + tasksForTally.filter(task=>taskDoneToday(task)).length;
+  const tallyTotal = dueRoutines.length + tasksForTally.length;
   const todayRating = getTodayRating();
   const todayScore = getScores().daily;
   let html = `
@@ -57,7 +60,8 @@ function renderToday(main){
     });
     html += `</div>`;
   }
-  const openTasks = state.tasks.filter(task=>!taskDoneToday(task));
+  // Upcoming (not-due-yet) tasks never appear on Home — only Due/Overdue are "active today".
+  const openTasks = state.tasks.filter(task=>!taskDoneToday(task) && taskState(task)!=='upcoming');
   const doneTasks = state.tasks.filter(task=>taskDoneToday(task));
   html += `<div class="section-label">${tr('Open tasks')}</div>`;
   if(openTasks.length===0){
@@ -66,9 +70,11 @@ function renderToday(main){
     html += `<div id="todayTasksList">`;
     openTasks.forEach(task=>{
       const val = taskDisplayValue(task);
+      const st = taskState(task);
       const taskLines = [];
       if(task.time) taskLines.push(`<div class="item-sub">${timeChipHtml(task.time)}</div>`);
       if(task.description) taskLines.push(`<div class="item-sub">${escapeHtml(task.description)}</div>`);
+      taskLines.push(`<div class="item-sub">${st==='overdue' ? trTaskOverdueShort() : trTaskDueTodayShort()}</div>`);
       html += `
       <div class="card row" data-card-task="${task.id}" data-drag-item data-drag-id="${task.id}">
         <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>

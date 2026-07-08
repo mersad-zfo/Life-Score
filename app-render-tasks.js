@@ -1,14 +1,20 @@
 // ---------- Tasks tab (one-time only — recurring tasks now live as Routines) ----------
 function renderTaskCard(task){
   const val = taskDisplayValue(task);
-  const days = daysBetween(task.createdDate, todayStr());
-  const subInfo = `${trAddedLabel(days)} · ${trDecaysPerDay(task.decayRate)}`;
+  const st = taskState(task);
   const lines = [];
   if(task.time) lines.push(`<div class="item-sub">${timeChipHtml(task.time)}</div>`);
   if(task.description) lines.push(`<div class="item-sub" style="color:var(--ink);">${escapeHtml(task.description)}</div>`);
-  lines.push(`<div class="item-sub">${subInfo}</div>`);
+  if(st==='upcoming'){
+    lines.push(`<div class="item-sub">${trTaskDueDateLine(task.dueDate)}</div>`);
+  } else if(st==='due'){
+    lines.push(`<div class="item-sub">${trTaskDueTodayLine(task.decayRate)}</div>`);
+  } else {
+    lines.push(`<div class="item-sub">${trTaskOverdueLine(task.decayRate)}</div>`);
+    lines.push(`<div class="item-sub" style="color:var(--rust);">${trTaskCurrentDecayLine(taskDecayAmount(task))}</div>`);
+  }
   return `
-  <div class="card" data-card-task="${task.id}">
+  <div class="card ${st==='upcoming'?'task-upcoming':''}" data-card-task="${task.id}">
     <div class="row">
       <span class="emoji-list">${task.emoji||TASK_DEFAULT_EMOJI}</span>
       <div style="flex:1;">
@@ -16,26 +22,36 @@ function renderTaskCard(task){
         ${lines.join('')}
       </div>
       <span class="pill ${val<0?'negative':''}">${val}</span>
+      <button class="btn-done-square" data-complete-task="${task.id}">✓</button>
     </div>
     <div class="row" style="margin-top:10px;">
-      <div style="display:flex; gap:14px; align-items:center;">
-        <button class="link-danger" style="font-size:12px;" data-del-task="${task.id}">${tr('Remove')}</button>
-        <button class="link-danger" style="font-size:12px; color:var(--ink-soft); text-decoration:underline;" data-edit-task="${task.id}">${tr('Edit')}</button>
-      </div>
-      <button class="btn-complete-task" data-complete-task="${task.id}">${tr('Mark done')}</button>
+      <button class="link-danger" style="font-size:12px;" data-del-task="${task.id}">${tr('Remove')}</button>
+      <button class="btn-complete-task" data-edit-task="${task.id}">${tr('Edit')}</button>
     </div>
   </div>`;
 }
 function renderTasks(main){
-  const open = state.tasks.filter(task=>!taskDoneToday(task));
+  const openAll = state.tasks.filter(task=>!taskDoneToday(task));
   const done = state.tasks.filter(task=>taskDoneToday(task));
+  // Active (Due + Overdue) keeps the existing manual order (driven by Home tab drag-reorder).
+  // Upcoming (Not due yet) is a separate group at the end, sorted soonest-due-first — it's never
+  // shown on Home, so there's nothing to drag it against; date order is the meaningful order.
+  const active = openAll.filter(task=> taskState(task)!=='upcoming');
+  const upcoming = openAll.filter(task=> taskState(task)==='upcoming')
+                          .slice().sort((a,b)=> a.dueDate.localeCompare(b.dueDate));
   let html = '';
-  if(open.length===0 && done.length===0){
+  if(openAll.length===0 && done.length===0){
     html += `<div class="empty"><div class="big">📋</div>${tr('Nothing pending.')}<br>${tr('Tap + to add a task.')}</div>`;
-  } else if(open.length===0){
-    html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">${tr('No open tasks.')}</div>`;
   } else {
-    open.forEach(task=> html += renderTaskCard(task));
+    if(active.length>0){
+      active.forEach(task=> html += renderTaskCard(task));
+    } else if(upcoming.length===0){
+      html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">${tr('No open tasks.')}</div>`;
+    }
+    if(upcoming.length>0){
+      html += `<div class="section-label">${trUpcomingSectionLabel()}</div>`;
+      upcoming.forEach(task=> html += renderTaskCard(task));
+    }
   }
   if(done.length>0){
     html += `<div class="section-label">${tr('Completed today')}</div>`;

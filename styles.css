@@ -889,6 +889,9 @@
     pointer-events:none;
     opacity:0.55;
   }
+  .task-upcoming{
+    opacity:0.55;
+  }
   .toggle-row{
     display:flex; align-items:center; justify-content:space-between;
     background:var(--paper);

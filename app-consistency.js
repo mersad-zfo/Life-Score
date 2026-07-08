@@ -408,16 +408,38 @@ function migrateRecurringTasksToRoutines(){
 }
 
 // ---------- Task logic (one-time only — recurring tasks now live as Routines) ----------
+// A task is always in exactly one of three states, driven purely by dueDate vs. today.
+function taskState(task){
+  const t = todayStr();
+  if(t < task.dueDate) return 'upcoming';
+  if(t === task.dueDate) return 'due';
+  return 'overdue';
+}
 function taskCurrentValue(task){
-  // linear decay from creation, can go negative with no floor
-  const days = daysBetween(task.createdDate, todayStr());
+  // Full value through the due date itself — decay only starts counting the day AFTER due.
+  // (Completing early, while 'upcoming' or on the 'due' day, always awards full value.)
+  const t = todayStr();
+  if(t <= task.dueDate) return task.startValue;
+  const days = daysBetween(task.dueDate, t);
   return Math.round(task.startValue - task.decayRate*days);
+}
+// Points lost so far to decay (0 until the day after due). Positive magnitude — display with a
+// leading "-". Kept separate from taskCurrentValue so the Overdue card can show both the running
+// total (pill) and the decay-so-far figure (its own line) without recomputing by hand.
+function taskDecayAmount(task){
+  const t = todayStr();
+  if(t <= task.dueDate) return 0;
+  return task.decayRate * daysBetween(task.dueDate, t);
 }
 function taskDoneToday(task){
   return task.completedDate === todayStr();
 }
+// Locks difficulty AND dueDate together the day after the task's due date — same anti-exploit
+// reasoning as before, just re-anchored: dueDate now controls when decay starts, so it has to be
+// covered by the same lock or someone could push it forward to dodge accumulated decay. Name,
+// emoji, description, and time stay editable regardless (unchanged).
 function taskEditable(task){
-  return task.createdDate === todayStr();
+  return todayStr() <= task.dueDate;
 }
 function taskDisplayValue(task){
   return taskCurrentValue(task);
