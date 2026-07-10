@@ -115,7 +115,7 @@ const LANG_DICT = {
     'Could not save — try again': 'ذخیره نشد — دوباره تلاش کنید',
     'Something went wrong loading your data': 'مشکلی در بارگذاری اطلاعات شما پیش آمد',
     // Confirm dialogs
-    'Remove this routine? Its consistency history will be lost.': 'این روتین حذف شود؟ تاریخچه پیوستگی آن از بین می‌رود.',
+    'Remove this routine? It will disappear from your active lists, but its past history stays exactly as it was.': 'این روتین حذف شود؟ از فهرست‌های فعال شما حذف می‌شود، اما تاریخچه گذشته آن دقیقاً همان‌طور که بوده باقی می‌ماند.',
     'Remove this task without earning or losing points for it?': 'این کار بدون کسب یا از دست دادن امتیاز حذف شود؟',
     'Log out? Your profile stays saved on this device — you can log back in anytime. Your routines, tasks, and scores are unaffected either way.':
       'از حساب خارج شوید؟ پروفایل شما روی این دستگاه ذخیره می‌ماند — هر وقت بخواهید می‌توانید دوباره وارد شوید. روتین‌ها، کارها و امتیازهای شما در هر صورت تغییری نمی‌کنند.',

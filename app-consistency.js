@@ -77,6 +77,18 @@ function ensureRoutineShape(r){
     // just start tracking from "as of yesterday" so today's catch-up loop has nothing to replay.
     r.lastEvaluatedDate = r.lastCompletedDate || addDays(todayStr(), -1);
   }
+  // Migration: routines from before schedule/difficulty were versioned get a single history entry
+  // backfilled from whatever their config currently is — protects history going forward, but can't
+  // recover anything already lost to a pre-fix edit (nothing to do about that).
+  if(!r.configHistory){
+    r.configHistory = [{
+      from: r.createdDate,
+      schedule: r.schedule,
+      basePoints: r.basePoints,
+      rewardValue: r.rewardValue,
+      penaltyValue: r.penaltyValue
+    }];
+  }
 }
 function routineState(r){
   if(r.streak > 0) return 'streak';
@@ -193,8 +205,9 @@ function applyRoutineCatchUp(){
   const t = todayStr();
   state.routines.forEach(r=>{
     ensureRoutineShape(r);
+    const cutoff = r.deleted ? r.deletedDate : t; // deleted routines stop accruing misses/penalties
     let d = addDays(r.lastEvaluatedDate, 1);
-    while(d < t){
+    while(d < cutoff){
       if(isRoutineOccurrenceDay(r, d)) applyRoutineMiss(r, d);
       r.lastEvaluatedDate = d;
       d = addDays(d, 1);
@@ -320,9 +333,16 @@ function triggerConfetti(selector){
     }
   });
 }
+// Soft delete: the routine stays in state.routines forever (so wasRoutineDueOn/getDailyBasePoints
+// still see it for every day up to and including the day before deletion — history stays intact).
+// It's hidden from every live/current view via the !deleted filters in those render functions, and
+// wasRoutineDueOn stops counting it as due from deletedDate onward. Log entries are NEVER touched
+// here — the log is a permanent ledger; deleting the parent must not be able to delete history.
 function deleteRoutine(id){
-  state.routines = state.routines.filter(h=>h.id!==id);
-  state.log = state.log.filter(l=> !((l.kind==='routine'||l.kind==='routine_penalty') && l.refId===id));
+  const r = state.routines.find(h=>h.id===id);
+  if(!r) return;
+  r.deleted = true;
+  r.deletedDate = todayStr();
   saveState();
   renderMain();
   evaluateLiveDailyNotifications();
@@ -337,18 +357,49 @@ function reorderRoutine(id, dir){
 }
 
 // ---------- Recurring schedule engine (shared by weekly/monthly routines) ----------
+// A routine's schedule/basePoints/rewardValue/penaltyValue can all be edited at any time
+// (routineEditable() is always true). Without versioning, editing any of these today would
+// silently rewrite every past day's base/due calculation too. configHistory fixes that: each
+// edit adds (or, if same-day, overwrites) a version stamped with the date it took effect, and
+// any date-specific lookup (getDailyBasePoints, isScheduledOn) reads whichever version was
+// actually in effect on that historical day — never the current live fields.
+function currentRoutineConfig(r){
+  return { schedule: r.schedule, basePoints: r.basePoints, rewardValue: r.rewardValue, penaltyValue: r.penaltyValue };
+}
+function pushConfigVersion(r){
+  const t = todayStr();
+  if(!r.configHistory || r.configHistory.length===0){
+    r.configHistory = [{from: r.createdDate, ...currentRoutineConfig(r)}];
+    return;
+  }
+  const last = r.configHistory[r.configHistory.length-1];
+  if(last.from === t){
+    Object.assign(last, currentRoutineConfig(r)); // same-day re-edit — collapse, don't stack
+  } else {
+    r.configHistory.push({from: t, ...currentRoutineConfig(r)});
+  }
+}
+function configAt(r, dateStr){
+  if(!r.configHistory || r.configHistory.length===0) return currentRoutineConfig(r);
+  let best = r.configHistory[0];
+  for(const entry of r.configHistory){
+    if(entry.from <= dateStr) best = entry; else break;
+  }
+  return best;
+}
 function daysInMonth(year, monthIndex){
   return new Date(year, monthIndex+1, 0).getDate();
 }
 function isScheduledOn(r, dateStr){
   const d = new Date(dateStr+'T00:00:00');
-  if(r.recurrence==='weekly') return (r.schedule||[]).includes(d.getDay());
+  const schedule = configAt(r, dateStr).schedule;
+  if(r.recurrence==='weekly') return (schedule||[]).includes(d.getDay());
   if(r.recurrence==='monthly'){
     const lastDay = daysInMonth(d.getFullYear(), d.getMonth());
     const dom = d.getDate();
-    if((r.schedule||[]).includes(dom)) return true;
+    if((schedule||[]).includes(dom)) return true;
     // if today is the last day of a short month, any selected day beyond it rolls over to today
-    if(dom===lastDay && (r.schedule||[]).some(s=>s>lastDay)) return true;
+    if(dom===lastDay && (schedule||[]).some(s=>s>lastDay)) return true;
     return false;
   }
   return false;
@@ -377,7 +428,7 @@ function routineEditable(r){
 // that are due today (schedule match). Note this doesn't need a separate "done today" check —
 // today's schedule match doesn't change just because it's already been completed today.
 function routinesForToday(){
-  return state.routines.filter(r=> routineIsDueToday(r));
+  return state.routines.filter(r=> !r.deleted && routineIsDueToday(r));
 }
 // Converts every pre-existing weekly/monthly TASK into a Routine, preserving id (so log history
 // stays linked), schedule, and reward/penalty. Seeded neutral (streak/neglect 0) — this app has
@@ -414,6 +465,15 @@ function taskState(task){
   if(t < task.dueDate) return 'upcoming';
   if(t === task.dueDate) return 'due';
   return 'overdue';
+}
+// Historical version of "was this task relevant on day X" — used by the Progression day-list.
+// Unlike taskState() (which only ever answers for "today"), this needs a date parameter, and it
+// has to respect the deletion cutoff so a deleted task still shows correctly for every day before
+// it was deleted (soft-delete keeps the object around forever for exactly this reason).
+function taskWasActiveOn(task, dateStr){
+  if(task.dueDate > dateStr) return false; // wasn't due yet as of that day
+  if(task.deleted && dateStr >= task.deletedDate) return false;
+  return task.completedDate===null || task.completedDate>=dateStr;
 }
 function taskCurrentValue(task){
   // Full value through the due date itself — decay only starts counting the day AFTER due.
@@ -477,7 +537,10 @@ function pruneStaleCompletedTasks(){
   state.tasks = state.tasks.filter(task=> !(task.completedDate && task.completedDate !== t));
 }
 function deleteTask(id){
-  state.tasks = state.tasks.filter(t=>t.id!==id);
+  const t = state.tasks.find(x=>x.id===id);
+  if(!t) return;
+  t.deleted = true;
+  t.deletedDate = todayStr();
   saveState();
   renderMain();
   evaluateLiveDailyNotifications();

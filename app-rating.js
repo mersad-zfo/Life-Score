@@ -20,20 +20,24 @@ function difficultyPointsFor(recurrence, diff){
 
 // ---------- Rating system ----------
 
-// Was routine r due on the given date?
+// Was routine r due on the given date? Deleted routines still answer correctly for every day
+// before their deletedDate (soft-delete keeps history intact) but are never "due" from that day on.
+// Schedule check is delegated to isScheduledOn() (app-consistency.js), which reads the versioned
+// configHistory so a later schedule edit can never rewrite an already-elapsed day's due status.
 function wasRoutineDueOn(r, dateStr){
   if(r.createdDate > dateStr) return false;
+  if(r.deleted && dateStr >= r.deletedDate) return false;
   if(r.recurrence==='daily') return true;
-  const d = new Date(dateStr+'T00:00:00');
-  if(r.recurrence==='weekly') return (r.schedule||[]).includes(d.getDay());
-  if(r.recurrence==='monthly') return (r.schedule||[]).includes(d.getDate());
-  return false;
+  return isScheduledOn(r, dateStr);
 }
-// Total possible BASE points from routines on a given date (no streak/neglect modifier).
+// Total possible BASE points from routines on a given date (no streak/neglect modifier). Uses the
+// version of basePoints/rewardValue that was actually in effect that day, not the current live
+// value — see configAt() in app-consistency.js.
 function getDailyBasePoints(dateStr){
   return state.routines.reduce((sum, r)=>{
     if(!wasRoutineDueOn(r, dateStr)) return sum;
-    return sum + (r.recurrence==='daily' ? r.basePoints : r.rewardValue);
+    const cfg = configAt(r, dateStr);
+    return sum + (r.recurrence==='daily' ? cfg.basePoints : cfg.rewardValue);
   }, 0);
 }
 // Total points actually logged on a given date (can be negative; includes tasks + penalties).

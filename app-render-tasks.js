@@ -31,8 +31,8 @@ function renderTaskCard(task){
   </div>`;
 }
 function renderTasks(main){
-  const openAll = state.tasks.filter(task=>!taskDoneToday(task));
-  const done = state.tasks.filter(task=>taskDoneToday(task));
+  const openAll = state.tasks.filter(task=>!task.deleted && !taskDoneToday(task));
+  const done = state.tasks.filter(task=>!task.deleted && taskDoneToday(task));
   // Active (Due + Overdue) keeps the existing manual order (driven by Home tab drag-reorder).
   // Upcoming (Not due yet) is a separate group at the end, sorted soonest-due-first — it's never
   // shown on Home, so there's nothing to drag it against; date order is the meaningful order.

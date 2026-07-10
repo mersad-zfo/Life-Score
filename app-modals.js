@@ -273,15 +273,19 @@ function openAddRoutineModal(){
       awardedPoints: null
     };
     if(recurrence==='daily'){
-      state.routines.push({...base, basePoints: difficultyPointsFor('daily', difficulty)});
+      const basePoints = difficultyPointsFor('daily', difficulty);
+      state.routines.push({...base, basePoints, configHistory: [{from: base.createdDate, basePoints}]});
     } else {
       const schedule = readDayGrid(m, 'h');
       if(schedule.length===0){ showToast(tr('Pick at least one day')); return; }
+      const rewardValue = difficultyPointsFor(recurrence, difficulty);
+      const penaltyValue = WEEKLY_MONTHLY_PENALTY;
       state.routines.push({
         ...base,
-        rewardValue: difficultyPointsFor(recurrence, difficulty),
-        penaltyValue: WEEKLY_MONTHLY_PENALTY,
-        schedule
+        rewardValue,
+        penaltyValue,
+        schedule,
+        configHistory: [{from: base.createdDate, schedule, rewardValue, penaltyValue}]
       });
     }
     saveState();
@@ -344,6 +348,11 @@ function openEditRoutineModal(id){
       if(schedule.length===0){ showToast(tr('Pick at least one day')); return; }
       h.schedule = schedule;
     }
+    // Stamp today's version of whatever changed — configAt() will use this for any date from
+    // today forward, while every day before today keeps reading whichever version was actually
+    // in effect back then. Without this, editing schedule/difficulty would silently rewrite the
+    // base/due calculation for every already-elapsed day too.
+    pushConfigVersion(h);
     saveState();
     m.remove();
     renderMain();

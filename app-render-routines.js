@@ -90,9 +90,10 @@ function renderRecurringRoutineCard(r){
   </div>`;
 }
 function renderRoutines(main){
-  const daily = state.routines.filter(r=>r.recurrence==='daily');
-  const weekly = state.routines.filter(r=>r.recurrence==='weekly');
-  const monthly = state.routines.filter(r=>r.recurrence==='monthly');
+  const live = state.routines.filter(r=>!r.deleted);
+  const daily = live.filter(r=>r.recurrence==='daily');
+  const weekly = live.filter(r=>r.recurrence==='weekly');
+  const monthly = live.filter(r=>r.recurrence==='monthly');
   let html = '';
   function group(title, list, cardFn){
     let h = `<div class="task-group-title">${title}</div>`;
@@ -103,7 +104,7 @@ function renderRoutines(main){
     }
     return h;
   }
-  if(state.routines.length===0){
+  if(live.length===0){
     html += `<div class="empty"><div class="big">🪴</div>${tr('Nothing here yet.')}<br>${tr('Tap + to add your first routine.')}</div>`;
   } else {
     html += group(tr('Daily'), daily, renderDailyRoutineCard);
@@ -120,7 +121,7 @@ function renderRoutines(main){
   });
   main.querySelectorAll('[data-del-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      if(confirm(tr('Remove this routine? Its consistency history will be lost.'))) deleteRoutine(btn.dataset.delRoutine);
+      if(confirm(tr('Remove this routine? It will disappear from your active lists, but its past history stays exactly as it was.'))) deleteRoutine(btn.dataset.delRoutine);
     });
   });
   main.querySelectorAll('[data-edit-routine]').forEach(btn=>{

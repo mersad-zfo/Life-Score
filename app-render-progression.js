@@ -265,12 +265,12 @@ function renderProgDayView(container){
   const dateObj = new Date(d+'T00:00:00');
   const heroLabel = dateObj.toLocaleDateString(localeForLang(), {weekday:'long', month:'long', day:'numeric'});
 
-  // Routines due that day
+  // Routines due that day (wasRoutineDueOn respects deletion cutoff + versioned schedule history —
+  // a routine deleted or rescheduled since this day still shows exactly as it did back then).
   const dueRoutines = state.routines.filter(r => wasRoutineDueOn(r, d));
-  // Tasks available that day: created on or before d, not yet completed OR completed on d
-  const availTasks = state.tasks.filter(t =>
-    t.createdDate <= d && (t.completedDate === null || t.completedDate >= d)
-  );
+  // Tasks active that day: due on or before d (not shown before their due date), not yet completed
+  // OR completed on/after d, and not deleted before d (taskWasActiveOn covers all of this).
+  const availTasks = state.tasks.filter(t => taskWasActiveOn(t, d));
 
   // Was a routine completed on that specific day? Check log entries.
   function routineCompletedOn(r){
