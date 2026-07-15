@@ -218,7 +218,6 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
       ensureStateShape();
       state.profile = currentProfile;
       migrateRecurringTasksToRoutines();
-      pruneStaleCompletedTasks();
       applyRoutineCatchUp();
       applyTheme();
       saveState();

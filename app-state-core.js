@@ -107,7 +107,6 @@ async function loadState(){
   }catch(e){ /* no existing data yet, or storage unavailable */ }
   ensureStateShape();
   migrateRecurringTasksToRoutines();
-  pruneStaleCompletedTasks();
   applyRoutineCatchUp();
   applyTheme();
   storageReady = true;

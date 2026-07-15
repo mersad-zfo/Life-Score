@@ -532,10 +532,16 @@ function uncompleteTask(id){
   renderMain();
   evaluateLiveDailyNotifications();
 }
-function pruneStaleCompletedTasks(){
-  const t = todayStr();
-  state.tasks = state.tasks.filter(task=> !(task.completedDate && task.completedDate !== t));
-}
+// A completed task never needs to be removed from state to stop showing as "open" again — the
+// live "open" filters (Tasks tab, Home tab) check `!task.completedDate` (any completion date at
+// all), not `taskDoneToday()` (today only). So a task completed yesterday is already permanently
+// excluded from "open" and from today's "Completed today" section, with no deletion required —
+// it just quietly stays in state, exactly like a soft-deleted item, available to Progression's
+// historical day-list forever. (This used to be a hard-delete-on-next-load function; that was
+// itself a smaller instance of the same history-loss bug described in ARCHITECTURE.md's
+// "Historical Data Integrity" — deleting a completed task from state.tasks made it vanish from
+// its own Progression day-list, even though its logged points were safe. Removed rather than
+// patched, since it no longer serves any purpose once the filter below is correct.)
 function deleteTask(id){
   const t = state.tasks.find(x=>x.id===id);
   if(!t) return;

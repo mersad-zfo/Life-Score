@@ -16,7 +16,11 @@ function renderToday(main){
   const dueRoutines = routinesForToday();
   // Upcoming (not-due-yet) tasks are hidden from Home entirely, so they shouldn't pad the tally
   // denominator either — unless completed early, in which case they're a real "done today" win.
-  const tasksForTally = state.tasks.filter(task=> !task.deleted && (taskState(task)!=='upcoming' || taskDoneToday(task)));
+  // A task completed on some earlier day must NOT count here at all (taskState() is computed from
+  // dueDate alone, so it says nothing about completion — without the !completedDate guard, an old
+  // completed task would keep inflating today's denominator forever).
+  const tasksForTally = state.tasks.filter(task=> !task.deleted &&
+    ((!task.completedDate && taskState(task)!=='upcoming') || taskDoneToday(task)));
   const tallyDone = dueRoutines.filter(h=>routineDoneToday(h)).length + tasksForTally.filter(task=>taskDoneToday(task)).length;
   const tallyTotal = dueRoutines.length + tasksForTally.length;
   const todayRating = getTodayRating();
@@ -61,7 +65,7 @@ function renderToday(main){
     html += `</div>`;
   }
   // Upcoming (not-due-yet) tasks never appear on Home — only Due/Overdue are "active today".
-  const openTasks = state.tasks.filter(task=>!task.deleted && !taskDoneToday(task) && taskState(task)!=='upcoming');
+  const openTasks = state.tasks.filter(task=>!task.deleted && !task.completedDate && taskState(task)!=='upcoming');
   const doneTasks = state.tasks.filter(task=>!task.deleted && taskDoneToday(task));
   html += `<div class="section-label">${tr('Open tasks')}</div>`;
   if(openTasks.length===0){

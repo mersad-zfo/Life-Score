@@ -110,8 +110,12 @@ function evaluateLiveDailyNotifications(){
     ()=>({ title: tr('Monthly Rating limit.'), body: trMonthlyNpCapBody(monthNp) }), true);
 
   const dueRoutines = routinesForToday();
-  const openTasks = state.tasks.filter(t=> !taskDoneToday(t));
-  const somethingExists = dueRoutines.length>0 || state.tasks.length>0;
+  // Still-open (uncompleted, due/overdue, not soft-deleted) tasks — this must check completedDate
+  // directly, not taskDoneToday(), or a task completed on some earlier day would incorrectly keep
+  // counting as "open" forever and this notification would never fire again.
+  const openTasks = state.tasks.filter(t=> !t.deleted && !t.completedDate && taskState(t)!=='upcoming');
+  const doneTodayTasks = state.tasks.filter(t=> !t.deleted && taskDoneToday(t));
+  const somethingExists = dueRoutines.length>0 || openTasks.length>0 || doneTodayTasks.length>0;
   const allClear = somethingExists && dueRoutines.every(r=>routineDoneToday(r)) && openTasks.length===0;
   notifSetCondition(`allclear:${today}`, allClear, 'congrats',
     ()=>({ title: tr('All clear today'), body: trAllClearBody() }), true);
