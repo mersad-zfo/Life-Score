@@ -775,8 +775,9 @@
     flex-shrink:0;
   }
   .notif-popover-close:active{ background:var(--accent-soft); color:var(--accent); }
-  .notif-popover .notif-list{ padding:0 16px 12px; max-height:none; overflow-y:auto; }
-  .notif-popover .notif-show-more{ padding:10px 16px 16px; }
+  #notifPopBody{ display:flex; flex-direction:column; flex:1; min-height:0; }
+  .notif-popover .notif-list{ padding:0 16px 12px; max-height:none; flex:1; min-height:0; overflow-y:auto; }
+  .notif-popover .notif-show-more{ padding:10px 16px 16px; flex-shrink:0; }
 
   /* ---- Slide-down banner stack ---- */
   #notifBannerStack{

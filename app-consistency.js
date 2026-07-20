@@ -344,6 +344,7 @@ function deleteRoutine(id){
   if(!r) return;
   r.deleted = true;
   r.deletedDate = todayStr();
+  if(r.graceAppliedDate) notifSetCondition(`grace:${id}`, false, 'info', null, false);
   saveState();
   renderMain();
   evaluateLiveDailyNotifications();
