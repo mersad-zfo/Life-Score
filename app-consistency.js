@@ -71,6 +71,7 @@ function ensureRoutineShape(r){
   if(r.recurrence!=='daily' && !r.schedule) r.schedule = [];
   if(!r.createdDate) r.createdDate = r.lastCompletedDate || todayStr();
   if(r.neglect===undefined) r.neglect = 0;
+  if(r.graceAppliedDate===undefined) r.graceAppliedDate = null;
   if(r.recoveryChain===undefined) r.recoveryChain = false;
   if(r.lastEvaluatedDate===undefined){
     // Migrating older data, or a brand-new routine: don't invent retroactive misses —
@@ -471,8 +472,9 @@ function taskState(task){
 // has to respect the deletion cutoff so a deleted task still shows correctly for every day before
 // it was deleted (soft-delete keeps the object around forever for exactly this reason).
 function taskWasActiveOn(task, dateStr){
-  if(task.dueDate > dateStr) return false; // wasn't due yet as of that day
   if(task.deleted && dateStr >= task.deletedDate) return false;
+  if(task.completedDate === dateStr) return true; // completed that day — show even if completed early (before dueDate)
+  if(task.dueDate > dateStr) return false; // wasn't due yet, and wasn't the completion day either
   return task.completedDate===null || task.completedDate>=dateStr;
 }
 function taskCurrentValue(task){

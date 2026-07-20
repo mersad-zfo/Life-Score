@@ -68,6 +68,17 @@ function renderSettings(main){
       </div>
     </div>
 
+    <div class="settings-group">
+      <div class="settings-group-title">${tr('Sleep cycle')}</div>
+      <div class="toggle-row">
+        <div>
+          <div class="item-name">${tr('Night owl mode')}</div>
+          <div class="item-sub">${tr('Day ends at 5:00am instead of midnight')}</div>
+        </div>
+        <div class="switch ${state.settings.nightOwlMode?'on':''}" id="nightOwlSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+
 
     <div class="settings-group">
       <div class="settings-group-title">${tr('Danger zone')}</div>
@@ -110,6 +121,12 @@ function renderSettings(main){
     state.settings.sound = !state.settings.sound;
     saveState();
     renderSettings(main);
+  });
+  document.getElementById('nightOwlSwitch').addEventListener('click', ()=>{
+    state.settings.nightOwlMode = !state.settings.nightOwlMode;
+    applyRoutineCatchUp(); // re-evaluate against the new day boundary right away
+    saveState();
+    renderMain();
   });
   document.getElementById('resetBtn').addEventListener('click', ()=> openResetModal());
   if(isLoggedIn){

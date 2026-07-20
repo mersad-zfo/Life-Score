@@ -27,6 +27,7 @@ function difficultyPointsFor(recurrence, diff){
 function wasRoutineDueOn(r, dateStr){
   if(r.createdDate > dateStr) return false;
   if(r.deleted && dateStr >= r.deletedDate) return false;
+  if(r.graceAppliedDate === dateStr && r.lastCompletedDate !== dateStr) return false; // grace day, left undone — fully ignored
   if(r.recurrence==='daily') return true;
   return isScheduledOn(r, dateStr);
 }

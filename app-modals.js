@@ -265,11 +265,13 @@ function openAddRoutineModal(){
     const recurrence = readRecurrence(m, 'h');
     const difficulty = readDifficulty(m, 'h');
     if(!name){ showToast(tr('Give it a name')); return; }
+    const graceToday = shouldGraceToday();
     const base = {
       id: uid(), name, emoji, description, time, recurrence, difficulty,
       createdDate: todayStr(),
       streak:0, neglect:0, recoveryChain:false, neglectMilestoneHit:false,
-      lastCompletedDate:null, lastEvaluatedDate: addDays(todayStr(),-1),
+      lastCompletedDate:null, lastEvaluatedDate: graceToday ? todayStr() : addDays(todayStr(),-1),
+      graceAppliedDate: graceToday ? todayStr() : null,
       awardedPoints: null
     };
     if(recurrence==='daily'){
@@ -291,6 +293,10 @@ function openAddRoutineModal(){
     saveState();
     m.remove();
     renderMain();
+    if(graceToday){
+      notifSetCondition(`grace:${base.id}`, true, 'info',
+        ()=>({ title: tr('Grace period applied'), body: tr("Added late, so today won't count — it starts fresh tomorrow.") }), true);
+    }
     evaluateLiveDailyNotifications();
   });
   setTimeout(()=>m.querySelector('#hName').focus(), 100);
