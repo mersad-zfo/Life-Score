@@ -231,6 +231,7 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
         return;
       }
       const currentProfile = state.profile;
+      const wasOnboarding = onboardingActive;
       state = parsed;
       ensureStateShape();
       state.profile = currentProfile;
@@ -238,6 +239,10 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
       applyRoutineCatchUp();
       applyTheme();
       saveState();
+      if(wasOnboarding){
+        obRestoredViaOnboarding = true;
+        obStep = 5;
+      }
       renderMain();
       showToast(tr('Data restored'));
     }catch(err){

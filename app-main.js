@@ -57,7 +57,8 @@ document.getElementById('fab').addEventListener('click', ()=>{
   try{
     await loadState();
     applyNavLabels(); // static nav-tab text isn't covered by any render*() function
-    setTab('today');
+    initOnboarding();
+    if(!onboardingActive) setTab('today');
     runSilentNotificationCatchUp(); // Category 2: weekly/monthly rating finalized — never a banner
   }catch(e){
     console.error('Failed to load saved data', e);
@@ -72,7 +73,7 @@ document.getElementById('fab').addEventListener('click', ()=>{
   }
   refreshBellBadge();
   checkNotificationPermissionState().then(()=> reconfirmDeviceIfNeeded());
-  promptForNotificationsIfFirstLaunch();
+  if(!onboardingActive) promptForNotificationsIfFirstLaunch(); // onboarding's own last step handles this instead
   const elapsed = Date.now() - splashStart;
   const minSplash = 900;
   setTimeout(()=>{

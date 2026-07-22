@@ -3,7 +3,7 @@
 // helpers, and small cross-cutting utilities other files rely on. Kept deliberately small.
 // (Split out of the former monolithic app-state.js — see ARCHITECTURE.md.)
 const STORE_KEY = 'lifescore_state_v1';
-let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, nightOwlMode: false }, session: { loggedIn: false } };
+let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, nightOwlMode: false, onboardingComplete: false }, session: { loggedIn: false } };
 let currentTab = 'today';
 let previousTab = 'today';
 let storageReady = false;
@@ -34,6 +34,7 @@ function ensureStateShape(){
   if(state.settings.deviceId===undefined) state.settings.deviceId = null;
   if(state.settings.notifLastSync===undefined) state.settings.notifLastSync = null;
   if(state.settings.nightOwlMode===undefined) state.settings.nightOwlMode = false;
+  if(state.settings.onboardingComplete===undefined) state.settings.onboardingComplete = true; // pre-existing install — never show onboarding retroactively
   // Category 2 "once per calendar day per condition" banner suppression — see app-notif-triggers.js.
   if(state.settings.notifBannerLedger===undefined) state.settings.notifBannerLedger = { date: todayStr(), keys: [] };
   // Migrate pre-difficulty items: tag them 'normal' so the UI shows a sensible default.

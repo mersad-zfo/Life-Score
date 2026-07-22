@@ -1,7 +1,7 @@
 importScripts('./app-notif-db.js');
 importScripts('./app-notif-shared.js');
 
-const CACHE_NAME = 'life-score-v50';
+const CACHE_NAME = 'life-score-v54';
 const ASSETS = [
   './',
   './index.html',
@@ -28,6 +28,7 @@ const ASSETS = [
   './app-render-settings.js',
   './app-render-notifications.js',
   './app-modals.js',
+  './app-onboarding.js',
   './app-main.js'
 ];
 

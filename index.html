@@ -59,6 +59,24 @@
     </button>
   </nav>
 </div>
+<div id="onboarding" style="display:none;">
+  <div class="ob-header">
+    <div class="ob-back" id="obBackBtn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </div>
+    <div class="ob-dots" id="obDots"></div>
+    <div class="ob-spacer"></div>
+  </div>
+  <div class="ob-content" id="obContent"></div>
+  <div class="ob-footer" id="obFooter"></div>
+  <div class="ob-weekday-scrim" id="obWeekdayPopoverScrim">
+    <div class="ob-weekday-card">
+      <p class="ob-weekday-title" id="obWeekdayPopoverTitle"></p>
+      <div class="ob-weekday-grid" id="obWeekdayPopoverGrid"></div>
+      <button type="button" class="ob-weekday-confirm" id="obWeekdayPopoverConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <div id="notifBannerStack"></div>
 <input type="file" id="restoreFileInput" accept="application/json" style="display:none;" />
@@ -85,6 +103,7 @@
 <script src="app-render-settings.js"></script>
 <script src="app-render-notifications.js"></script>
 <script src="app-modals.js"></script>
+<script src="app-onboarding.js"></script>
 <script src="app-main.js"></script>
 </body>
 </html>

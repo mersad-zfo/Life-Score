@@ -1,5 +1,6 @@
 // ---------- Rendering dispatcher + shared utils ----------
 function renderMain(){
+  if(onboardingActive){ renderOnboarding(); return; }
   const main = document.getElementById('main');
   document.getElementById('fab').style.display = (currentTab==='routines'||currentTab==='tasks') ? 'flex' : 'none';
   if(currentTab==='today') return renderToday(main);

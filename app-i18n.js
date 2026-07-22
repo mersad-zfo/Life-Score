@@ -77,6 +77,7 @@ const LANG_DICT = {
     'e.g. Brush teeth': 'مثلاً مسواک زدن',
     '+ Add details': '+ افزودن جزئیات',
     '+ Add time & details': '+ افزودن زمان و جزئیات',
+    '– Hide time & details': '– پنهان کردن زمان و جزئیات',
     'Time': 'زمان',
     'Description (optional)': 'توضیحات (اختیاری)',
     'Add extra detail': 'جزئیات بیشتر اضافه کنید',
@@ -137,12 +138,83 @@ const LANG_DICT = {
     'Delete this notification from your history?': 'این اعلان برای همیشه از تاریخچه حذف شود؟',
     'Delete': 'حذف',
     "This can't be undone.": 'این کار قابل بازگشت نیست.',
+    // Onboarding
+    'Welcome to Life Score!': 'به Life Score خوش آمدید!',
+    'Life Score helps you reflect how well you lived today, not just what you completed.': 'Life Score کمکتان می‌کند ببینید امروز را چقدر خوب زندگی کرده‌اید، نه فقط چه کارهایی را انجام داده‌اید.',
+    'Get started': 'شروع کنید',
+    'Step 1 of 3': 'مرحله ۱ از ۳',
+    'Step 2 of 3': 'مرحله ۲ از ۳',
+    'Step 3 of 3': 'مرحله ۳ از ۳',
+    'A couple quick preferences': 'چند تنظیم سریع',
+    'All of this lives in Settings too — change any of it anytime.': 'همه این‌ها در تنظیمات هم هست — هر زمان می‌توانید تغییرشان دهید.',
+    'Log in to restore your data to this device.': 'برای بازگرداندن اطلاعاتتان به این دستگاه وارد شوید.',
+    'Skip setup': 'رد شدن از راه‌اندازی',
+    'Skip setup?': 'از راه‌اندازی صرف‌نظر شود؟',
+    "This clears any routines or tasks you've already picked, and takes you straight to the end.": 'این کار هر روتین یا کاری که تا الان انتخاب کرده‌اید را پاک می‌کند و مستقیم شما را به پایان می‌برد.',
+    'Continue': 'ادامه',
+    'Choose your routines': 'روتین‌های خود را انتخاب کنید',
+    "Pick the activities that are already part of your life, plus anything you'd like to make part of it.": 'فعالیت‌هایی که همین الان بخشی از زندگیتان هستند را انتخاب کنید، به‌علاوه هر چیزی که دوست دارید بخشی از آن شود.',
+    '+ Add yours': '+ مورد خودتان را اضافه کنید',
+    'Type your own…': 'مورد خودتان را بنویسید…',
+    'Routines repeat automatically. Tasks are one-time activities — unlike routines, tasks disappear after completion.': 'روتین‌ها به‌طور خودکار تکرار می‌شوند. کارها فعالیت‌های یک‌بار مصرف هستند — برخلاف روتین‌ها، کارها بعد از انجام شدن ناپدید می‌شوند.',
+    '<b>Routines</b> repeat automatically. <b>Tasks</b> are one-time activities — unlike routines, tasks disappear after completion.': '<b>روتین‌ها</b> به‌طور خودکار تکرار می‌شوند. <b>کارها</b> فعالیت‌های یک‌بار مصرف هستند — برخلاف روتین‌ها، کارها بعد از انجام شدن ناپدید می‌شوند.',
+    'Due': 'موعد',
+    'Confirm': 'تأیید',
+    'Select days': 'انتخاب روزها',
+    "One task you've been putting off?": 'کاری که مدام به تعویق انداخته‌اید؟',
+    'Optional — e.g. Renew car insurance': 'اختیاری — مثلاً تمدید بیمه ماشین',
+    'How difficult is each activity for you?': 'هر فعالیت چقدر برایتان سخت است؟',
+    "Choose how demanding each activity usually is for you. If you're unsure, leave everything at Normal.": 'انتخاب کنید هر فعالیت معمولاً چقدر برایتان طاقت‌فرساست. اگر مطمئن نیستید، همه را روی «متوسط» بگذارید.',
+    'Task': 'کار',
+    'Nothing to set up yet': 'هنوز چیزی برای راه‌اندازی نیست',
+    'You can add routines and tasks anytime from the Home tab.': 'هر زمان می‌توانید از تب خانه روتین و کار اضافه کنید.',
+    'Finish setup': 'پایان راه‌اندازی',
+    "You're all set": 'همه‌چیز آماده است',
+    'Your Life Score is ready. Everything here can still be edited, renamed, or removed anytime.': 'Life Score شما آماده است. همه این‌ها را می‌توانید هر زمان ویرایش، تغییر نام یا حذف کنید.',
+    'Your data has been restored to this device.': 'اطلاعات شما به این دستگاه بازگردانده شد.',
+    'Starting from a blank slate': 'شروع از صفحه‌ای خالی',
+    "One more thing — allow notifications if you'd like daily reminders to check your list.": 'یک نکته دیگر — اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
+    "<b>One more thing</b> — allow notifications if you'd like daily reminders to check your list.": '<b>یک نکته دیگر</b> — اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
+    'Enter Life Score': 'ورود به Life Score',
+    // Onboarding: curated routine/task names (also used as the saved item name when picked)
+    'Brush Teeth': 'مسواک زدن',
+    'Work': 'کار',
+    'Cook': 'آشپزی',
+    'Shower': 'دوش گرفتن',
+    'Tidy Up': 'مرتب کردن خانه',
+    'Read': 'مطالعه',
+    'Eat Healthy': 'تغذیه سالم',
+    'Exercise': 'ورزش',
+    'Take Medication': 'مصرف دارو',
+    'Learn a Language': 'یادگیری زبان',
+    'Wash Dishes': 'شستن ظرف‌ها',
+    'Journal': 'یادداشت روزانه',
+    'Gym': 'باشگاه',
+    'Laundry': 'لباسشویی',
+    'Clean the House': 'نظافت خانه',
+    'Grocery Shopping': 'خرید مایحتاج',
+    'Meal Prep': 'آماده‌سازی غذا',
+    'Call Family': 'تماس با خانواده',
   }
 };
 function tr(key){
   const lang = (state.settings && state.settings.language) || 'en';
   if(lang!=='en' && LANG_DICT[lang] && LANG_DICT[lang][key]) return LANG_DICT[lang][key];
   return key;
+}
+function trSelectedCount(n){
+  return curLang()==='fa' ? `${n} مورد انتخاب شده` : `${n} selected`;
+}
+function trAllSetWithName(name){
+  return curLang()==='fa' ? `همه‌چیز آماده است، ${name}` : `You're all set, ${name}`;
+}
+function trPickPart(n, kind){
+  const words = {
+    daily:  curLang()==='fa' ? 'روزانه' : 'daily',
+    weekly: curLang()==='fa' ? 'هفتگی' : 'weekly',
+    task:   curLang()==='fa' ? 'کار'   : 'task'
+  };
+  return `${n} ${words[kind]}`;
 }
 function curLang(){ return (state.settings && state.settings.language) || 'en'; }
 // Locale used for built-in date formatting. fa-IR-u-ca-gregory gives Farsi weekday/month

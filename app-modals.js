@@ -491,11 +491,12 @@ function openResetModal(){
   m.querySelector('#rCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#rConfirm').addEventListener('click', async ()=>{
     state = {routines:[], tasks:[], log:[], profile: state.profile, settings: state.settings};
+    state.settings.onboardingComplete = false;
     ensureStateShape();
     await saveState();
     applyTheme();
     m.remove();
-    renderMain();
+    enterOnboarding();
     showToast(tr('Everything reset'));
   });
 }
