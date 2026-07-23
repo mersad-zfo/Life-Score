@@ -1,4 +1,6 @@
 // ---------- Home tab ----------
+let lastKnownTodayRating = undefined;
+let lastKnownTodayReceived = undefined;
 function ratingPillHtml(rating){
   const classMap = {
     'NOT GOOD':  'rating-notgood',
@@ -58,7 +60,7 @@ function renderToday(main){
           <div class="item-name">${escapeHtml(h.name)}</div>
           ${subtitleHtml}
         </div>
-        <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview}</span>
+        ${done ? '' : `<span class="pill ${pointsPreview<0?'negative':''}" data-pill-routine="${h.id}">${pointsPreview}</span>`}
         <button class="btn-done ${done?'done':''}" data-routine="${h.id}">${done? '✓' : ''}</button>
       </div>`;
     });
@@ -87,7 +89,7 @@ function renderToday(main){
           <div class="item-name">${escapeHtml(task.name)}</div>
           ${taskLines.join('')}
         </div>
-        <span class="pill ${val<0?'negative':''}">${val}</span>
+        <span class="pill ${val<0?'negative':''}" data-pill-task="${task.id}">${val}</span>
         <button class="btn-done-square" data-complete-task-today="${task.id}">✓</button>
       </div>`;
     });
@@ -107,18 +109,56 @@ function renderToday(main){
     });
   }
   main.innerHTML = html;
+
+  // Today's score number ticks up/down instead of jumping straight to the new value.
+  const receivedEl = main.querySelector('.score-hero .sf-received');
+  if(receivedEl){
+    const newReceived = Math.max(0, Math.round(todayScore.received));
+    if(lastKnownTodayReceived !== undefined && lastKnownTodayReceived !== newReceived){
+      animateNumberCount(receivedEl, lastKnownTodayReceived, newReceived, 500);
+    }
+    lastKnownTodayReceived = newReceived;
+  }
+  // Rating pill glows when today's rating actually changes tier.
+  const ratingPillEl = main.querySelector('.rating-pill');
+  if(ratingPillEl && lastKnownTodayRating !== undefined && todayRating !== lastKnownTodayRating){
+    const glowClass = {'NOT GOOD':'glow-notgood', 'GOOD':'glow-good', 'GREAT!':'glow-great', 'AWESOME!!!':'glow-awesome'}[todayRating];
+    if(glowClass){
+      ratingPillEl.classList.add(glowClass);
+      setTimeout(()=> ratingPillEl.classList.remove(glowClass), 800);
+    }
+  }
+  lastKnownTodayRating = todayRating;
+
   main.querySelectorAll('[data-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.routine;
       const h = state.routines.find(x=>x.id===id);
-      if(routineDoneToday(h)) uncompleteRoutine(id); else completeRoutine(id);
+      if(routineDoneToday(h)){
+        uncompleteRoutine(id);
+      } else {
+        const pillEl = main.querySelector(`[data-pill-routine="${id}"]`);
+        if(pillEl){
+          const num = Math.round(parseFloat(pillEl.textContent));
+          spawnFloatingPoints(pillEl, (num>=0?'+':'') + num, num<0);
+        }
+        completeRoutine(id);
+      }
     });
   });
   main.querySelectorAll('[data-undo-task]').forEach(btn=>{
     btn.addEventListener('click', ()=> uncompleteTask(btn.dataset.undoTask));
   });
   main.querySelectorAll('[data-complete-task-today]').forEach(btn=>{
-    btn.addEventListener('click', ()=> completeTask(btn.dataset.completeTaskToday));
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.completeTaskToday;
+      const pillEl = main.querySelector(`[data-pill-task="${id}"]`);
+      if(pillEl){
+        const num = Math.round(parseFloat(pillEl.textContent));
+        spawnFloatingPoints(pillEl, (num>=0?'+':'') + num, num<0);
+      }
+      completeTask(id);
+    });
   });
   enableHoldDrag('#todayRoutinesList', '[data-drag-item]', '.drag-handle', 'routine', (newOrderIds)=>{
     state.routines = reorderMasterByVisibleOrder(state.routines, newOrderIds);

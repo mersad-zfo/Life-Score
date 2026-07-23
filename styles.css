@@ -1083,6 +1083,30 @@
     text-align: center;
   }
 
+  /* Rating pill glow — plays once when today's rating tier actually changes */
+  .rating-pill.glow-notgood{ animation: ratingGlowNotGood .8s ease-out; }
+  .rating-pill.glow-good{ animation: ratingGlowGood .8s ease-out; }
+  .rating-pill.glow-great{ animation: ratingGlowGreat .8s ease-out; }
+  .rating-pill.glow-awesome{ animation: ratingGlowAwesome .8s ease-out; }
+  @keyframes ratingGlowNotGood{ 0%{box-shadow:0 0 0 0 rgba(212,163,7,0.35);} 60%{box-shadow:0 0 0 8px rgba(212,163,7,0.16);} 100%{box-shadow:0 0 0 14px rgba(212,163,7,0);} }
+  @keyframes ratingGlowGood{ 0%{box-shadow:0 0 0 0 rgba(90,171,53,0.35);} 60%{box-shadow:0 0 0 8px rgba(90,171,53,0.16);} 100%{box-shadow:0 0 0 14px rgba(90,171,53,0);} }
+  @keyframes ratingGlowGreat{ 0%{box-shadow:0 0 0 0 rgba(22,150,70,0.35);} 60%{box-shadow:0 0 0 8px rgba(22,150,70,0.16);} 100%{box-shadow:0 0 0 14px rgba(22,150,70,0);} }
+  @keyframes ratingGlowAwesome{ 0%{box-shadow:0 0 0 0 rgba(147,51,234,0.35);} 60%{box-shadow:0 0 0 8px rgba(147,51,234,0.16);} 100%{box-shadow:0 0 0 14px rgba(147,51,234,0);} }
+
+  /* Floating "+40"-style popup over a completed item's point pill */
+  .floating-points{
+    position:fixed; transform:translate(-50%,4px);
+    font-size:13px; font-weight:700; color:#16a34a;
+    pointer-events:none; z-index:999; opacity:0;
+    animation: floatingPointsUp 1s ease-out forwards;
+  }
+  .floating-points.negative{ color:var(--rust); }
+  @keyframes floatingPointsUp{
+    0%{ opacity:0; transform:translate(-50%,4px); }
+    18%{ opacity:1; transform:translate(-50%,0); }
+    100%{ opacity:0; transform:translate(-50%,-24px); }
+  }
+
   /* ---- Progression section ---- */
   .prog-year-nav{
     display:flex;
