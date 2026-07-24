@@ -2,6 +2,11 @@
 // This is the first file loaded — the state object, localStorage load/save, date-string
 // helpers, and small cross-cutting utilities other files rely on. Kept deliberately small.
 // (Split out of the former monolithic app-state.js — see ARCHITECTURE.md.)
+// NOTE (app rebrand, Life Score → Lifyar, permanent): this key is intentionally never renamed.
+// It's the localStorage key holding every existing user's entire state (routines/tasks/log/
+// settings). Renaming it would make the app find nothing on load for every already-installed
+// user — indistinguishable from a silent full reset. Everything user-visible is "Lifyar" now;
+// this internal key just quietly keeps its original name forever.
 const STORE_KEY = 'lifescore_state_v1';
 let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, nightOwlMode: false, onboardingComplete: false }, session: { loggedIn: false } };
 let currentTab = 'today';

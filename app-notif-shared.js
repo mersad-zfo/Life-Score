@@ -5,6 +5,10 @@
 // The service worker needs these for its pushsubscriptionchange handler (see service-worker.js);
 // the page needs them for the initial subscribe flow (see app-notifications.js).
 
+// NOTE (app rebrand, Life Score → Lifyar): this URL intentionally still says "life-score" —
+// it's the actual deployed Cloudflare Worker's URL, not just a name. Renaming it here without
+// also renaming the real Worker on Cloudflare (and its KV binding, see Worker/worker.js) would
+// break push notifications entirely. Tracked in BACKLOG.md — update both together when that's done.
 const NOTIF_WORKER_URL = 'https://life-score-notifications.mersad-ziro.workers.dev';
 const NOTIF_VAPID_PUBLIC_KEY = 'BIP4cJsjOHltYCVwOoPHxPRqoYXT3QdsN4hl_keNtr9p2DsrRU1JhsIz9z7ECh1K3fC0S29_36GUrBdDFxIXfC4';
 const NOTIF_API_SECRET = 'dYVG3z0T0gtLAVcU-sPta8sKAH9GQ8ab7ivPk91Fsxk';

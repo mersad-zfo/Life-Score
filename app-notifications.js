@@ -186,7 +186,7 @@ async function refreshBellBadge(){
 
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', (event)=>{
-    if(event.data && event.data.type === 'life-score-push-received'){
+    if(event.data && event.data.type === 'lifyar-push-received'){
       refreshBellBadge();
     }
   });

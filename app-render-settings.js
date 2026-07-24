@@ -16,13 +16,13 @@ function renderSettings(main){
             <div class="toggle-row" style="cursor:pointer;" id="backupBtn">
               <div>
                 <div class="item-name">${tr('Backup')}</div>
-                ${backupTapped ? `<div class="item-sub">${tr('Saved to your Downloads folder with the name "life-score-backup"')}</div>` : ''}
+                ${backupTapped ? `<div class="item-sub">${tr('Saved to your Downloads folder with the name "lifyar-backup"')}</div>` : ''}
               </div>
             </div>
             <div class="toggle-row" style="cursor:pointer;" id="restoreBtn">
               <div>
                 <div class="item-name">${tr('Restore')}</div>
-                ${restoreTapped ? `<div class="item-sub">${tr('Look for "life-score-backup.json" in your Downloads folder')}</div>` : ''}
+                ${restoreTapped ? `<div class="item-sub">${tr('Look for "lifyar-backup.json" in your Downloads folder')}</div>` : ''}
               </div>
             </div>
             <button class="settings-btn danger-text" id="logoutBtn">${tr('Log out')}</button>
@@ -123,6 +123,10 @@ function renderSettings(main){
     renderSettings(main);
   });
   document.getElementById('nightOwlSwitch').addEventListener('click', ()=>{
+    if(new Date().getHours() < 5){
+      showToast(tr("Can't change this between midnight and 5am"));
+      return;
+    }
     state.settings.nightOwlMode = !state.settings.nightOwlMode;
     applyRoutineCatchUp(); // re-evaluate against the new day boundary right away
     saveState();
@@ -205,7 +209,7 @@ function backupData(){
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'life-score-backup.json';
+    a.download = 'lifyar-backup.json';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -227,7 +231,7 @@ document.getElementById('restoreFileInput').addEventListener('change', (e)=>{
     try{
       const parsed = JSON.parse(reader.result);
       if(!parsed.routines || !parsed.tasks || !parsed.log){
-        showToast(tr("That file doesn't look like a Life Score backup"));
+        showToast(tr("That file doesn't look like a Lifyar backup"));
         return;
       }
       const currentProfile = state.profile;

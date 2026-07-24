@@ -66,8 +66,8 @@ const LANG_DICT = {
     'Language': 'زبان', 'English': 'English', 'Farsi': 'فارسی',
     'Danger zone': 'منطقه خطر',
     'Reset everything': 'بازنشانی همه‌چیز', 'Delete account': 'حذف حساب',
-    'Saved to your Downloads folder with the name "life-score-backup"': 'با نام «life-score-backup» در پوشه دانلودهای شما ذخیره شد',
-    'Look for "life-score-backup.json" in your Downloads folder': '«life-score-backup.json» را در پوشه دانلودهای خود پیدا کنید',
+    'Saved to your Downloads folder with the name "lifyar-backup"': 'با نام «lifyar-backup» در پوشه دانلودهای شما ذخیره شد',
+    'Look for "lifyar-backup.json" in your Downloads folder': '«lifyar-backup.json» را در پوشه دانلودهای خود پیدا کنید',
     // Difficulty
     'Difficulty': 'سختی', 'Easy': 'آسان', 'Normal': 'متوسط', 'Hard': 'سخت',
     // Ratings
@@ -108,7 +108,7 @@ const LANG_DICT = {
     "That email doesn't look right": 'این ایمیل درست به نظر نمی‌رسد',
     'Enter a name': 'یک نام وارد کنید',
     'Backup failed — try again': 'پشتیبان‌گیری ناموفق بود — دوباره تلاش کنید',
-    "That file doesn't look like a Life Score backup": 'این فایل شبیه پشتیبان Life Score نیست',
+    "That file doesn't look like a Lifyar backup": 'این فایل شبیه پشتیبان Lifyar نیست',
     'Could not read that file': 'این فایل خوانده نشد',
     'Data restored': 'اطلاعات بازگردانی شد',
     'Logged out': 'از حساب خارج شدید',
@@ -118,6 +118,7 @@ const LANG_DICT = {
     'Routine updated': 'روتین به‌روزرسانی شد',
     'Task updated': 'کار به‌روزرسانی شد',
     'Everything reset': 'همه‌چیز بازنشانی شد',
+    "Can't change this between midnight and 5am": 'این گزینه را نمی‌توان بین نیمه‌شب و ۵ صبح تغییر داد',
     'Could not save — try again': 'ذخیره نشد — دوباره تلاش کنید',
     'Something went wrong loading your data': 'مشکلی در بارگذاری اطلاعات شما پیش آمد',
     // Confirm dialogs
@@ -139,8 +140,8 @@ const LANG_DICT = {
     'Delete': 'حذف',
     "This can't be undone.": 'این کار قابل بازگشت نیست.',
     // Onboarding
-    'Welcome to Life Score!': 'به Life Score خوش آمدید!',
-    'Life Score helps you reflect how well you lived today, not just what you completed.': 'Life Score کمکتان می‌کند ببینید امروز را چقدر خوب زندگی کرده‌اید، نه فقط چه کارهایی را انجام داده‌اید.',
+    'Welcome to Lifyar!': 'به Lifyar خوش آمدید!',
+    'Lifyar helps you reflect how well you lived today, not just what you completed.': 'Lifyar کمکتان می‌کند ببینید امروز را چقدر خوب زندگی کرده‌اید، نه فقط چه کارهایی را انجام داده‌اید.',
     'Get started': 'شروع کنید',
     'Step 1 of 3': 'مرحله ۱ از ۳',
     'Step 2 of 3': 'مرحله ۲ از ۳',
@@ -170,12 +171,12 @@ const LANG_DICT = {
     'You can add routines and tasks anytime from the Home tab.': 'هر زمان می‌توانید از تب خانه روتین و کار اضافه کنید.',
     'Finish setup': 'پایان راه‌اندازی',
     "You're all set": 'همه‌چیز آماده است',
-    'Your Life Score is ready. Everything here can still be edited, renamed, or removed anytime.': 'Life Score شما آماده است. همه این‌ها را می‌توانید هر زمان ویرایش، تغییر نام یا حذف کنید.',
+    'Your Lifyar is ready. Everything here can still be edited, renamed, or removed anytime.': 'Lifyar شما آماده است. همه این‌ها را می‌توانید هر زمان ویرایش، تغییر نام یا حذف کنید.',
     'Your data has been restored to this device.': 'اطلاعات شما به این دستگاه بازگردانده شد.',
     'Starting from a blank slate': 'شروع از صفحه‌ای خالی',
     "One more thing — allow notifications if you'd like daily reminders to check your list.": 'یک نکته دیگر — اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
     "<b>One more thing</b> — allow notifications if you'd like daily reminders to check your list.": '<b>یک نکته دیگر</b> — اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
-    'Enter Life Score': 'ورود به Life Score',
+    'Enter Lifyar': 'ورود به Lifyar',
     // Onboarding: curated routine/task names (also used as the saved item name when picked)
     'Brush Teeth': 'مسواک زدن',
     'Work': 'کار',
@@ -365,6 +366,16 @@ function trMonthlyNpCapBody(count){
 function trAllClearBody(){
   if(curLang()==='fa') return `همه روتین‌ها و کارهای امروز انجام شد. بقیه روز رو راحت باش — جاش رو داری.`;
   return `Every routine and task on today's list is checked off. Take the rest of the day easy — you've earned it.`;
+}
+function trWelcomeNotifBody(graceApplied){
+  if(curLang()==='fa'){
+    return graceApplied
+      ? `چون کمی دیر شروع کردی، امروز حساب نمی‌شه — از فردا امتیازگیری واقعی آغاز می‌شه.`
+      : `از همین امروز امتیازگیری شروع می‌شه. بریم که شروع کنیم!`;
+  }
+  return graceApplied
+    ? "You got started a bit late today, so it won't count — scoring starts fresh tomorrow."
+    : "Your Lifyar starts counting today. Let's get going!";
 }
 // Updates the bits of static markup in index.html that live outside any render*() function
 // (nav tab labels) — used on init, and as part of applyLanguage() below.

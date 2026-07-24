@@ -367,7 +367,8 @@ function getGraphemes(str){
 // tapping a new emoji actually replace the old one instead of getting stuck on the first pick.
 function limitToOneGrapheme(el){
   el.addEventListener('input', ()=>{
-    const graphemes = getGraphemes(el.value);
+    const graphemes = getGraphemes(el.value).filter(g=>g.trim().length>0); // drop whitespace-only graphemes (e.g. the trailing space some keyboards insert after an emoji)
     if(graphemes.length > 1) el.value = graphemes[graphemes.length-1];
+    else if(graphemes.length === 1) el.value = graphemes[0];
   });
 }

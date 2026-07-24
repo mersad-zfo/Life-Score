@@ -1,6 +1,6 @@
 {
-  "name": "Life Score",
-  "short_name": "Life Score",
+  "name": "Lifyar",
+  "short_name": "Lifyar",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#FAFAF7",

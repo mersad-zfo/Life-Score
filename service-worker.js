@@ -1,7 +1,7 @@
 importScripts('./app-notif-db.js');
 importScripts('./app-notif-shared.js');
 
-const CACHE_NAME = 'life-score-v55';
+const CACHE_NAME = 'lifyar-v56';
 const ASSETS = [
   './',
   './index.html',
@@ -71,7 +71,7 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch(e) { /* non-JSON payload, ignore */ }
-  const title = data.title || 'Life Score';
+  const title = data.title || 'Lifyar';
   const body = data.body || '';
 
   event.waitUntil(
@@ -89,7 +89,7 @@ self.addEventListener('notificationclick', (event) => {
     const clientsList = await self.clients.matchAll({ type: 'window' });
     if(clientsList.length > 0){
       clientsList[0].focus();
-      clientsList[0].postMessage({ type: 'life-score-notification-clicked' });
+      clientsList[0].postMessage({ type: 'lifyar-notification-clicked' });
     } else {
       await self.clients.openWindow('./index.html');
     }

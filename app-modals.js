@@ -490,13 +490,39 @@ function openResetModal(){
   `);
   m.querySelector('#rCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#rConfirm').addEventListener('click', async ()=>{
-    state = {routines:[], tasks:[], log:[], profile: state.profile, settings: state.settings};
-    state.settings.onboardingComplete = false;
+    try{ await notifDbClearAll(); }catch(e){ console.error('Reset: notification inbox clear failed', e); }
+
+    await Promise.race([
+      (async ()=>{
+        try{
+          if(state.settings.notificationsEnabled) await disablePushNotifications();
+          if('serviceWorker' in navigator){
+            const registration = await navigator.serviceWorker.ready;
+            const sub = await registration.pushManager.getSubscription();
+            if(sub) await sub.unsubscribe();
+          }
+        }catch(e){ console.error('Reset: push cleanup failed', e); }
+      })(),
+      new Promise(resolve=>setTimeout(resolve, 3000)) // never let this block the actual reset
+    ]);
+
+    const oldSettings = state.settings;
+    state = {
+      routines: [], tasks: [], log: [], profile: state.profile,
+      settings: {
+        theme: oldSettings.theme, sound: oldSettings.sound, language: oldSettings.language,
+        nightOwlMode: oldSettings.nightOwlMode,
+        ratingStartDate: todayStr(),
+        notificationsEnabled: false,
+        onboardingComplete: false
+      }
+    };
     ensureStateShape();
     await saveState();
     applyTheme();
     m.remove();
     enterOnboarding();
     showToast(tr('Everything reset'));
+    refreshBellBadge();
   });
 }

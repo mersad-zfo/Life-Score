@@ -16,6 +16,10 @@
 //                     list only; it still lives in history until it 30-day-prunes or is trashed
 //                     from the full Notifications page
 
+// NOTE (app rebrand, Life Score → Lifyar, permanent): this name is intentionally never renamed,
+// same reasoning as STORE_KEY in app-state-core.js — it's the IndexedDB holding every existing
+// user's notification history and deviceId. Renaming it would silently wipe that history and
+// force a re-registration with the push backend for every already-installed user.
 const NOTIF_DB_NAME = 'lifescore-notifications';
 const NOTIF_STORE = 'notifications';
 const NOTIF_META_STORE = 'meta';
@@ -157,6 +161,19 @@ async function notifDbDeleteOne(id){
   return new Promise((resolve, reject)=>{
     const tx = db.transaction(NOTIF_STORE, 'readwrite');
     tx.objectStore(NOTIF_STORE).delete(id);
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+// Full wipe of both stores — used by "Reset everything" so the notification bell/history
+// doesn't carry anything over from before the reset (badge, banner ledger, old deviceId meta).
+async function notifDbClearAll(){
+  const db = await notifDbOpen();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction([NOTIF_STORE, NOTIF_META_STORE], 'readwrite');
+    tx.objectStore(NOTIF_STORE).clear();
+    tx.objectStore(NOTIF_META_STORE).clear();
     tx.oncomplete = ()=> resolve();
     tx.onerror = ()=> reject(tx.error);
   });

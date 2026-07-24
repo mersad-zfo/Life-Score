@@ -241,8 +241,8 @@ function obRenderStep1(content, footer){
   content.innerHTML = `
     <div class="welcome-hero">
       <div class="welcome-icon">🌱</div>
-      <p class="welcome-wordmark">${tr('Welcome to Life Score!')}</p>
-      <p class="welcome-sub">${tr('Life Score helps you reflect how well you lived today, not just what you completed.')}</p>
+      <p class="welcome-wordmark">${tr('Welcome to Lifyar!')}</p>
+      <p class="welcome-sub">${tr('Lifyar helps you reflect how well you lived today, not just what you completed.')}</p>
       <div class="welcome-lang">
         <div class="seg-control" id="obLangSeg">
           <button type="button" data-val="en" class="${curLang()==='en'?'active':''}">${tr('English')}</button>
@@ -605,12 +605,12 @@ function obRenderStep5(content, footer){
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
       </div>
       <h1 class="ob-title">${state.profile && state.profile.name ? trAllSetWithName(state.profile.name) : tr("You're all set")}</h1>
-      <p class="ob-sub">${tr('Your Life Score is ready. Everything here can still be edited, renamed, or removed anytime.')}</p>
+      <p class="ob-sub">${tr('Your Lifyar is ready. Everything here can still be edited, renamed, or removed anytime.')}</p>
       <p class="done-summary">${summaryLine}</p>
       <p class="done-notif-note">🔔 ${tr("<b>One more thing</b> — allow notifications if you'd like daily reminders to check your list.")}</p>
     </div>
   `;
-  footer.innerHTML = `<button class="btn-primary" id="obNextBtn">${tr('Enter Life Score')}</button>`;
+  footer.innerHTML = `<button class="btn-primary" id="obNextBtn">${tr('Enter Lifyar')}</button>`;
 }
 
 // ---------- Commit / skip / finish ----------
@@ -651,10 +651,6 @@ function obCommitPicks(){
       const penaltyValue = WEEKLY_MONTHLY_PENALTY;
       state.routines.push({...base, rewardValue, penaltyValue, schedule, configHistory:[{from: base.createdDate, schedule, rewardValue, penaltyValue}]});
     }
-    if(graceToday){
-      notifSetCondition(`grace:${base.id}`, true, 'info',
-        ()=>({ title: tr('Grace period applied'), body: tr("Added late, so today won't count — it starts fresh tomorrow.") }), true);
-    }
   });
   saveState();
 }
@@ -694,6 +690,9 @@ function obFinishOnboarding(){
   document.getElementById('onboarding').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   setTab('today');
+  const graceApplied = state.routines.some(r=> r.graceAppliedDate === todayStr());
+  notifSetCondition('welcome:onboarding', true, 'congrats',
+    ()=>({ title: tr('Welcome to Lifyar'), body: trWelcomeNotifBody(graceApplied) }), true);
 }
 
 // ---------- Dispatcher ----------

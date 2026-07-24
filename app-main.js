@@ -8,7 +8,7 @@ function updateHeader(){
   const el = document.getElementById('headerInfo');
   document.getElementById('bellBtn').style.display = (currentTab==='settings' || currentTab==='notifications') ? 'none' : '';
   if(currentTab==='today'){
-    el.innerHTML = `<div class="wordmark">Life Score</div><div class="date" id="todayLabel"></div>`;
+    el.innerHTML = `<div class="wordmark">Lifyar</div><div class="date" id="todayLabel"></div>`;
     fmtDateLabel();
   } else if(currentTab==='settings' || currentTab==='notifications'){
     // Page-level back lives right under the title here, not inline in the page content.
