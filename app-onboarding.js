@@ -240,7 +240,7 @@ function obRenderDots(){
 function obRenderStep1(content, footer){
   content.innerHTML = `
     <div class="welcome-hero">
-      <div class="welcome-icon">🌱</div>
+      <img class="welcome-icon" src="./welcome-icon.png" alt="" />
       <p class="welcome-wordmark">${tr('Welcome to Lifyar!')}</p>
       <p class="welcome-sub">${tr('Lifyar helps you reflect how well you lived today, not just what you completed.')}</p>
       <div class="welcome-lang">
