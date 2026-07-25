@@ -95,7 +95,14 @@ function evaluateLiveDailyNotifications(){
   if(!state.settings.ratingStartDate) return;
   const today = todayStr();
 
-  const dailyCond = isNotProductiveDay(today) && getTodayRating()==='GOOD';
+  // Band-aid: an active, uncompleted grace-period routine makes the day read as "not productive"
+  // (wasRoutineDueOn excludes it from the due count until it's done), which can trigger a false
+  // daily-cap notification purely because the user hasn't gotten to it yet — not because they're
+  // actually capped. Suppress the notification in that case without touching the rating/denominator
+  // logic itself. This is a band-aid — see BACKLOG.md 0d for the real underlying fix, which this
+  // doesn't attempt (worth a proper backlog entry of its own once you batch-update the docs).
+  const activeGraceToday = state.routines.some(r => r.graceAppliedDate === today && r.lastCompletedDate !== today);
+  const dailyCond = isNotProductiveDay(today) && getTodayRating()==='GOOD' && !activeGraceToday;
   notifSetCondition(`npcap:daily:${today}`, dailyCond, 'info',
     ()=>({ title: tr('Daily Rating limit.'), body: trDailyNpCapBody() }), true);
 
