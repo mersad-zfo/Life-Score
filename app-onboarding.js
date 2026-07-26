@@ -281,22 +281,23 @@ function obRenderStep1(content, footer){
 
 function obRenderStep2(content, footer){
   const isLoggedIn = state.profile && state.session.loggedIn;
+  // "System" is no longer a selectable option (a fresh state still defaults theme to 'system'
+  // internally) — resolve the same way applyTheme() does, so the correct button starts highlighted.
+  const obThemeIsDark = state.settings.theme==='dark' || (state.settings.theme!=='light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   content.innerHTML = `
     <p class="ob-eyebrow">${tr('Step 1 of 3')}</p>
     <h1 class="ob-title">${tr('A couple quick preferences')}</h1>
     <p class="ob-sub">${tr('All of this lives in Settings too — change any of it anytime.')}</p>
 
     <div class="settings-group">
-      <div class="settings-group-title">${tr('Appearance')}</div>
+      <div class="item-name" style="margin-bottom:10px;">${tr('Appearance')}</div>
       <div class="seg-control" id="obThemeSeg">
-        <button type="button" data-theme="system" class="${state.settings.theme==='system'?'active':''}">${tr('System')}</button>
-        <button type="button" data-theme="light" class="${state.settings.theme==='light'?'active':''}">${tr('Light')}</button>
-        <button type="button" data-theme="dark" class="${state.settings.theme==='dark'?'active':''}">${tr('Dark')}</button>
+        <button type="button" data-theme="light" class="${obThemeIsDark?'':'active'}">${tr('Light')}</button>
+        <button type="button" data-theme="dark" class="${obThemeIsDark?'active':''}">${tr('Dark')}</button>
       </div>
     </div>
 
     <div class="settings-group">
-      <div class="settings-group-title">${tr('Sleep cycle')}</div>
       <div class="toggle-row">
         <div>
           <div class="item-name">${tr('Night owl mode')}</div>
@@ -648,8 +649,7 @@ function obCommitPicks(){
       const daySet = obGetWeekdaySet(i.id);
       const schedule = daySet.size ? Array.from(daySet) : [6,0];
       const rewardValue = difficultyPointsFor('weekly', difficulty);
-      const penaltyValue = WEEKLY_MONTHLY_PENALTY;
-      state.routines.push({...base, rewardValue, penaltyValue, schedule, configHistory:[{from: base.createdDate, schedule, rewardValue, penaltyValue}]});
+      state.routines.push({...base, rewardValue, schedule, configHistory:[{from: base.createdDate, schedule, rewardValue}]});
     }
   });
   saveState();

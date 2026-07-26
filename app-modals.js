@@ -281,13 +281,11 @@ function openAddRoutineModal(){
       const schedule = readDayGrid(m, 'h');
       if(schedule.length===0){ showToast(tr('Pick at least one day')); return; }
       const rewardValue = difficultyPointsFor(recurrence, difficulty);
-      const penaltyValue = WEEKLY_MONTHLY_PENALTY;
       state.routines.push({
         ...base,
         rewardValue,
-        penaltyValue,
         schedule,
-        configHistory: [{from: base.createdDate, schedule, rewardValue, penaltyValue}]
+        configHistory: [{from: base.createdDate, schedule, rewardValue}]
       });
     }
     saveState();
@@ -346,7 +344,6 @@ function openEditRoutineModal(id){
         h.basePoints = difficultyPointsFor('daily', difficulty);
       } else {
         h.rewardValue = difficultyPointsFor(h.recurrence, difficulty);
-        h.penaltyValue = WEEKLY_MONTHLY_PENALTY;
       }
     }
     if(h.recurrence!=='daily'){

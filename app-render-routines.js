@@ -50,8 +50,6 @@ function renderRecurringRoutineCard(r){
   if(!isDue){
     const next = nextScheduledDate(r, todayStr());
     secondaryText = next ? trNextDue(formatDueLabel(next, r.recurrence)) : tr('Not due yet');
-  } else {
-    secondaryText = trPenaltyIfMissed(routinePreviewPenalty(r));
   }
 
   // Same circular checkmark as daily routines. Only ever clickable while genuinely due today
@@ -89,12 +87,31 @@ function renderRecurringRoutineCard(r){
     </div>
   </div>`;
 }
+function penaltyInfoCardHtml(){
+  const n = (v)=> curLang()==='fa' ? numFa(v) : v;
+  return `
+    <div class="penalty-info${routinesPenaltyInfoOpen?' open':''}" data-penalty-info="routines">
+      <div class="penalty-info-head">
+        <div class="penalty-info-title">${tr('Missing a routine costs points')}</div>
+        <div class="penalty-info-toggle">${routinesPenaltyInfoOpen ? tr('less') : tr('more')}</div>
+      </div>
+      <div class="penalty-info-body">
+        <div class="penalty-info-body-inner">
+          <span style="color:var(--ink);">${tr('Daily')}</span> <span style="color:var(--rust);">-${n(ROUTINE_PENALTY.daily)}</span>
+          &nbsp;·&nbsp;
+          <span style="color:var(--ink);">${tr('Weekly')}</span> <span style="color:var(--rust);">-${n(ROUTINE_PENALTY.weekly)}</span>
+          &nbsp;·&nbsp;
+          <span style="color:var(--ink);">${tr('Monthly')}</span> <span style="color:var(--rust);">-${n(ROUTINE_PENALTY.monthly)}</span>
+        </div>
+      </div>
+    </div>`;
+}
 function renderRoutines(main){
   const live = state.routines.filter(r=>!r.deleted);
   const daily = live.filter(r=>r.recurrence==='daily');
   const weekly = live.filter(r=>r.recurrence==='weekly');
   const monthly = live.filter(r=>r.recurrence==='monthly');
-  let html = '';
+  let html = penaltyInfoCardHtml();
   function group(title, list, cardFn){
     let h = `<div class="task-group-title">${title}</div>`;
     if(list.length===0){
@@ -126,5 +143,11 @@ function renderRoutines(main){
   });
   main.querySelectorAll('[data-edit-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=> openEditRoutineModal(btn.dataset.editRoutine));
+  });
+  const penaltyInfo = main.querySelector('[data-penalty-info="routines"]');
+  if(penaltyInfo) penaltyInfo.addEventListener('click', ()=>{
+    routinesPenaltyInfoOpen = !routinesPenaltyInfoOpen;
+    penaltyInfo.classList.toggle('open', routinesPenaltyInfoOpen);
+    penaltyInfo.querySelector('.penalty-info-toggle').textContent = routinesPenaltyInfoOpen ? tr('less') : tr('more');
   });
 }

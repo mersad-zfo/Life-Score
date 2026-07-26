@@ -1,6 +1,6 @@
 // tests/logic.test.js
 //
-// Lightweight regression tests for the mechanically dense parts of Life Score: rating tier
+// Lightweight regression tests for the mechanically dense parts of Lifyar: rating tier
 // boundaries, streak/neglect halving+floor math, milestone-passed increments, week/month date
 // helpers, and NP-day cap thresholds at every level (day/week/month/all-time).
 //
@@ -188,6 +188,50 @@ test('step1: value=10 -> 2', () => assert.strictEqual(app.milestonesPassed(10, s
 test('nearestLowerMilestone (array): strictly below value', () => assert.strictEqual(app.nearestLowerMilestone(30, arrayDef), 14));
 test('nearestLowerMilestone (array): below smallest -> 0', () => assert.strictEqual(app.nearestLowerMilestone(5, arrayDef), 0));
 test('nearestLowerMilestone (step): floors to previous step boundary', () => assert.strictEqual(app.nearestLowerMilestone(25, stepDef), 20));
+
+// =====================================================================================
+section('Universal routine penalty system — neglect scale-up / streak-protection scale-down');
+// =====================================================================================
+test('routineBasePenalty: daily=10, weekly=20, monthly=30', () => {
+  assert.strictEqual(app.routineBasePenalty({ recurrence: 'daily' }), 10);
+  assert.strictEqual(app.routineBasePenalty({ recurrence: 'weekly' }), 20);
+  assert.strictEqual(app.routineBasePenalty({ recurrence: 'monthly' }), 30);
+});
+
+test('routinePenalty: neutral/neglect state scales UP with post-miss neglect (daily)', () => {
+  // preMissStreak=0 (no streak to protect) -> uses the post-miss neglect value on r.
+  assert.strictEqual(app.routinePenalty({ recurrence: 'daily', neglect: 0 }, 0), 10); // no neglect yet -> flat base
+  assert.strictEqual(app.routinePenalty({ recurrence: 'daily', neglect: 7 }, 0), 11); // 1 milestone passed (7) * inc(1)
+  assert.strictEqual(app.routinePenalty({ recurrence: 'daily', neglect: 30 }, 0), 13); // 3 milestones (7,14,30) * inc(1)
+});
+
+test('routinePenalty: neutral/neglect state scales UP with post-miss neglect (weekly/monthly)', () => {
+  assert.strictEqual(app.routinePenalty({ recurrence: 'weekly', neglect: 20 }, 0), 24); // floor(20/10)=2 * inc(2)
+  assert.strictEqual(app.routinePenalty({ recurrence: 'monthly', neglect: 15 }, 0), 39); // floor(15/5)=3 * inc(3)
+});
+
+test('routinePenalty: breaking an active streak DISCOUNTS the penalty instead (daily)', () => {
+  // preMissStreak>0 -> uses the streak-count-based discount, ignoring r.neglect entirely.
+  assert.strictEqual(app.routinePenalty({ recurrence: 'daily', neglect: 0 }, 7), 8);   // 1 milestone * discountInc(2) = 10-2
+  assert.strictEqual(app.routinePenalty({ recurrence: 'daily', neglect: 0 }, 60), 2);  // 4 milestones * 2 = 8 -> 10-8=2
+});
+
+test('routinePenalty: a long enough daily streak fully cancels the penalty (floor 0, never negative)', () => {
+  assert.strictEqual(app.routinePenalty({ recurrence: 'daily', neglect: 0 }, 90), 0);   // 5 milestones * discountInc(2) = 10 -> exactly 0
+  assert.strictEqual(app.routinePenalty({ recurrence: 'daily', neglect: 0 }, 365), 0);  // maxed out -> still 0, never negative
+});
+
+test('routinePenalty: weekly/monthly streak-protection also reaches a true floor of 0 eventually', () => {
+  assert.strictEqual(app.routinePenalty({ recurrence: 'weekly', neglect: 0 }, 100), 0);   // floor(100/10)=10 * inc(2) = 20 = base
+  assert.strictEqual(app.routinePenalty({ recurrence: 'monthly', neglect: 0 }, 50), 0);   // floor(50/5)=10 * inc(3) = 30 = base
+});
+
+test('routineReward: unified across all types — streak scales up, neglect no longer reduces it', () => {
+  // Old system reduced daily reward by neglect; new system never does, for any recurrence.
+  assert.strictEqual(app.routineReward({ recurrence: 'daily', basePoints: 40, streak: 0, neglect: 30 }), 40);
+  assert.strictEqual(app.routineReward({ recurrence: 'daily', basePoints: 40, streak: 30, neglect: 0 }), 52); // +3 milestones (7,14,30) * inc(4)
+  assert.strictEqual(app.routineReward({ recurrence: 'weekly', rewardValue: 60, streak: 20, neglect: 999 }), 72); // neglect ignored; +2 milestones * inc(6)
+});
 
 // =====================================================================================
 section('Date helpers — getWeekStart (Saturday-first) / monthEndStr');

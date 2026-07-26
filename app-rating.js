@@ -11,7 +11,10 @@ const DIFFICULTY_POINTS = {
   monthly: { easy: 60, normal: 80, hard: 100 },
   task:    { easy: 20, normal: 60, hard: 100 },
 };
-const WEEKLY_MONTHLY_PENALTY = 30;
+// Universal routine penalty base amounts (the new system — every recurrence type now gets a
+// real logged penalty for a missed occurrence, not just weekly/monthly). See routinePenalty()
+// in app-consistency.js for how neglect/streak scale this up/down per miss.
+const ROUTINE_PENALTY = { daily: 10, weekly: 20, monthly: 30 };
 const TASK_DECAY_RATE = 10;
 function difficultyPointsFor(recurrence, diff){
   const key = recurrence === 'once' ? 'task' : recurrence;

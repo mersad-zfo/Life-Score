@@ -25,6 +25,7 @@ function updateHeader(){
   }
 }
 function setTab(tab){
+  if(tab !== currentTab){ routinesPenaltyInfoOpen = false; tasksPenaltyInfoOpen = false; }
   currentTab = tab;
   document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
   updateHeader();
@@ -39,6 +40,8 @@ document.getElementById('bellBtn').addEventListener('click', ()=>{
 document.getElementById('gearBtn').addEventListener('click', ()=>{
   if(currentTab!=='settings'){
     previousTab = currentTab;
+    routinesPenaltyInfoOpen = false;
+    tasksPenaltyInfoOpen = false;
     currentTab = 'settings';
     backupTapped = false;
     restoreTapped = false;

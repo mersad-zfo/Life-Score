@@ -11,6 +11,13 @@ const STORE_KEY = 'lifescore_state_v1';
 let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, nightOwlMode: false, onboardingComplete: false }, session: { loggedIn: false } };
 let currentTab = 'today';
 let previousTab = 'today';
+// Whether the Routines/Tasks tab's "missing X costs points" info card is expanded. Deliberately
+// NOT persisted to state/localStorage — this is a per-visit UI toggle, not a saved preference.
+// Reset to collapsed whenever the user actually leaves that tab (see setTab()/gearBtn handler in
+// app-main.js), so it always starts collapsed again on the next visit, but survives re-renders
+// that happen while staying on the same tab (completing a routine/task, etc.).
+let routinesPenaltyInfoOpen = false;
+let tasksPenaltyInfoOpen = false;
 let storageReady = false;
 let backupTapped = false;
 let restoreTapped = false;

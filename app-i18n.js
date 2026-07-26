@@ -25,6 +25,8 @@ const LANG_DICT = {
     'Tap anywhere to keep going': 'برای ادامه هرجا را لمس کنید',
     // Routines tab
     'Daily': 'روزانه', 'Weekly': 'هفتگی', 'Monthly': 'ماهانه',
+    'Missing a routine costs points': 'ازدست‌دادن یک روتین امتیاز کم می‌کند',
+    'more': 'بیشتر', 'less': 'کمتر',
     'None yet.': 'هنوز چیزی نیست.',
     'Nothing here yet.': 'هنوز چیزی اینجا نیست.',
     'Tap + to add your first routine.': 'برای افزودن اولین روتین، + را لمس کنید.',
@@ -32,6 +34,8 @@ const LANG_DICT = {
     'Streak': 'رکورد', 'Neglect': 'غفلت', 'Neutral': 'خنثی',
     'Not due yet': 'هنوز موعدش نرسیده',
     // Tasks tab
+    'Missing a task will decay its points': 'ازدست‌دادن یک کار امتیازش را کم‌کم می‌کاهد',
+    'points per missed day': 'امتیاز در روز جامانده',
     'Nothing pending.': 'کاری در انتظار نیست.',
     'Tap + to add a task.': 'برای افزودن یک کار، + را لمس کنید.',
     'Mark done': 'انجام شد',
@@ -264,19 +268,10 @@ function trEarned(points){
 function trNextDue(label){
   return curLang()==='fa' ? `موعد بعدی: ${label}` : `Next due: ${label}`;
 }
-function trPenaltyIfMissed(val){
-  return curLang()==='fa' ? `-${numFa(Math.abs(val))} جزا (در صورت ازدست‌دادن)` : `-${Math.abs(val)} Penalty (If missed)`;
-}
 // ---- Task due-date states (Not due yet / Due / Overdue) ----
 function trTaskDueDateLine(dateStr){
   const label = formatDueLabel(dateStr, 'monthly'); // month/day format, locale-aware
   return curLang()==='fa' ? `موعد: ${label}` : `Due ${label}`;
-}
-function trTaskDueTodayLine(rate){
-  return curLang()==='fa' ? `امروز موعد است · کاهش ${numFa(rate)}/روز (در صورت ازدست‌دادن)` : `Due Today · decays ${rate}/day (if missed)`;
-}
-function trTaskOverdueLine(rate){
-  return curLang()==='fa' ? `⚠️ ازدست‌رفته · کاهش ${numFa(rate)}/روز (در صورت ازدست‌دادن)` : `⚠️ Overdue · decays ${rate}/day (if missed)`;
 }
 function trTaskCurrentDecayLine(amount){
   return curLang()==='fa' ? `کاهش فعلی: -${numFa(Math.abs(amount))}` : `Current decay: -${Math.abs(amount)}`;

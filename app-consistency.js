@@ -86,8 +86,7 @@ function ensureRoutineShape(r){
       from: r.createdDate,
       schedule: r.schedule,
       basePoints: r.basePoints,
-      rewardValue: r.rewardValue,
-      penaltyValue: r.penaltyValue
+      rewardValue: r.rewardValue
     }];
   }
 }
@@ -99,29 +98,51 @@ function routineState(r){
 function routineIncrement(value){
   return Math.max(1, Math.round(value*0.1));
 }
-// Daily reward: streak milestones add, neglect milestones subtract, floored at 0.
-// Weekly/monthly reward: fixed rewardValue, only ever scaled UP by streak milestones (no decay).
+// Reward for completing a due occurrence, universal across daily/weekly/monthly: base value
+// (basePoints for daily, rewardValue for weekly/monthly) scaled UP by streak milestones only.
+// Neglect no longer reduces reward — neglect is punished directly via routinePenalty() instead,
+// so this can't double-count the same miss both as a smaller future reward AND a logged penalty.
 function routineReward(r){
   const def = routineMilestoneDef(r);
-  if(r.recurrence==='daily'){
-    const inc = routineIncrement(r.basePoints);
-    const streakCount = milestonesPassed(r.streak, def);
-    const neglectCount = milestonesPassed(r.neglect, def);
-    return Math.max(0, r.basePoints + streakCount*inc - neglectCount*inc);
-  }
-  const inc = routineIncrement(r.rewardValue);
+  const base = r.recurrence==='daily' ? r.basePoints : r.rewardValue;
+  const inc = routineIncrement(base);
   const streakCount = milestonesPassed(r.streak, def);
-  return r.rewardValue + streakCount*inc;
+  return base + streakCount*inc;
 }
-// Weekly/monthly only: the penalty for one missed occurrence, scaled by neglect milestones —
-// mirrors how streak scales reward. Computed from r's CURRENT neglect value (caller decides
-// whether that's the pre-miss or post-miss value, depending on whether this is a live preview
-// or an actual logged miss).
-function routinePenalty(r){
+// The universal penalty base amount for a routine's recurrence type (10/20/30) — no longer a
+// per-routine configurable value, same amount for every routine of a given type.
+function routineBasePenalty(r){
+  return ROUTINE_PENALTY[r.recurrence] || ROUTINE_PENALTY.daily;
+}
+// The per-milestone amount the penalty discount shrinks by, for a streak breaking. Weekly/monthly
+// use an unbounded step count (routineIncrement already guarantees the discount eventually meets
+// the base as streak grows). Daily uses a FIXED 8-value milestone array — with the plain
+// routineIncrement, the max possible discount (8 × 1 = 8) could never reach the base (10), so a
+// long streak could never fully cancel the penalty. Scaling the increment to the array's length
+// guarantees full cancellation is reachable (for daily: base 10 ÷ 8 milestones → discount 2/step,
+// hits 0 once the streak reaches the 90-day milestone — the array's 5th value).
+function routinePenaltyDiscountIncrement(base, def){
+  if(def.type==='array') return Math.max(1, Math.ceil(base / def.values.length));
+  return routineIncrement(base);
+}
+// Penalty for one missed occurrence, universal across daily/weekly/monthly. `preMissStreak` is
+// the streak value the routine had going INTO this miss (before routineNextStateOnMiss ran) —
+// breaking an active streak discounts the penalty the same stepped way neglect scales it up,
+// down to a floor of 0 (a long enough streak can fully cancel the penalty for that one slip, but
+// never turn it into a bonus). Continuing/starting neglect instead scales the penalty UP using
+// the post-miss neglect value — same mechanic weekly/monthly already had. The two never apply at
+// once: a routine is always in exactly one state (streak XOR neglect), never both.
+function routinePenalty(r, preMissStreak){
   const def = routineMilestoneDef(r);
-  const inc = routineIncrement(r.penaltyValue);
+  const base = routineBasePenalty(r);
+  if(preMissStreak > 0){
+    const streakCount = milestonesPassed(preMissStreak, def);
+    const discountInc = routinePenaltyDiscountIncrement(base, def);
+    return Math.max(0, base - streakCount*discountInc);
+  }
+  const inc = routineIncrement(base);
   const neglectCount = milestonesPassed(r.neglect, def);
-  return r.penaltyValue + neglectCount*inc;
+  return base + neglectCount*inc;
 }
 // Pure function: what streak/neglect/recoveryChain would result from completing TODAY, without mutating.
 function routineNextStateOnComplete(r){
@@ -155,12 +176,14 @@ function routinePreviewReward(r){
   const next = routineNextStateOnComplete(r);
   return routineReward(Object.assign({}, r, next));
 }
-// Preview-only (weekly/monthly): the penalty the user would lose TODAY if they miss this due
-// occurrence — i.e. using the neglect value as it would stand AFTER today's miss, since that's
-// the number that's actually about to be charged, not the number sitting there right now.
+// Preview-only: the penalty the user would lose TODAY if they miss this due occurrence — i.e.
+// using the streak/neglect values as they'd stand AFTER today's miss, since that's the number
+// actually about to be charged, not the number sitting there right now. r.streak (the routine's
+// CURRENT, pre-miss value) is passed through separately since streak-protection depends on what
+// the streak was going INTO the miss, not what it becomes after breaking.
 function routinePreviewPenalty(r){
   const next = routineNextStateOnMiss(r);
-  return routinePenalty(Object.assign({}, r, next));
+  return routinePenalty(Object.assign({}, r, next), r.streak);
 }
 function routineDoneToday(r){
   return r.lastCompletedDate === todayStr();
@@ -179,20 +202,20 @@ function routineIsDueToday(r){
 }
 // Apply exactly one missed-OCCURRENCE transition in place (only ever called for an actual
 // occurrence day, never a non-scheduled day for weekly/monthly, and never for today while it's
-// still in progress — only once a later day confirms it was truly missed). Daily never logs
-// points, only shrinks future reward. Weekly/monthly ALSO logs a real negative score entry for
-// that missed day, scaled by neglect milestones reached after this miss.
+// still in progress — only once a later day confirms it was truly missed). Every recurrence type
+// now logs a real negative score entry for the missed day (universal penalty system) — scaled up
+// by neglect milestones reached after this miss, or discounted down by streak milestones reached
+// before it if this miss broke an active streak. See routinePenalty() for the full rule.
 function applyRoutineMiss(r, missedDate){
   const def = routineMilestoneDef(r);
   const oldNeglectCount = milestonesPassed(r.neglect, def);
+  const preMissStreak = r.streak;
   const next = routineNextStateOnMiss(r);
   r.streak = next.streak;
   r.neglect = next.neglect;
   r.recoveryChain = next.recoveryChain;
-  if(r.recurrence!=='daily'){
-    const penalty = routinePenalty(r); // uses neglect AFTER this miss, consistent with the "after" convention used everywhere else
-    state.log.push({id: uid(), kind:'routine_penalty', refId: r.id, name: r.name, points: -Math.abs(penalty), date: missedDate});
-  }
+  const penalty = routinePenalty(r, preMissStreak);
+  state.log.push({id: uid(), kind:'routine_penalty', refId: r.id, name: r.name, points: -Math.abs(penalty), date: missedDate});
   // Silent Category 2 notification — a miss is only ever discovered during catch-up, never live.
   const newNeglectCount = milestonesPassed(r.neglect, def);
   const crossedNeglectMilestone = newNeglectCount > oldNeglectCount;
@@ -359,14 +382,14 @@ function reorderRoutine(id, dir){
 }
 
 // ---------- Recurring schedule engine (shared by weekly/monthly routines) ----------
-// A routine's schedule/basePoints/rewardValue/penaltyValue can all be edited at any time
+// A routine's schedule/basePoints/rewardValue can all be edited at any time
 // (routineEditable() is always true). Without versioning, editing any of these today would
 // silently rewrite every past day's base/due calculation too. configHistory fixes that: each
 // edit adds (or, if same-day, overwrites) a version stamped with the date it took effect, and
 // any date-specific lookup (getDailyBasePoints, isScheduledOn) reads whichever version was
 // actually in effect on that historical day — never the current live fields.
 function currentRoutineConfig(r){
-  return { schedule: r.schedule, basePoints: r.basePoints, rewardValue: r.rewardValue, penaltyValue: r.penaltyValue };
+  return { schedule: r.schedule, basePoints: r.basePoints, rewardValue: r.rewardValue };
 }
 function pushConfigVersion(r){
   const t = todayStr();

@@ -118,6 +118,49 @@
     margin-bottom:10px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.035);
   }
+  .penalty-info{
+    background:var(--accent-soft);
+    border-radius:14px;
+    padding:12px 14px;
+    margin-bottom:10px;
+    cursor:pointer;
+  }
+  .penalty-info-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .penalty-info-title{
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    line-height:1.4;
+  }
+  .penalty-info-toggle{
+    font-size:11px;
+    font-weight:600;
+    color:var(--accent);
+    background:var(--paper);
+    border-radius:20px;
+    padding:4px 10px;
+    flex-shrink:0;
+  }
+  /* grid-rows 0fr->1fr animates to the content's natural height without guessing a max-height —
+     robust against Farsi text running a different length than English. */
+  .penalty-info-body{
+    display:grid;
+    grid-template-rows:0fr;
+    transition:grid-template-rows .22s ease;
+  }
+  .penalty-info.open .penalty-info-body{
+    grid-template-rows:1fr;
+  }
+  .penalty-info-body-inner{
+    overflow:hidden;
+    font-size:12.5px;
+    padding-top:8px;
+  }
   body.dark-theme .card{
     box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
   }

@@ -8,9 +8,9 @@ function renderTaskCard(task){
   if(st==='upcoming'){
     lines.push(`<div class="item-sub">${trTaskDueDateLine(task.dueDate)}</div>`);
   } else if(st==='due'){
-    lines.push(`<div class="item-sub">${trTaskDueTodayLine(task.decayRate)}</div>`);
+    lines.push(`<div class="item-sub">${trTaskDueTodayShort()}</div>`);
   } else {
-    lines.push(`<div class="item-sub">${trTaskOverdueLine(task.decayRate)}</div>`);
+    lines.push(`<div class="item-sub">${trTaskOverdueShort()}</div>`);
     lines.push(`<div class="item-sub" style="color:var(--rust);">${trTaskCurrentDecayLine(taskDecayAmount(task))}</div>`);
   }
   return `
@@ -30,6 +30,21 @@ function renderTaskCard(task){
     </div>
   </div>`;
 }
+function taskPenaltyInfoCardHtml(){
+  const n = curLang()==='fa' ? numFa(TASK_DECAY_RATE) : TASK_DECAY_RATE;
+  return `
+    <div class="penalty-info${tasksPenaltyInfoOpen?' open':''}" data-penalty-info="tasks">
+      <div class="penalty-info-head">
+        <div class="penalty-info-title">${tr('Missing a task will decay its points')}</div>
+        <div class="penalty-info-toggle">${tasksPenaltyInfoOpen ? tr('less') : tr('more')}</div>
+      </div>
+      <div class="penalty-info-body">
+        <div class="penalty-info-body-inner">
+          <span style="color:var(--rust);">-${n}</span> <span style="color:var(--ink);">${tr('points per missed day')}</span>
+        </div>
+      </div>
+    </div>`;
+}
 function renderTasks(main){
   const openAll = state.tasks.filter(task=>!task.deleted && !task.completedDate);
   const done = state.tasks.filter(task=>!task.deleted && taskDoneToday(task));
@@ -39,7 +54,7 @@ function renderTasks(main){
   const active = openAll.filter(task=> taskState(task)!=='upcoming');
   const upcoming = openAll.filter(task=> taskState(task)==='upcoming')
                           .slice().sort((a,b)=> a.dueDate.localeCompare(b.dueDate));
-  let html = '';
+  let html = taskPenaltyInfoCardHtml();
   if(openAll.length===0 && done.length===0){
     html += `<div class="empty"><div class="big">📋</div>${tr('Nothing pending.')}<br>${tr('Tap + to add a task.')}</div>`;
   } else {
@@ -83,5 +98,11 @@ function renderTasks(main){
   });
   main.querySelectorAll('[data-edit-task]').forEach(btn=>{
     btn.addEventListener('click', ()=> openEditTaskModal(btn.dataset.editTask));
+  });
+  const penaltyInfo = main.querySelector('[data-penalty-info="tasks"]');
+  if(penaltyInfo) penaltyInfo.addEventListener('click', ()=>{
+    tasksPenaltyInfoOpen = !tasksPenaltyInfoOpen;
+    penaltyInfo.classList.toggle('open', tasksPenaltyInfoOpen);
+    penaltyInfo.querySelector('.penalty-info-toggle').textContent = tasksPenaltyInfoOpen ? tr('less') : tr('more');
   });
 }

@@ -2,10 +2,54 @@
 function renderSettings(main){
   checkNotificationPermissionState().then(changed=>{ if(changed) renderSettings(main); });
   const theme = state.settings.theme;
+  // "System" is no longer a selectable option, but a user's stored theme could still be 'system'
+  // from before this change (or any other legacy value) — resolve it the same way applyTheme()
+  // does, so the correct button still shows as active instead of neither being highlighted.
+  const effectiveThemeIsDark = theme==='dark' || (theme!=='light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const sound = state.settings.sound;
   const lang = state.settings.language || 'en';
   const isLoggedIn = state.profile && state.session.loggedIn;
   let html = `
+    <div class="settings-group">
+      <div class="item-name" style="margin-bottom:10px;">${tr('Appearance')}</div>
+      <div class="seg-control">
+        <button data-theme="light" class="${effectiveThemeIsDark?'':'active'}">${tr('Light')}</button>
+        <button data-theme="dark" class="${effectiveThemeIsDark?'active':''}">${tr('Dark')}</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="item-name" style="margin-bottom:10px;">${tr('Language')}</div>
+      <div class="seg-control">
+        <button data-lang="en" class="${lang==='en'?'active':''}">${tr('English')}</button>
+        <button data-lang="fa" class="${lang==='fa'?'active':''}">فارسی</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="toggle-row">
+        <div class="item-name">${tr('Notifications')}</div>
+        <div class="switch ${state.settings.notificationsEnabled?'on':''}" id="notifSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="toggle-row">
+        <div class="item-name">${tr('Sound')}</div>
+        <div class="switch ${sound?'on':''}" id="soundSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="toggle-row">
+        <div>
+          <div class="item-name">${tr('Night owl mode')}</div>
+          <div class="item-sub">${tr('Day ends at 5:00am instead of midnight')}</div>
+        </div>
+        <div class="switch ${state.settings.nightOwlMode?'on':''}" id="nightOwlSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+
     <div class="settings-group">
       <div class="settings-group-title">${tr('Account')}</div>
       ${isLoggedIn ? `
@@ -33,52 +77,6 @@ function renderSettings(main){
         <button class="settings-btn" id="loginBtn">${state.profile ? tr('Log back in') : tr('Sign up / Log in')}</button>
       `}
     </div>
-
-    <div class="settings-group">
-      <div class="settings-group-title">${tr('Appearance')}</div>
-      <div class="seg-control">
-        <button data-theme="system" class="${theme==='system'?'active':''}">${tr('System')}</button>
-        <button data-theme="light" class="${theme==='light'?'active':''}">${tr('Light')}</button>
-        <button data-theme="dark" class="${theme==='dark'?'active':''}">${tr('Dark')}</button>
-      </div>
-    </div>
-
-    <div class="settings-group">
-      <div class="settings-group-title">${tr('Language')}</div>
-      <div class="seg-control">
-        <button data-lang="en" class="${lang==='en'?'active':''}">${tr('English')}</button>
-        <button data-lang="fa" class="${lang==='fa'?'active':''}">فارسی</button>
-      </div>
-    </div>
-
-    <div class="settings-group">
-      <div class="toggle-row">
-        <div class="item-name">${tr('Notifications')}</div>
-        <div class="switch ${state.settings.notificationsEnabled?'on':''}" id="notifSwitch"><div class="knob"></div></div>
-      </div>
-    </div>
-
-    <div class="settings-group">
-      <div class="settings-group-title">${tr('Sound')}</div>
-      <div class="toggle-row">
-        <div>
-          <div class="item-name">${tr('Sound on completion')}</div>
-        </div>
-        <div class="switch ${sound?'on':''}" id="soundSwitch"><div class="knob"></div></div>
-      </div>
-    </div>
-
-    <div class="settings-group">
-      <div class="settings-group-title">${tr('Sleep cycle')}</div>
-      <div class="toggle-row">
-        <div>
-          <div class="item-name">${tr('Night owl mode')}</div>
-          <div class="item-sub">${tr('Day ends at 5:00am instead of midnight')}</div>
-        </div>
-        <div class="switch ${state.settings.nightOwlMode?'on':''}" id="nightOwlSwitch"><div class="knob"></div></div>
-      </div>
-    </div>
-
 
     <div class="settings-group">
       <div class="settings-group-title">${tr('Danger zone')}</div>
