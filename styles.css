@@ -1346,6 +1346,9 @@
   }
   .prog-day-emoji{ font-size:18px; flex-shrink:0; }
   .prog-day-name{ flex:1; font-size:14px; color:var(--ink); }
+  .prog-day-points{ font-size:13px; font-weight:700; flex-shrink:0; }
+  .prog-day-points.positive{ color:#16a34a; }
+  .prog-day-points.negative{ color:#dc2626; }
 
   /* ---------- Onboarding ---------- */
   #onboarding{

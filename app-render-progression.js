@@ -281,6 +281,22 @@ function renderProgDayView(container){
     return t.completedDate === d;
   }
 
+  // Points/penalty actually logged for this item on this day, if any (routines log both a
+  // completion entry and, separately, a missed-day penalty entry; tasks currently only log a
+  // completion entry — there's no per-day penalty log for ongoing task decay, so we simply don't
+  // show a number for a not-yet-completed task rather than guessing one).
+  function loggedPointsFor(refKind, refId){
+    const kinds = refKind==='routine' ? ['routine','routine_penalty'] : ['task'];
+    const entries = state.log.filter(e => e.date===d && e.refId===refId && kinds.includes(e.kind));
+    if(entries.length===0) return null;
+    return entries.reduce((sum,e)=> sum + (e.points||0), 0);
+  }
+  function pointsBadgeHtml(pts){
+    if(pts===null) return '';
+    const sign = pts>=0 ? '+' : '';
+    return `<span class="prog-day-points ${pts>=0?'positive':'negative'}">${sign}${pts}</span>`;
+  }
+
   const check = `<span style="color:#16a34a; font-size:16px; font-weight:700;">✓</span>`;
   const cross = `<span style="color:#dc2626; font-size:16px; font-weight:700;">✗</span>`;
 
@@ -291,6 +307,7 @@ function renderProgDayView(container){
       <div class="prog-day-item">
         <span class="prog-day-emoji">${r.emoji || ROUTINE_FALLBACK_EMOJI}</span>
         <span class="prog-day-name">${escapeHtml(r.name)}</span>
+        ${pointsBadgeHtml(loggedPointsFor('routine', r.id))}
         ${done ? check : cross}
       </div>`;
   });
@@ -300,6 +317,7 @@ function renderProgDayView(container){
       <div class="prog-day-item">
         <span class="prog-day-emoji">${t.emoji || TASK_DEFAULT_EMOJI}</span>
         <span class="prog-day-name">${escapeHtml(t.name)}</span>
+        ${pointsBadgeHtml(loggedPointsFor('task', t.id))}
         ${done ? check : cross}
       </div>`;
   });
