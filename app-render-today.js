@@ -1,18 +1,89 @@
 // ---------- Home tab ----------
+// The ring hero (SVG ring + fraction + rating pill + tally) is a *persistent* element — it's
+// never innerHTML-replaced, only updated in place, so its fill animation and glow comet can run
+// smoothly across renders instead of snapping. renderToday() below only ever rebuilds the
+// routine/task card lists underneath it (#homeLists).
 let lastKnownTodayRating = undefined;
 let lastKnownTodayReceived = undefined;
-function ratingPillHtml(rating){
+let lastKnownTodayBase = undefined;
+function ratingPillClass(rating){
   const classMap = {
     'NOT GOOD':  'rating-notgood',
     'GOOD':      'rating-good',
     'GREAT!':    'rating-great',
     'AWESOME!!!':'rating-awesome',
   };
-  if(!rating) return `<div class="rating-pill rating-none">${tr('no rating yet')}</div>`;
-  return `<div class="rating-pill ${classMap[rating]||'rating-none'}">${tr(rating)}</div>`;
+  return classMap[rating] || 'rating-none';
 }
 
-function renderToday(main){
+
+// ---- Ring: fill % reflects earned points vs base points (received/base), NOT task-done-count.
+const HOME_RING_R = 98, HOME_RING_C = 2 * Math.PI * HOME_RING_R;
+function updateHomeRing(pct, animateFromZero){
+  const progressEl = document.getElementById('ringProgress');
+  if(!progressEl) return;
+  const clamped = Math.max(0, Math.min(1, pct));
+  if(progressEl.style.strokeDasharray !== String(HOME_RING_C)){
+    progressEl.style.strokeDasharray = HOME_RING_C;
+    progressEl.style.strokeDashoffset = HOME_RING_C;
+  }
+  const target = HOME_RING_C * (1 - clamped);
+  if(animateFromZero){
+    progressEl.style.transition = 'none';
+    progressEl.style.strokeDashoffset = HOME_RING_C;
+    progressEl.getBoundingClientRect(); // force reflow once
+    progressEl.style.transition = 'stroke-dashoffset 1s cubic-bezier(.4,0,.2,1)';
+    requestAnimationFrame(()=>{ progressEl.style.strokeDashoffset = target; });
+  } else {
+    progressEl.style.transition = 'stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)';
+    progressEl.style.strokeDashoffset = target;
+  }
+}
+
+function updateHomeHero(received, base, rating, doneCount, totalCount, animateRing){
+  const pct = base>0 ? received/base : 0;
+  updateHomeRing(pct, animateRing);
+
+  const labelEl = document.getElementById('ringMiniLabel');
+  if(labelEl) labelEl.textContent = tr("Today's score");
+
+  const receivedEl = document.getElementById('sfReceived');
+  const baseEl = document.getElementById('sfBase');
+  const newReceived = Math.max(0, Math.round(received));
+  const newBase = Math.round(base);
+  if(receivedEl){
+    if(animateRing){
+      receivedEl.textContent = newReceived;
+    } else if(lastKnownTodayReceived !== undefined && lastKnownTodayReceived !== newReceived){
+      animateNumberCount(receivedEl, lastKnownTodayReceived, newReceived, 500);
+    } else if(lastKnownTodayReceived === undefined){
+      receivedEl.textContent = newReceived;
+    }
+  }
+  if(baseEl) baseEl.textContent = newBase;
+  lastKnownTodayReceived = newReceived;
+  lastKnownTodayBase = newBase;
+
+  const pillEl = document.getElementById('ratingPill');
+  if(pillEl){
+    const rc = ratingPillClass(rating);
+    pillEl.className = 'rating-pill ' + rc;
+    pillEl.textContent = rating ? tr(rating) : tr('no rating yet');
+    if(!animateRing && lastKnownTodayRating !== undefined && rating !== lastKnownTodayRating){
+      const glowClass = {'NOT GOOD':'glow-notgood', 'GOOD':'glow-good', 'GREAT!':'glow-great', 'AWESOME!!!':'glow-awesome'}[rating];
+      if(glowClass){
+        pillEl.classList.add(glowClass);
+        setTimeout(()=> pillEl.classList.remove(glowClass), 800);
+      }
+    }
+  }
+  lastKnownTodayRating = rating;
+
+  const tallyEl = document.getElementById('dailyTally');
+  if(tallyEl) tallyEl.innerHTML = totalCount>0 ? trTallyLine(doneCount, totalCount) : '';
+}
+
+function renderToday(listsEl, animateRing){
   const t = todayStr();
   // Routines due today: all daily routines + weekly/monthly routines that are due/overdue/done-today.
   const dueRoutines = routinesForToday();
@@ -27,14 +98,11 @@ function renderToday(main){
   const tallyTotal = dueRoutines.length + tasksForTally.length;
   const todayRating = getTodayRating();
   const todayScore = getScores().daily;
-  let html = `
-    <div class="score-hero">
-      <div class="label">${tr("Today's score")}</div>
-      <div class="score-hero-fraction">${scoreFractionHtml(todayScore.received, todayScore.base)}</div>
-      ${ratingPillHtml(todayRating)}
-      ${tallyTotal>0 ? `<div class="daily-tally">${trTallyLine(tallyDone, tallyTotal)}</div>` : ''}
-    </div>
-    <div class="section-label">${tr('Routines')}</div>`;
+
+  updateHomeHero(todayScore.received, todayScore.base, todayRating, tallyDone, tallyTotal, !!animateRing);
+
+  const main = listsEl;
+  let html = `<div class="section-label">${tr('Routines')}</div>`;
   if(dueRoutines.length===0){
     html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">${tr('No routines due today.')}</div>`;
   } else {
@@ -53,8 +121,7 @@ function renderToday(main){
       if(h.description) lines.push(`<div class="item-sub">${escapeHtml(h.description)}</div>`);
       const subtitleHtml = lines.join('');
       html += `
-      <div class="card row" data-card-routine="${h.id}" data-drag-item data-drag-id="${h.id}">
-        <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+      <div class="card row" data-card-routine="${h.id}">
         <span class="emoji-today">${h.emoji||ROUTINE_FALLBACK_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(h.name)}</div>
@@ -82,8 +149,7 @@ function renderToday(main){
       if(task.description) taskLines.push(`<div class="item-sub">${escapeHtml(task.description)}</div>`);
       taskLines.push(`<div class="item-sub">${st==='overdue' ? trTaskOverdueShort() : trTaskDueTodayShort()}</div>`);
       html += `
-      <div class="card row" data-card-task="${task.id}" data-drag-item data-drag-id="${task.id}">
-        <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+      <div class="card row" data-card-task="${task.id}">
         <span class="emoji-today">${task.emoji||TASK_DEFAULT_EMOJI}</span>
         <div style="flex:1;">
           <div class="item-name">${escapeHtml(task.name)}</div>
@@ -109,26 +175,6 @@ function renderToday(main){
     });
   }
   main.innerHTML = html;
-
-  // Today's score number ticks up/down instead of jumping straight to the new value.
-  const receivedEl = main.querySelector('.score-hero .sf-received');
-  if(receivedEl){
-    const newReceived = Math.max(0, Math.round(todayScore.received));
-    if(lastKnownTodayReceived !== undefined && lastKnownTodayReceived !== newReceived){
-      animateNumberCount(receivedEl, lastKnownTodayReceived, newReceived, 500);
-    }
-    lastKnownTodayReceived = newReceived;
-  }
-  // Rating pill glows when today's rating actually changes tier.
-  const ratingPillEl = main.querySelector('.rating-pill');
-  if(ratingPillEl && lastKnownTodayRating !== undefined && todayRating !== lastKnownTodayRating){
-    const glowClass = {'NOT GOOD':'glow-notgood', 'GOOD':'glow-good', 'GREAT!':'glow-great', 'AWESOME!!!':'glow-awesome'}[todayRating];
-    if(glowClass){
-      ratingPillEl.classList.add(glowClass);
-      setTimeout(()=> ratingPillEl.classList.remove(glowClass), 800);
-    }
-  }
-  lastKnownTodayRating = todayRating;
 
   main.querySelectorAll('[data-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -159,13 +205,5 @@ function renderToday(main){
       }
       completeTask(id);
     });
-  });
-  enableHoldDrag('#todayRoutinesList', '[data-drag-item]', '.drag-handle', 'routine', (newOrderIds)=>{
-    state.routines = reorderMasterByVisibleOrder(state.routines, newOrderIds);
-    saveState();
-  });
-  enableHoldDrag('#todayTasksList', '[data-drag-item]', '.drag-handle', 'task', (newOrderIds)=>{
-    state.tasks = reorderMasterByVisibleOrder(state.tasks, newOrderIds);
-    saveState();
   });
 }

@@ -21,6 +21,28 @@
   <div class="splash-credit">Developed by Mersad</div>
 </div>
 <div id="app">
+
+  <div class="bg-clip">
+    <div class="bg-track" id="bgTrack">
+      <div class="blob c1" style="width:260px;height:260px;top:-80px;left:2%;animation:drift1 24s ease-in-out infinite alternate;"></div>
+      <div class="blob c2" style="width:220px;height:220px;top:150px;left:16%;animation:drift2 27s ease-in-out infinite alternate;"></div>
+      <div class="blob c3" style="width:240px;height:240px;bottom:160px;left:4%;animation:drift3 20s ease-in-out infinite alternate;"></div>
+      <div class="blob c4" style="width:280px;height:280px;bottom:-130px;left:14%;animation:drift1 25s ease-in-out infinite alternate-reverse;"></div>
+
+      <div class="blob c1" style="width:240px;height:240px;top:-60px;left:32%;animation:drift2 22s ease-in-out infinite alternate;"></div>
+      <div class="blob c3" style="width:260px;height:260px;top:280px;left:42%;animation:drift3 26s ease-in-out infinite alternate;"></div>
+      <div class="blob c4" style="width:230px;height:230px;bottom:-100px;left:36%;animation:drift1 23s ease-in-out infinite alternate-reverse;"></div>
+
+      <div class="blob c1" style="width:250px;height:250px;top:-70px;left:62%;animation:drift3 24s ease-in-out infinite alternate;"></div>
+      <div class="blob c2" style="width:220px;height:220px;top:300px;left:70%;animation:drift1 21s ease-in-out infinite alternate-reverse;"></div>
+      <div class="blob c3" style="width:240px;height:240px;bottom:-90px;left:60%;animation:drift2 25s ease-in-out infinite alternate;"></div>
+
+      <div class="blob c2" style="width:260px;height:260px;top:-80px;left:88%;animation:drift1 23s ease-in-out infinite alternate;"></div>
+      <div class="blob c3" style="width:230px;height:230px;top:260px;left:94%;animation:drift2 26s ease-in-out infinite alternate-reverse;"></div>
+      <div class="blob c4" style="width:250px;height:250px;bottom:-110px;left:90%;animation:drift3 22s ease-in-out infinite alternate;"></div>
+    </div>
+  </div>
+
   <header class="top">
     <div id="headerInfo">
       <div class="wordmark">Lifyar</div>
@@ -36,10 +58,45 @@
       </button>
     </div>
   </header>
-  <main id="main">
-    <div class="loading-msg" id="loadingMsg">Loading your data…</div>
-  </main>
-  <div class="fab" id="fab" style="display:none;">+</div>
+
+  <div class="viewport" id="viewport">
+    <div class="page-track" id="pageTrack">
+      <div class="page" id="pageToday">
+        <div class="home-hero" id="homeHero">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 230 230">
+              <defs>
+                <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--ring-light)"/><stop offset="100%" stop-color="var(--ring-dark)"/>
+                </linearGradient>
+              </defs>
+              <g transform="rotate(-90 115 115)">
+                <circle class="ring-track" cx="115" cy="115" r="98"></circle>
+                <circle class="ring-progress" id="ringProgress" cx="115" cy="115" r="98"></circle>
+              </g>
+            </svg>
+            <div class="ring-center">
+              <div class="ring-mini-label" id="ringMiniLabel">Today's score</div>
+              <div class="score-hero-fraction" id="scoreFraction"><span class="sf-received" id="sfReceived">0</span><span class="sf-slash">/</span><span class="sf-base" id="sfBase">0</span></div>
+              <div class="rating-pill rating-none" id="ratingPill">No rating yet</div>
+              <div class="daily-tally" id="dailyTally"></div>
+            </div>
+          </div>
+        </div>
+        <div id="homeLists">
+          <div class="loading-msg" id="loadingMsg">Loading your data…</div>
+        </div>
+      </div>
+      <div class="page" id="pageRoutines"></div>
+      <div class="page" id="pageTasks"></div>
+      <div class="page" id="pageScore"></div>
+    </div>
+    <div id="overlayMain">
+      <main id="overlayContent"></main>
+    </div>
+  </div>
+
+  <div class="fab" id="fab">+</div>
   <nav class="tabs">
     <button data-tab="today" class="active">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 001 1h12a1 1 0 001-1V10"/><path d="M9 21v-6h6v6"/></svg>
@@ -60,6 +117,15 @@
   </nav>
 </div>
 <div id="onboarding" style="display:none;">
+  <div class="bg-clip">
+    <div class="bg-track" style="width:100%;">
+      <div class="blob c1" style="width:260px;height:260px;top:-80px;left:8%;animation:drift1 24s ease-in-out infinite alternate;"></div>
+      <div class="blob c2" style="width:220px;height:220px;top:180px;left:60%;animation:drift2 27s ease-in-out infinite alternate;"></div>
+      <div class="blob c3" style="width:240px;height:240px;bottom:200px;left:0%;animation:drift3 20s ease-in-out infinite alternate;"></div>
+      <div class="blob c4" style="width:280px;height:280px;bottom:-140px;left:30%;animation:drift1 25s ease-in-out infinite alternate-reverse;"></div>
+      <div class="blob c2" style="width:230px;height:230px;bottom:-80px;left:70%;animation:drift2 23s ease-in-out infinite alternate;"></div>
+    </div>
+  </div>
   <div class="ob-header">
     <div class="ob-back" id="obBackBtn">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>

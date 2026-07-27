@@ -11,8 +11,9 @@ function renderDailyRoutineCard(r){
   if(r.description) lines.push(`<div class="item-sub" style="color:var(--ink);">${escapeHtml(r.description)}</div>`);
   lines.push(`<div class="item-sub">${stateText}</div>`);
   return `
-  <div class="card" data-card-routine="${r.id}">
+  <div class="card" data-card-routine="${r.id}" data-drag-item data-drag-id="${r.id}">
     <div class="row">
+      <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
       <span class="emoji-list">${r.emoji||ROUTINE_FALLBACK_EMOJI}</span>
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(r.name)}</div>
@@ -71,8 +72,9 @@ function renderRecurringRoutineCard(r){
   lines.push(`<div class="item-sub">${trDueDates(scheduleText)}</div>`);
 
   return `
-  <div class="card ${!isDue?'not-due':''}" data-card-routine="${r.id}">
+  <div class="card ${!isDue?'not-due':''}" data-card-routine="${r.id}" data-drag-item data-drag-id="${r.id}">
     <div class="row">
+      <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
       <span class="emoji-list">${r.emoji||ROUTINE_FALLBACK_EMOJI}</span>
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(r.name)}</div>
@@ -112,21 +114,23 @@ function renderRoutines(main){
   const weekly = live.filter(r=>r.recurrence==='weekly');
   const monthly = live.filter(r=>r.recurrence==='monthly');
   let html = penaltyInfoCardHtml();
-  function group(title, list, cardFn){
+  function group(title, list, cardFn, listId){
     let h = `<div class="task-group-title">${title}</div>`;
     if(list.length===0){
       h += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">${tr('None yet.')}</div>`;
     } else {
+      h += `<div id="${listId}">`;
       list.forEach(r=> h += cardFn(r));
+      h += `</div>`;
     }
     return h;
   }
   if(live.length===0){
     html += `<div class="empty"><div class="big">🪴</div>${tr('Nothing here yet.')}<br>${tr('Tap + to add your first routine.')}</div>`;
   } else {
-    html += group(tr('Daily'), daily, renderDailyRoutineCard);
-    html += group(tr('Weekly'), weekly, renderRecurringRoutineCard);
-    html += group(tr('Monthly'), monthly, renderRecurringRoutineCard);
+    html += group(tr('Daily'), daily, renderDailyRoutineCard, 'routinesDailyList');
+    html += group(tr('Weekly'), weekly, renderRecurringRoutineCard, 'routinesWeeklyList');
+    html += group(tr('Monthly'), monthly, renderRecurringRoutineCard, 'routinesMonthlyList');
   }
   main.innerHTML = html;
   main.querySelectorAll('[data-routine]').forEach(btn=>{
@@ -149,5 +153,11 @@ function renderRoutines(main){
     routinesPenaltyInfoOpen = !routinesPenaltyInfoOpen;
     penaltyInfo.classList.toggle('open', routinesPenaltyInfoOpen);
     penaltyInfo.querySelector('.penalty-info-toggle').textContent = routinesPenaltyInfoOpen ? tr('less') : tr('more');
+  });
+  ['routinesDailyList','routinesWeeklyList','routinesMonthlyList'].forEach(listId=>{
+    enableHoldDrag(`#${listId}`, '[data-drag-item]', '.drag-handle', 'routine', (newOrderIds)=>{
+      state.routines = reorderMasterByVisibleOrder(state.routines, newOrderIds);
+      saveState();
+    });
   });
 }

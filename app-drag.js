@@ -1,4 +1,4 @@
-// ---------- Drag handle reorder + drag-to-delete (Today/Home tab only) ----------
+// ---------- Drag handle reorder + drag-to-delete (Routines/Tasks tabs only) ----------
 const REFLOW_MS = 220;
 
 function enableHoldDrag(listSelector, itemSelector, handleSelector, kind, onCommit){
@@ -55,7 +55,7 @@ function startDrag(item, list, itemSelector, startEvent, kind, onCommit){
   if(trash) trash.classList.add('visible');
 
   // ---- Edge auto-scroll: speeds up the closer the pointer gets to the true top/bottom edge ----
-  const scrollEl = document.getElementById('main');
+  const scrollEl = list.closest('.page');
   const AUTOSCROLL_EDGE = 70; // px from viewport edge where auto-scroll kicks in
   const AUTOSCROLL_MAX_SPEED = 14; // px per frame at the very edge
   let pointerClientY = startEvent.clientY;

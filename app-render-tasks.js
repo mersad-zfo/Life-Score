@@ -1,5 +1,5 @@
 // ---------- Tasks tab (one-time only — recurring tasks now live as Routines) ----------
-function renderTaskCard(task){
+function renderTaskCard(task, draggable){
   const val = taskDisplayValue(task);
   const st = taskState(task);
   const lines = [];
@@ -13,9 +13,12 @@ function renderTaskCard(task){
     lines.push(`<div class="item-sub">${trTaskOverdueShort()}</div>`);
     lines.push(`<div class="item-sub" style="color:var(--rust);">${trTaskCurrentDecayLine(taskDecayAmount(task))}</div>`);
   }
+  const dragAttrs = draggable ? `data-drag-item data-drag-id="${task.id}"` : '';
+  const dragHandle = draggable ? `<span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>` : '';
   return `
-  <div class="card ${st==='upcoming'?'task-upcoming':''}" data-card-task="${task.id}">
+  <div class="card ${st==='upcoming'?'task-upcoming':''}" data-card-task="${task.id}" ${dragAttrs}>
     <div class="row">
+      ${dragHandle}
       <span class="emoji-list">${task.emoji||TASK_DEFAULT_EMOJI}</span>
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(task.name)}</div>
@@ -59,13 +62,15 @@ function renderTasks(main){
     html += `<div class="empty"><div class="big">📋</div>${tr('Nothing pending.')}<br>${tr('Tap + to add a task.')}</div>`;
   } else {
     if(active.length>0){
-      active.forEach(task=> html += renderTaskCard(task));
+      html += `<div id="tasksActiveList">`;
+      active.forEach(task=> html += renderTaskCard(task, true));
+      html += `</div>`;
     } else if(upcoming.length===0){
       html += `<div class="card" style="text-align:center; color:var(--ink-soft); font-size:13px;">${tr('No open tasks.')}</div>`;
     }
     if(upcoming.length>0){
       html += `<div class="section-label">${trUpcomingSectionLabel()}</div>`;
-      upcoming.forEach(task=> html += renderTaskCard(task));
+      upcoming.forEach(task=> html += renderTaskCard(task, false));
     }
   }
   if(done.length>0){
@@ -104,5 +109,9 @@ function renderTasks(main){
     tasksPenaltyInfoOpen = !tasksPenaltyInfoOpen;
     penaltyInfo.classList.toggle('open', tasksPenaltyInfoOpen);
     penaltyInfo.querySelector('.penalty-info-toggle').textContent = tasksPenaltyInfoOpen ? tr('less') : tr('more');
+  });
+  enableHoldDrag('#tasksActiveList', '[data-drag-item]', '.drag-handle', 'task', (newOrderIds)=>{
+    state.tasks = reorderMasterByVisibleOrder(state.tasks, newOrderIds);
+    saveState();
   });
 }

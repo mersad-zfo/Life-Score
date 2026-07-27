@@ -24,11 +24,35 @@ function updateHeader(){
     el.innerHTML = `<div class="wordmark page-title">${tr(TAB_PAGE_TITLES[currentTab])}</div>`;
   }
 }
+// Fades the header title/date out, swaps their content, fades back in — same visual
+// language as the tab-slide itself. Skipped on the very first call (nothing to fade from).
+let headerEverRendered = false;
+function updateHeaderAnimated(){
+  const el = document.getElementById('headerInfo');
+  if(!headerEverRendered){ headerEverRendered = true; updateHeader(); return; }
+  el.style.opacity = 0;
+  setTimeout(()=>{
+    updateHeader();
+    el.style.opacity = 1;
+  }, 120);
+}
 function setTab(tab){
-  if(tab !== currentTab){ routinesPenaltyInfoOpen = false; tasksPenaltyInfoOpen = false; }
+  if(tab !== currentTab){
+    routinesPenaltyInfoOpen = false;
+    tasksPenaltyInfoOpen = false;
+    // Scroll each main tab page back to the top when leaving it, so returning to it later
+    // always shows it fresh from the top instead of wherever it was last scrolled to.
+    const pageIds = { today:'pageToday', routines:'pageRoutines', tasks:'pageTasks', score:'pageScore', settings:'overlayContent', notifications:'overlayContent' };
+    const leavingPageId = pageIds[currentTab];
+    if(leavingPageId){
+      const leavingEl = document.getElementById(leavingPageId);
+      if(leavingEl) leavingEl.scrollTop = 0;
+    }
+  }
+  if(tab==='today' && currentTab!=='today') onNextTodayRenderAnimateRing = true;
   currentTab = tab;
   document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
-  updateHeader();
+  updateHeaderAnimated();
   renderMain();
 }
 document.querySelectorAll('nav.tabs button').forEach(b=>{
@@ -42,11 +66,17 @@ document.getElementById('gearBtn').addEventListener('click', ()=>{
     previousTab = currentTab;
     routinesPenaltyInfoOpen = false;
     tasksPenaltyInfoOpen = false;
+    const pageIds = { today:'pageToday', routines:'pageRoutines', tasks:'pageTasks', score:'pageScore' };
+    const leavingPageId = pageIds[currentTab];
+    if(leavingPageId){
+      const leavingEl = document.getElementById(leavingPageId);
+      if(leavingEl) leavingEl.scrollTop = 0;
+    }
     currentTab = 'settings';
     backupTapped = false;
     restoreTapped = false;
     document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.remove('active'));
-    updateHeader();
+    updateHeaderAnimated();
     renderMain();
   }
 });
