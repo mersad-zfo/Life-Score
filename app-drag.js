@@ -43,6 +43,14 @@ function startDrag(item, list, itemSelector, startEvent, kind, onCommit){
   placeholder.style.height = rect.height + 'px';
   list.insertBefore(placeholder, item.nextSibling);
 
+  // .page-track has a CSS transform (for the tab-slide animation), which makes it the
+  // containing block for any position:fixed descendant — so a fixed-position card left inside
+  // it renders relative to the sliding track, not the real viewport, and gets clipped away by
+  // .viewport's overflow:hidden. Moving it out to <body> for the drag sidesteps that entirely;
+  // getBoundingClientRect() above already gave us true viewport coordinates, so this reparent
+  // causes no visual jump.
+  document.body.appendChild(item);
+
   item.classList.add('dragging');
   item.style.position = 'fixed';
   item.style.left = rect.left + 'px';
@@ -163,6 +171,7 @@ function startDrag(item, list, itemSelector, startEvent, kind, onCommit){
       const id = item.dataset.dragId;
       const name = item.querySelector('.item-name') ? item.querySelector('.item-name').textContent : 'this';
       const label = kind==='routine' ? 'routine' : 'task';
+      item.remove(); // it's parented to <body> during the drag — the coming re-render won't touch it
       if(confirm(`Remove this ${label}? "${name.trim()}" will be deleted.`)){
         if(kind==='routine') deleteRoutine(id); else deleteTask(id);
         // deleteRoutine/deleteTask already re-render, so nothing else to do

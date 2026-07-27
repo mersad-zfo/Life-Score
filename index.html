@@ -69,10 +69,14 @@
                 <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stop-color="var(--ring-light)"/><stop offset="100%" stop-color="var(--ring-dark)"/>
                 </linearGradient>
+                <linearGradient id="ringGradAwesome" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--ring-purple-light)"/><stop offset="100%" stop-color="var(--ring-purple-dark)"/>
+                </linearGradient>
               </defs>
               <g transform="rotate(-90 115 115)">
                 <circle class="ring-track" cx="115" cy="115" r="98"></circle>
                 <circle class="ring-progress" id="ringProgress" cx="115" cy="115" r="98"></circle>
+                <g class="comet-trail" id="cometTrail"></g>
               </g>
             </svg>
             <div class="ring-center">

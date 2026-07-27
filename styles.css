@@ -18,6 +18,10 @@
     --blob4: #6FAE86;
     --ring-light: #A9D9BC;
     --ring-dark: #2F6F5E;
+    --halo-color: #2F6F5E;
+    --ring-purple-light: #C9A6FF;
+    --ring-purple-dark: #7B3FE4;
+    --halo-color-awesome: #7B3FE4;
   }
   body.dark-theme{
     --bg: #10140F;
@@ -39,6 +43,10 @@
     --blob4: #1B4A31;
     --ring-light: #3FCB8C;
     --ring-dark: #1C6E48;
+    --halo-color: #6BFFB8;
+    --ring-purple-light: #B98CFF;
+    --ring-purple-dark: #6C2BD9;
+    --halo-color-awesome: #C9A6FF;
   }
   body, #app, .card, .modal, nav.tabs, .score-tile{
     transition: background-color .25s ease, color .25s ease, border-color .25s ease;
@@ -409,6 +417,35 @@
   .ring-wrap svg{ width:100%; height:100%; overflow:visible; }
   .ring-track{ fill:none; stroke:var(--accent-soft); stroke-width:11; }
   .ring-progress{ fill:none; stroke:url(#ringGrad); stroke-width:11; stroke-linecap:round; }
+
+  /* ---- Soft comet: shown only while the ring is actively filling (0% < fill < 100%). A
+     feathered trail of stacked, tapering circles travels along the filled arc only, fading in
+     and out at each loop so the reset is invisible — no hard snap. ---- */
+  .comet-trail{ opacity:0; transition:opacity .25s ease; pointer-events:none; }
+  .comet-trail.active{ opacity:1; }
+  .comet-seg{ fill:none; stroke:#fff; stroke-linecap:round; filter:blur(0.6px); }
+  body.dark-theme .comet-seg{ stroke:#EAFFF2; }
+
+  /* ---- Breathing halo: shown once the ring reaches a full circle (100%+). The whole filled
+     arc glows softly brighter and dimmer — no moving parts. Color flips per theme so it stays
+     visible against both a light and a dark background. ---- */
+  .ring-progress.pulse-halo{ animation: ringHaloBreathe 2.6s ease-in-out infinite; }
+  @keyframes ringHaloBreathe{
+    0%, 100% { filter: drop-shadow(0 0 0px var(--halo-color)); }
+    50%      { filter: drop-shadow(0 0 8px var(--halo-color)); }
+  }
+
+  /* ---- AWESOME!!! rating (score > 100%): the whole ring turns purple, comet + halo included. ---- */
+  .ring-progress.awesome{ stroke:url(#ringGradAwesome); }
+  .ring-progress.awesome.pulse-halo{ animation-name: ringHaloBreatheAwesome; }
+  @keyframes ringHaloBreatheAwesome{
+    0%, 100% { filter: drop-shadow(0 0 0px var(--halo-color-awesome)); }
+    50%      { filter: drop-shadow(0 0 8px var(--halo-color-awesome)); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ring-progress.pulse-halo{ animation:none; }
+    .comet-trail{ display:none; }
+  }
   
   .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 14px; }
   .ring-mini-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--ink-soft); font-weight:600; margin-bottom:5px; }
@@ -480,7 +517,7 @@
   .score-tile .t-rating-label{
     margin-top:6px;
     font-family: 'Inter', -apple-system, sans-serif;
-    font-size:22px;
+    font-size:18px;
     font-weight:800;
     letter-spacing:0.03em;
     text-transform:uppercase;

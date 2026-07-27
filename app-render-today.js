@@ -18,8 +18,51 @@ function ratingPillClass(rating){
 
 
 // ---- Ring: fill % reflects earned points vs base points (received/base), NOT task-done-count.
+// While the ring is actively filling (0% < fill < 100%) a soft comet trail sweeps the filled arc.
+// Once it reaches a full circle (100%+), the comet is swapped for a gentle breathing halo instead.
 const HOME_RING_R = 98, HOME_RING_C = 2 * Math.PI * HOME_RING_R;
-function updateHomeRing(pct, animateFromZero){
+const HOME_COMET_STEPS = 6;
+let homeCometFillLen = 0;
+let homeCometActive = false;
+let homeCometRAFStarted = false;
+
+function ensureHomeCometBuilt(){
+  const g = document.getElementById('cometTrail');
+  if(!g || g.children.length) return;
+  for(let i=0;i<HOME_COMET_STEPS;i++){
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx', HOME_RING_R+17); c.setAttribute('cy', HOME_RING_R+17); c.setAttribute('r', HOME_RING_R);
+    c.setAttribute('stroke-width', (13 - i*0.9).toFixed(1));
+    c.classList.add('comet-seg');
+    g.appendChild(c);
+  }
+}
+function tickHomeComet(now){
+  const g = document.getElementById('cometTrail');
+  if(g && homeCometActive){
+    const period = 2600;
+    const t = (now % period) / period; // 0..1
+    const travel = Math.max(0, homeCometFillLen - 18);
+    // ease in/out of the sweep + fade at both ends so the loop reset is invisible
+    const eased = t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+    const headPos = eased * travel;
+    const fadeOpacity = t<0.08 ? t/0.08 : (t>0.92 ? (1-t)/0.08 : 1);
+    Array.from(g.children).forEach((c,i)=>{
+      const len = 18 - i*2.6;
+      c.setAttribute('stroke-dasharray', `${Math.max(len,1)} 9999`);
+      c.setAttribute('stroke-dashoffset', -(headPos - i*4));
+      c.style.opacity = ((0.55 - i*0.08) * fadeOpacity).toFixed(2);
+    });
+  }
+  requestAnimationFrame(tickHomeComet);
+}
+function startHomeCometLoop(){
+  if(homeCometRAFStarted) return;
+  homeCometRAFStarted = true;
+  requestAnimationFrame(tickHomeComet);
+}
+
+function updateHomeRing(pct, animateFromZero, isAwesome){
   const progressEl = document.getElementById('ringProgress');
   if(!progressEl) return;
   const clamped = Math.max(0, Math.min(1, pct));
@@ -38,11 +81,22 @@ function updateHomeRing(pct, animateFromZero){
     progressEl.style.transition = 'stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)';
     progressEl.style.strokeDashoffset = target;
   }
+
+  const isComplete = clamped >= 1;
+  const isFilling = clamped > 0 && clamped < 1;
+  progressEl.classList.toggle('pulse-halo', isComplete);
+  progressEl.classList.toggle('awesome', !!isAwesome);
+  ensureHomeCometBuilt();
+  const cometG = document.getElementById('cometTrail');
+  if(cometG) cometG.classList.toggle('active', isFilling);
+  homeCometFillLen = HOME_RING_C * clamped;
+  homeCometActive = isFilling;
+  startHomeCometLoop();
 }
 
 function updateHomeHero(received, base, rating, doneCount, totalCount, animateRing){
   const pct = base>0 ? received/base : 0;
-  updateHomeRing(pct, animateRing);
+  updateHomeRing(pct, animateRing, rating==='AWESOME!!!');
 
   const labelEl = document.getElementById('ringMiniLabel');
   if(labelEl) labelEl.textContent = tr("Today's score");
