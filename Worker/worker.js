@@ -1,4 +1,9 @@
-// worker.js — Life Score push notification backend.
+// worker.js — Lifyar push notification backend.
+// NOTE (app rebrand, Life Score → Lifyar): this Worker's actual deployed name on Cloudflare,
+// its URL (see app-notif-shared.js NOTIF_WORKER_URL), and its KV binding (LIFE_SCORE_KV below)
+// still say "life-score" / "LIFE_SCORE" on purpose — they haven't been renamed on Cloudflare
+// yet. Do not rename them here until the Cloudflare-side Worker/KV are renamed to match
+// (tracked in BACKLOG.md), or push notifications will break.
 //
 // Fully self-contained, single-file version — no import statement, nothing to install. Paste
 // this whole file into the Cloudflare dashboard's code editor (Workers & Pages →
@@ -160,7 +165,7 @@ async function buildPushHTTPRequest({ privateJWK, subscription, message }){
 }
 
 // =====================================================================================
-// ---------- Life Score notification logic ----------
+// ---------- Lifyar notification logic ----------
 // =====================================================================================
 
 const ADMIN_CONTACT = "mailto:you@example.com"; // TODO: replace with a real contact email/URL.
@@ -168,12 +173,12 @@ const STALE_DEVICE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days.
 
 const MESSAGES = {
   morning: {
-    en: { title: "Life Score", body: "Have you checked your to-do list for today?" },
-    fa: { title: "Life Score", body: "امروز لیست کارهات رو چک کردی؟" },
+    en: { title: "Lifyar", body: "Have you checked your to-do list for today?" },
+    fa: { title: "Lifyar", body: "امروز لیست کارهات رو چک کردی؟" },
   },
   evening: {
-    en: { title: "Life Score", body: "Wanna set your tasks for tomorrow?" },
-    fa: { title: "Life Score", body: "می‌خوای کارهای فردا رو تنظیم کنی؟" },
+    en: { title: "Lifyar", body: "Wanna set your tasks for tomorrow?" },
+    fa: { title: "Lifyar", body: "می‌خوای کارهای فردا رو تنظیم کنی؟" },
   },
 };
 
@@ -245,8 +250,8 @@ export default {
 
       if (url.pathname === "/api/test-push" && request.method === "POST") {
         const TEST_MESSAGES = {
-          en: { title: "Life Score", body: "Test notification — this worked!" },
-          fa: { title: "Life Score", body: "پیام آزمایشی — کار کرد!" },
+          en: { title: "Lifyar", body: "Test notification — this worked!" },
+          fa: { title: "Lifyar", body: "پیام آزمایشی — کار کرد!" },
         };
         const list = await env.LIFE_SCORE_KV.list({ prefix: "device:" });
         let sent = 0;

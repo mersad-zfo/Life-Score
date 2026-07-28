@@ -1,0 +1,55 @@
+/* ring.css — Home tab hero: the persistent animated score ring, soft comet trail (while filling),
+   breathing halo (once full), and the AWESOME!!! purple color state. Split out on its own since
+   this is the area we iterate on most. */
+
+  /* ---- Home hero: persistent animated ring (never re-created, only updated) ---- */
+  .home-hero{ text-align:center; padding:8px 0 10px; display:flex; flex-direction:column; align-items:center; }
+  .ring-wrap{ position:relative; width:230px; height:230px; max-width:100%; }
+  .ring-wrap svg{ width:100%; height:100%; overflow:visible; }
+  .ring-track{ fill:none; stroke:var(--accent-soft); stroke-width:11; }
+  .ring-progress{ fill:none; stroke:url(#ringGrad); stroke-width:11; stroke-linecap:round; }
+
+  /* ---- Soft comet: shown only while the ring is actively filling (0% < fill < 100%). A
+     feathered trail of stacked, tapering circles travels along the filled arc only, fading in
+     and out at each loop so the reset is invisible — no hard snap. ---- */
+  .comet-trail{ opacity:0; transition:opacity .25s ease; pointer-events:none; }
+  .comet-trail.active{ opacity:1; }
+  .comet-seg{ fill:none; stroke:#fff; stroke-linecap:round; filter:blur(0.6px); }
+  body.dark-theme .comet-seg{ stroke:#EAFFF2; }
+
+  /* ---- Breathing halo: shown once the ring reaches a full circle (100%+). The whole filled
+     arc glows softly brighter and dimmer — no moving parts. Color flips per theme so it stays
+     visible against both a light and a dark background. ---- */
+  .ring-progress.pulse-halo{ animation: ringHaloBreathe 2.6s ease-in-out infinite; }
+  @keyframes ringHaloBreathe{
+    0%, 100% { filter: drop-shadow(0 0 0px var(--halo-color)); }
+    50%      { filter: drop-shadow(0 0 8px var(--halo-color)); }
+  }
+
+  /* ---- AWESOME!!! rating (score > 100%): the whole ring turns purple, comet + halo included. ---- */
+  .ring-progress.awesome{ stroke:url(#ringGradAwesome); }
+  .ring-progress.awesome.pulse-halo{ animation-name: ringHaloBreatheAwesome; }
+  @keyframes ringHaloBreatheAwesome{
+    0%, 100% { filter: drop-shadow(0 0 0px var(--halo-color-awesome)); }
+    50%      { filter: drop-shadow(0 0 8px var(--halo-color-awesome)); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ring-progress.pulse-halo{ animation:none; }
+    .comet-trail{ display:none; }
+  }
+  
+  .ring-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 14px; }
+  .ring-mini-label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--ink-soft); font-weight:600; margin-bottom:5px; }
+  .home-hero .score-hero-fraction{ line-height:1.1; }
+  .home-hero .score-hero-fraction .sf-received{ font-size:38px; font-weight:600; }
+  .home-hero .score-hero-fraction .sf-slash{ font-weight:400; color:var(--ink-soft); margin:0 2px; font-size:22px; }
+  .home-hero .score-hero-fraction .sf-base{ font-weight:500; color:var(--ink-soft); font-size:22px; }
+  .home-hero .rating-pill{ margin:10px auto 0; }
+  .home-hero .daily-tally{
+    margin-top:10px;
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    color: var(--ink-soft);
+  }

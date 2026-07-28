@@ -67,6 +67,10 @@ function applyTheme(){
   else if(t==='light') dark = false;
   else dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.body.classList.toggle('dark-theme', dark);
+  // Keep the OS status bar / browser chrome color in sync with the active theme — otherwise it
+  // stays stuck on index.html's hardcoded light value even while the app itself is dark.
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if(themeColorMeta) themeColorMeta.setAttribute('content', dark ? '#10140F' : '#FAFAF7');
 }
 if(window.matchMedia){
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{

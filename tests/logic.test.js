@@ -23,6 +23,7 @@ const APP_FILES = [
   'app-rating.js',
   'app-consistency.js',
   'app-emoji.js',
+  'app-render-progression.js',
 ];
 
 function loadApp(){
@@ -259,7 +260,7 @@ function resetState(ratingStartDate) {
   app.state.settings.ratingStartDate = ratingStartDate;
 }
 
-test('isNotProductiveDay: fewer than 5 due+active -> true', () => {
+test('isNotProductiveDay: fewer than 4 due+active -> true', () => {
   resetState('2020-01-01');
   assert.strictEqual(app.isNotProductiveDay('2026-07-02'), true);
 });
@@ -267,9 +268,9 @@ test('isNotProductiveDay: before ratingStartDate -> true regardless', () => {
   resetState('2026-07-10');
   assert.strictEqual(app.isNotProductiveDay('2026-07-01'), true);
 });
-test('isNotProductiveDay: >=5 due routines -> false', () => {
+test('isNotProductiveDay: >=4 due routines -> false', () => {
   resetState('2020-01-01');
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 4; i++) {
     app.state.routines.push({ id: 'r' + i, recurrence: 'daily', createdDate: '2020-01-01', basePoints: 40 });
   }
   assert.strictEqual(app.isNotProductiveDay('2026-07-02'), false);
@@ -337,6 +338,67 @@ test('getTodayRating: before-noon rule suppresses NOT GOOD (returns null)', () =
   const notProd = app.isNotProductiveDay('2026-07-02');
   const rating = app.applyRatingCap(app.calcRating(received, base), notProd);
   assert.strictEqual(rating, 'NOT GOOD'); // confirms the underlying calculation the before-noon rule gates
+});
+
+// =====================================================================================
+section('getRatingForRange — proportional NP threshold uses nominal range length');
+// =====================================================================================
+// Regression for a real reported bug: a user who first opens the app late in a month (e.g. the
+// 4th week) had that month's Progression tile permanently NP-capped at GOOD for the rest of the
+// month. Root cause: the proportional threshold was bucketed by aggregatePeriod's elapsed-days
+// count (which shrinks to almost nothing right after ratingStartDate), not by the nominal length
+// of the (from, to) range being asked about — so a whole-month query 1-2 days into using the app
+// got judged as if it were a 1-2 day mini-range (round(2*4/7)=1, tripped by a single NP day).
+test('getRatingForRange: whole-month query on day 1 of use is NOT capped by a single NP day', () => {
+  resetState('2026-07-22'); // started on day 22 of a 31-day month
+  app.state.routines.push({ id: 'r1', recurrence: 'daily', createdDate: '2026-07-22', basePoints: 20 });
+  app.state.routines.push({ id: 'r2', recurrence: 'daily', createdDate: '2026-07-22', basePoints: 20 });
+  // Fully complete both routines on the one elapsed day -> 100% received/base, but still NP
+  // (only 2 routines due, <5 threshold) -> old bucketing capped the whole month at GOOD.
+  app.state.log.push({ id: 'l1', kind: 'routine', refId: 'r1', name: 'r1', points: 20, date: '2026-07-22' });
+  app.state.log.push({ id: 'l2', kind: 'routine', refId: 'r2', name: 'r2', points: 20, date: '2026-07-22' });
+  const { rating } = withFixedToday('2026-07-22', () => app.getRatingForRange('2026-07-01', '2026-07-31'));
+  assert.strictEqual(rating, 'GREAT!'); // 100% and NOT capped -- only 1 of 31 nominal days is NP
+});
+test('getRatingForRange: still stays uncapped through the rest of the partial first month', () => {
+  resetState('2026-07-22');
+  app.state.routines.push({ id: 'r1', recurrence: 'daily', createdDate: '2026-07-22', basePoints: 20 });
+  app.state.routines.push({ id: 'r2', recurrence: 'daily', createdDate: '2026-07-22', basePoints: 20 });
+  let d = '2026-07-22';
+  while (d <= '2026-07-31') {
+    app.state.log.push({ id: 'l' + d, kind: 'routine', refId: 'r1', name: 'r1', points: 20, date: d });
+    app.state.log.push({ id: 'l2' + d, kind: 'routine', refId: 'r2', name: 'r2', points: 20, date: d });
+    d = app.addDays(d, 1);
+  }
+  // 10 elapsed days, all NP (only 2 routines due) -- old code: round(10*18/31)=6, 10>=6 -> capped.
+  // Fixed code: nominal month length is 31 -> threshold is 18, 10 NP days < 18 -> not capped.
+  const { rating } = withFixedToday('2026-07-31', () => app.getRatingForRange('2026-07-01', '2026-07-31'));
+  assert.strictEqual(rating, 'GREAT!');
+});
+test('getRatingForRange: a genuinely bad full month still caps correctly (>=18 real NP days)', () => {
+  resetState('2026-06-01');
+  // Only 1 routine due (<5) -> every day is NP, but base>0 so the cap actually matters.
+  app.state.routines.push({ id: 'r1', recurrence: 'daily', createdDate: '2026-06-01', basePoints: 40 });
+  let d = '2026-06-01';
+  while (d <= '2026-06-30') {
+    app.state.log.push({ id: 'l' + d, kind: 'routine', refId: 'r1', name: 'r1', points: 40, date: d });
+    d = app.addDays(d, 1);
+  }
+  const { rating } = withFixedToday('2026-06-30', () => app.getRatingForRange('2026-06-01', '2026-06-30'));
+  assert.strictEqual(rating, 'GOOD'); // 30 NP days out of a 30-day month, well over the 18-day bar
+});
+test('getRatingForRange: a genuine short custom range still uses a week-scale threshold', () => {
+  resetState('2020-01-01');
+  app.state.routines.push({ id: 'r1', recurrence: 'daily', createdDate: '2020-01-01', basePoints: 40 });
+  let d = '2026-07-01';
+  while (d <= '2026-07-07') {
+    app.state.log.push({ id: 'l' + d, kind: 'routine', refId: 'r1', name: 'r1', points: 40, date: d });
+    d = app.addDays(d, 1);
+  }
+  // 7-day range, every day NP (only 1 routine due, <5) -> nominal length 7 -> threshold
+  // round(7*4/7)=4 -> 7>=4 -> capped, same as the Score tab's week-level behavior.
+  const { rating } = withFixedToday('2026-07-07', () => app.getRatingForRange('2026-07-01', '2026-07-07'));
+  assert.strictEqual(rating, 'GOOD');
 });
 
 // =====================================================================================

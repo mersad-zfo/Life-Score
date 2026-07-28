@@ -163,6 +163,8 @@ const LANG_DICT = {
     'Type your own…': 'مورد خودتان را بنویسید…',
     'Routines repeat automatically. Tasks are one-time activities — unlike routines, tasks disappear after completion.': 'روتین‌ها به‌طور خودکار تکرار می‌شوند. کارها فعالیت‌های یک‌بار مصرف هستند — برخلاف روتین‌ها، کارها بعد از انجام شدن ناپدید می‌شوند.',
     '<b>Routines</b> repeat automatically. <b>Tasks</b> are one-time activities — unlike routines, tasks disappear after completion.': '<b>روتین‌ها</b> به‌طور خودکار تکرار می‌شوند. <b>کارها</b> فعالیت‌های یک‌بار مصرف هستند — برخلاف روتین‌ها، کارها بعد از انجام شدن ناپدید می‌شوند.',
+    '<b>Try to have at least 4 Routines</b> in each day. For most people, having 4-6 routines is the sweet spot.': 'سعی کنید هر روز حداقل <b>۴ روتین</b> داشته باشید. برای بیشتر افراد، داشتن ۴ تا ۶ روتین نقطه ایده‌آل است.',
+    'Pick due days for each weekly routine before continuing': 'قبل از ادامه، برای هر روتین هفتگی روزهای موعد را انتخاب کنید',
     'Due': 'موعد',
     'Confirm': 'تأیید',
     'Select days': 'انتخاب روزها',
@@ -181,25 +183,31 @@ const LANG_DICT = {
     "One more thing — allow notifications if you'd like daily reminders to check your list.": 'یک نکته دیگر — اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
     "<b>One more thing</b> — allow notifications if you'd like daily reminders to check your list.": '<b>یک نکته دیگر</b> — اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
     'Enter Lifyar': 'ورود به Lifyar',
-    // Onboarding: curated routine/task names (also used as the saved item name when picked)
+    // Onboarding: step-1 welcome animation's own decorative labels (independent of the routine/task picker below — do not rename these to match the picker's gerund-form labels)
     'Brush Teeth': 'مسواک زدن',
     'Work': 'کار',
     'Cook': 'آشپزی',
-    'Shower': 'دوش گرفتن',
-    'Tidy Up': 'مرتب کردن خانه',
     'Read': 'مطالعه',
-    'Eat Healthy': 'تغذیه سالم',
     'Exercise': 'ورزش',
-    'Take Medication': 'مصرف دارو',
-    'Learn a Language': 'یادگیری زبان',
-    'Wash Dishes': 'شستن ظرف‌ها',
-    'Journal': 'یادداشت روزانه',
+    // Onboarding: curated routine/task names (also used as the saved item name when picked)
+    'Brushing Teeth': 'مسواک زدن',
+    'Working': 'کار کردن',
+    'Cooking': 'آشپزی کردن',
+    'Showering': 'دوش گرفتن',
+    'Tidy Up': 'مرتب کردن خانه',
+    'Reading': 'مطالعه کردن',
+    'Eating right': 'تغذیه درست',
+    'Exercising': 'ورزش کردن',
+    'Taking Meds': 'مصرف دارو',
+    'Study/Homework': 'مطالعه/تکالیف',
+    'Washing Dishes': 'شستن ظرف‌ها',
+    'Journaling': 'یادداشت‌نویسی',
     'Gym': 'باشگاه',
     'Laundry': 'لباسشویی',
-    'Clean the House': 'نظافت خانه',
+    'House cleaning': 'نظافت خانه',
     'Grocery Shopping': 'خرید مایحتاج',
     'Meal Prep': 'آماده‌سازی غذا',
-    'Call Family': 'تماس با خانواده',
+    'Calling Family': 'تماس با خانواده',
   }
 };
 function tr(key){
@@ -347,8 +355,8 @@ function trRatingNotifBody(period, rating){
   return `Your rating for this ${pEn} was NOT GOOD. That's ok — I'm sure with a bit of effort you'll make up for it in the upcoming ${pEn}s to save your overall rating!`;
 }
 function trDailyNpCapBody(){
-  if(curLang()==='fa') return `رتبه فعلی شما به «خوب» و «خوب نیست» محدود شده. برای باز شدن «عالی!» و «فوق‌العاده!!!» حداقل ۵ مورد در لیست روزانه‌تان داشته باشید.`;
-  return `Your current rating is limited to "GOOD" and "NOT GOOD". Have at least 5 items in your daily list to unlock "GREAT!" and "AWESOME!!!".`;
+  if(curLang()==='fa') return `رتبه فعلی شما به «خوب» و «خوب نیست» محدود شده. برای باز شدن «عالی!» و «فوق‌العاده!!!» حداقل ۴ روتین در لیست روزانه‌تان داشته باشید.`;
+  return `Your current rating is limited to "GOOD" and "NOT GOOD". Have at least 4 routines in your daily list to unlock "GREAT!" and "AWESOME!!!".`;
 }
 function trWeeklyNpCapBody(count){
   if(curLang()==='fa') return `این هفته، ${numFa(count)} روز با محدودیت رتبه روزانه داشتید. یک روز دیگر مثل این و رتبه هفتگی‌تان هم محدود می‌شود. سعی کنید موارد بیشتری به لیست روزانه‌تان اضافه کنید.`;

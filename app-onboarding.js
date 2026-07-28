@@ -1,7 +1,7 @@
 // ---------- Onboarding ----------
 let onboardingActive = false;
 let obStep = 1;
-let obSelectedDaily = new Set(['brush','eathealthy','dishes']);
+let obSelectedDaily = new Set(['brush','tidy','eathealthy','language']);
 let obSelectedWeekly = new Set(['laundry']);
 let obCustomDaily = [];
 let obCustomWeekly = [];
@@ -14,33 +14,34 @@ let obDetailsOpen = {};     // id -> bool
 let obRowExtra = {};        // id -> {time, description}
 let obWeeklyDays = {};      // id -> Set of day indices (JS getDay convention)
 let obActiveWeekdayPopoverId = null;
+let obLastRenderedStep = null; // tracks the last step actually painted, so we only reset scroll on a real step change
 
 const OB_DAILY_ITEMS = [
-  {id:'brush', emoji:'🪥', nameKey:'Brush Teeth'},
-  {id:'work', emoji:'💻', nameKey:'Work'},
-  {id:'cook', emoji:'🍳', nameKey:'Cook'},
-  {id:'shower', emoji:'🚿', nameKey:'Shower'},
+  {id:'brush', emoji:'🪥', nameKey:'Brushing Teeth'},
+  {id:'work', emoji:'💲', nameKey:'Working'},
+  {id:'cook', emoji:'🍲', nameKey:'Cooking'},
+  {id:'shower', emoji:'🚿', nameKey:'Showering'},
   {id:'tidy', emoji:'🧹', nameKey:'Tidy Up'},
-  {id:'read', emoji:'📖', nameKey:'Read'},
-  {id:'eathealthy', emoji:'🥗', nameKey:'Eat Healthy'},
-  {id:'exercise', emoji:'🏃', nameKey:'Exercise'},
-  {id:'medication', emoji:'💊', nameKey:'Take Medication'},
-  {id:'language', emoji:'🗣️', nameKey:'Learn a Language'},
-  {id:'dishes', emoji:'🍽️', nameKey:'Wash Dishes'},
-  {id:'journal', emoji:'✍️', nameKey:'Journal'},
+  {id:'read', emoji:'📖', nameKey:'Reading'},
+  {id:'eathealthy', emoji:'🥪', nameKey:'Eating right'},
+  {id:'exercise', emoji:'💪', nameKey:'Exercising'},
+  {id:'medication', emoji:'💊', nameKey:'Taking Meds'},
+  {id:'language', emoji:'📚', nameKey:'Study/Homework'},
+  {id:'dishes', emoji:'🧽', nameKey:'Washing Dishes'},
+  {id:'journal', emoji:'🪶', nameKey:'Journaling'},
 ];
 const OB_WEEKLY_ITEMS = [
   {id:'gym', emoji:'🏋️', nameKey:'Gym'},
   {id:'laundry', emoji:'🧺', nameKey:'Laundry'},
-  {id:'clean', emoji:'🧽', nameKey:'Clean the House'},
+  {id:'clean', emoji:'🧹', nameKey:'House cleaning'},
   {id:'groceries', emoji:'🛒', nameKey:'Grocery Shopping'},
-  {id:'mealprep', emoji:'🌱', nameKey:'Meal Prep'},
-  {id:'call', emoji:'📞', nameKey:'Call Family'},
+  {id:'mealprep', emoji:'🍱', nameKey:'Meal Prep'},
+  {id:'call', emoji:'📞', nameKey:'Calling Family'},
 ];
 
 function obResetState(){
   obStep = 1;
-  obSelectedDaily = new Set(['brush','eathealthy','dishes']);
+  obSelectedDaily = new Set(['brush','tidy','eathealthy','language']);
   obSelectedWeekly = new Set(['laundry']);
   obCustomDaily = [];
   obCustomWeekly = [];
@@ -52,6 +53,7 @@ function obResetState(){
   obRowExtra = {};
   obWeeklyDays = {};
   obActiveWeekdayPopoverId = null;
+  obLastRenderedStep = null;
 }
 
 function enterOnboarding(){
@@ -70,7 +72,12 @@ function initOnboarding(){
   document.getElementById('obWeekdayPopoverConfirm').addEventListener('click', ()=>{
     document.getElementById('obWeekdayPopoverScrim').style.display = 'none';
     const trigger = document.querySelector(`[data-weekday-trigger="${obActiveWeekdayPopoverId}"]`);
-    if(trigger) trigger.textContent = obDaysSummaryText(obActiveWeekdayPopoverId);
+    if(trigger){
+      trigger.textContent = obDaysSummaryText(obActiveWeekdayPopoverId);
+      // Clear the validation-failure shake/red state as soon as the item actually has days again —
+      // it should only ever reflect the *current* state, not linger from a past failed Finish-setup click.
+      if(obGetWeekdaySet(obActiveWeekdayPopoverId).size > 0) trigger.classList.remove('shake');
+    }
     obActiveWeekdayPopoverId = null;
   });
   if(onboardingActive){
@@ -137,7 +144,7 @@ function obWireChipFlow(addKey, customItems, selectedSet, onChange){
       const val = input.value.trim();
       if(val){
         const id = 'custom-' + Date.now();
-        customItems.push({id, emoji:'✨', name: val});
+        customItems.push({id, emoji: pickRoutineEmoji(val), name: val});
         selectedSet.add(id);
       }
       onChange();
@@ -365,18 +372,26 @@ function obRenderStep3(content, footer){
     <h1 class="ob-title">${tr('Choose your routines')}</h1>
     <p class="ob-sub">${tr("Pick the activities that are already part of your life, plus anything you'd like to make part of it.")}</p>
 
-    <div class="section-label"><span>${tr('Daily')}</span><span class="section-count" id="obDailyCount"></span></div>
-    ${obChipFlowHtml(OB_DAILY_ITEMS, obCustomDaily, obSelectedDaily, 'daily')}
+    <p class="routine-task-note">${tr('<b>Try to have at least 4 Routines</b> in each day. For most people, having 4-6 routines is the sweet spot.')}</p>
 
-    <div class="section-label"><span>${tr('Weekly')}</span><span class="section-count" id="obWeeklyCount"></span></div>
-    ${obChipFlowHtml(OB_WEEKLY_ITEMS, obCustomWeekly, obSelectedWeekly, 'weekly')}
+    <div class="ob-glass-panel">
+      <div class="section-label"><span>${tr('Daily')}</span><span class="section-count" id="obDailyCount"></span></div>
+      ${obChipFlowHtml(OB_DAILY_ITEMS, obCustomDaily, obSelectedDaily, 'daily')}
+    </div>
+
+    <div class="ob-glass-panel">
+      <div class="section-label"><span>${tr('Weekly')}</span><span class="section-count" id="obWeeklyCount"></span></div>
+      ${obChipFlowHtml(OB_WEEKLY_ITEMS, obCustomWeekly, obSelectedWeekly, 'weekly')}
+    </div>
 
     <p class="routine-task-note">${tr('<b>Routines</b> repeat automatically. <b>Tasks</b> are one-time activities — unlike routines, tasks disappear after completion.')}</p>
 
-    <div class="section-label"><span>${tr("One task you've been putting off?")}</span></div>
-    <div class="task-inline">
-      <input type="text" id="obTaskEmoji" value="${escapeHtml(obTask.emoji || TASK_DEFAULT_EMOJI)}">
-      <input type="text" id="obTaskName" placeholder="${tr('Optional — e.g. Renew car insurance')}" value="${escapeHtml(obTask.name)}">
+    <div class="ob-glass-panel">
+      <div class="section-label"><span>${tr("One task you've been putting off?")}</span></div>
+      <div class="task-inline">
+        <input type="text" id="obTaskEmoji" value="${escapeHtml(obTask.emoji || TASK_DEFAULT_EMOJI)}">
+        <input type="text" id="obTaskName" placeholder="${tr('Optional — e.g. Renew car insurance')}" value="${escapeHtml(obTask.name)}">
+      </div>
     </div>
   `;
   const updateDailyCount = ()=>{ document.getElementById('obDailyCount').textContent = obSelectedDaily.size ? trSelectedCount(obSelectedDaily.size) : ''; };
@@ -417,7 +432,10 @@ function obWeekdayFullName(dayIdx){
   return map[dayIdx];
 }
 function obGetWeekdaySet(id){
-  if(!obWeeklyDays[id]) obWeeklyDays[id] = new Set([6,0]); // default Sat+Sun
+  // Starts empty on purpose — the user must deliberately choose due days for a weekly routine;
+  // see obValidateWeeklyDays()/the finish-setup guard, which blocks proceeding until every
+  // weekly pick has at least one day selected.
+  if(!obWeeklyDays[id]) obWeeklyDays[id] = new Set();
   return obWeeklyDays[id];
 }
 function obDaysSummaryText(id){
@@ -436,6 +454,10 @@ function obRenderWeekdayPopoverGrid(){
       btn.classList.toggle('active');
     });
   });
+}
+// Returns the picked weekly items (from step 3) that still have zero due days selected.
+function obWeeklyItemsMissingDays(){
+  return obAllPicked().filter(p => p.group === 'Weekly' && obGetWeekdaySet(p.id).size === 0);
 }
 function obOpenWeekdayPopover(id, label){
   obActiveWeekdayPopoverId = id;
@@ -463,7 +485,7 @@ function obRenderStep4(content, footer){
   ['Daily','Weekly','Task'].forEach(group=>{
     const items = picked.filter(p=>p.group===group);
     if(!items.length) return;
-    groupsHtml += `<p class="section-label">${groupLabel[group]}</p>`;
+    groupsHtml += `<div class="ob-glass-panel"><p class="section-label">${groupLabel[group]}</p>`;
     items.forEach(i=>{
       const isTask = i.group === 'Task';
       const isWeekly = i.group === 'Weekly';
@@ -531,6 +553,7 @@ function obRenderStep4(content, footer){
           ` : ''}
         </div>`;
     });
+    groupsHtml += `</div>`; // close .ob-glass-panel
   });
   content.innerHTML = `
     <p class="ob-eyebrow">${tr('Step 3 of 3')}</p>
@@ -647,6 +670,9 @@ function obCommitPicks(){
       state.routines.push({...base, basePoints, configHistory:[{from: base.createdDate, basePoints}]});
     } else {
       const daySet = obGetWeekdaySet(i.id);
+      // The finish-setup guard (obWeeklyItemsMissingDays()) blocks proceeding while any weekly
+      // pick has an empty day set, so this fallback should be unreachable in normal use — kept
+      // only as a defensive default in case obCommitPicks() is ever called some other way.
       const schedule = daySet.size ? Array.from(daySet) : [6,0];
       const rewardValue = difficultyPointsFor('weekly', difficulty);
       state.routines.push({...base, rewardValue, schedule, configHistory:[{from: base.createdDate, schedule, rewardValue}]});
@@ -699,6 +725,7 @@ function obFinishOnboarding(){
 function renderOnboarding(){
   const content = document.getElementById('obContent');
   const footer = document.getElementById('obFooter');
+  const stepChanged = obLastRenderedStep !== obStep; // only reset scroll on a real transition, not an in-step re-render (e.g. picking a chip, toggling a switch)
   document.getElementById('obBackBtn').classList.toggle('show', obStep>1 && obStep<5);
   document.getElementById('obWeekdayPopoverConfirm').textContent = tr('Confirm');
   obRenderDots();
@@ -707,6 +734,8 @@ function renderOnboarding(){
   if(obStep===3) obRenderStep3(content, footer);
   if(obStep===4) obRenderStep4(content, footer);
   if(obStep===5) obRenderStep5(content, footer);
+  if(stepChanged) content.scrollTop = 0;
+  obLastRenderedStep = obStep;
 
   const skipBtn = document.getElementById('obSkipBtn');
   if(skipBtn) skipBtn.addEventListener('click', obSkipSetup);
@@ -727,6 +756,18 @@ function renderOnboarding(){
       return;
     }
     if(obStep===4 && !obRestoredViaOnboarding){
+      const missing = obWeeklyItemsMissingDays();
+      if(missing.length){
+        showToast(tr('Pick due days for each weekly routine before continuing'));
+        missing.forEach(p=>{
+          const trigger = content.querySelector(`[data-weekday-trigger="${p.id}"]`);
+          if(!trigger) return;
+          trigger.classList.remove('shake');
+          void trigger.offsetWidth; // force reflow so the animation can restart on repeated clicks
+          trigger.classList.add('shake');
+        });
+        return;
+      }
       obCommitPicks();
     }
     obStep = Math.min(5, obStep+1);

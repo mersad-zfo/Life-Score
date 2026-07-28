@@ -43,16 +43,21 @@ function getMonthWeekRanges(year, month){
 
 // ---- Rating helpers ----
 function getRatingForRange(from, to){
-  const {base, received, npCount, days} = aggregatePeriod(from, to);
-  const totalDays = to>=todayStr() ? days : days; // all elapsed days
-  const npLimited = npCount >= Math.ceil(days * (days<=7 ? 4/7 : (days<=31 ? 18/31 : 0.6)));
-  // For custom ranges use a proportional NP threshold:
-  // daily (<2 days): 1 np = limited; weekly-ish (≤8 days): 4/7 proportion; monthly: 18/31; else 60%
+  const {base, received, npCount} = aggregatePeriod(from, to);
+  // Bucket by the range's nominal length (to−from), NOT by days actually elapsed since
+  // ratingStartDate (aggregatePeriod's own `days`, clamped to real history). Bucketing by
+  // elapsed days meant a whole-month query made in someone's first day or two of ever using
+  // the app got judged as if it were a 1-2 day mini-range — round(2*4/7)=1, so a single NP
+  // day permanently capped the entire month. Using the nominal span keeps the threshold an
+  // absolute NP-day count sized to the *real* period (18 for a month-length range, 4 for a
+  // week-length one) — same principle as the Score tab's fixed npCount>=18/>=4, generalized
+  // to arbitrary ranges. A period that's barely begun simply can't reach it yet.
+  const nominalDays = daysBetween(from, to) + 1;
   let limited;
-  if(days<=1)       limited = npCount>=1;
-  else if(days<=8)  limited = npCount >= Math.round(days * (4/7));
-  else if(days<=31) limited = npCount >= Math.round(days * (18/31));
-  else              limited = npCount/days > 0.6;
+  if(nominalDays<=1)       limited = npCount>=1;
+  else if(nominalDays<=8)  limited = npCount >= Math.round(nominalDays * (4/7));
+  else if(nominalDays<=31) limited = npCount >= Math.round(nominalDays * (18/31));
+  else                     limited = npCount/nominalDays > 0.6;
   return { rating: applyRatingCap(calcRating(Math.max(0,received), base), limited), base, received };
 }
 

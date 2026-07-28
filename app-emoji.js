@@ -32,6 +32,7 @@ const P_MUSIC = ['🎵','🎶','🎼','🎤','🎧','🎺','🎷','🪕','🪘',
 const P_PHOTO = ['📷','📸'];
 const P_VIDEO = ['🎥','🎬','🎞️'];
 const P_OFFICE = ['💼','🖥️','💻','📊','📈','📉','📅','🗓️','📋'];
+const P_WORK = ['💲'];
 const P_CALL = ['☎️','📞'];
 const P_CAREER = ['💼','👔','🎯'];
 const P_FOCUS = ['🎯','🧠','⌛'];
@@ -121,7 +122,7 @@ const EMOJI_VARIETY = {
   'photo editing': P_PHOTO, 'editing photos': P_PHOTO,
   'video editing': P_VIDEO, 'editing video': P_VIDEO,
   // Office Work
-  'work': P_OFFICE, 'working': P_OFFICE, 'meeting': P_OFFICE, 'meetings': P_OFFICE, 'presentation': P_OFFICE,
+  'work': P_WORK, 'working': P_WORK, 'meeting': P_OFFICE, 'meetings': P_OFFICE, 'presentation': P_OFFICE,
   'call': P_CALL, 'calling': P_CALL,
   // Career
   'interview': P_CAREER, 'interviewing': P_CAREER, 'job search': P_CAREER, 'job hunting': P_CAREER,

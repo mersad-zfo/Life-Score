@@ -1,0 +1,92 @@
+/* base.css — root/dark theme CSS variables, global resets, and the drifting background-blob layer shared by both #app and #onboarding.
+   Loaded first: everything else depends on these custom properties. */
+
+:root{
+    --bg: #FAFAF7;
+    --paper: #FFFFFF;
+    --ink: #1C1C1A;
+    --ink-soft: #6E6E66;
+    --line: #E4E2DA;
+    --accent: #2F6F5E;
+    --accent-soft: #E4EFEA;
+    --rust: #B5483C;
+    --rust-soft: #F6E8E5;
+    --gold: #A9822E;
+    --glass-fill: rgba(255,255,255,0.52);
+    --glass-border: rgba(47,111,94,0.28);
+    --nav-fill: rgba(255,255,255,0.62);
+    --blob1: #CFEBDA;
+    --blob2: #9FD4B4;
+    --blob3: #E4EFEA;
+    --blob4: #6FAE86;
+    --ring-light: #A9D9BC;
+    --ring-dark: #2F6F5E;
+    --halo-color: #2F6F5E;
+    --ring-purple-light: #C9A6FF;
+    --ring-purple-dark: #7B3FE4;
+    --halo-color-awesome: #7B3FE4;
+  }
+  body.dark-theme{
+    --bg: #10140F;
+    --paper: #1A211B;
+    --ink: #F3F5F1;
+    --ink-soft: #98A398;
+    --line: rgba(255,255,255,0.09);
+    --accent: #3FCB8C;
+    --accent-soft: rgba(63,203,140,0.16);
+    --rust: #FF6E5C;
+    --rust-soft: rgba(255,110,92,0.14);
+    --gold: #E0B65C;
+    --glass-fill: rgba(255,255,255,0.055);
+    --glass-border: rgba(63,203,140,0.32);
+    --nav-fill: rgba(16,20,15,0.55);
+    --blob1: #1E3B2B;
+    --blob2: #235338;
+    --blob3: #142018;
+    --blob4: #1B4A31;
+    --ring-light: #3FCB8C;
+    --ring-dark: #1C6E48;
+    --halo-color: #6BFFB8;
+    --ring-purple-light: #B98CFF;
+    --ring-purple-dark: #6C2BD9;
+    --halo-color-awesome: #C9A6FF;
+  }
+  body, #app, .card, .modal, nav.tabs, .score-tile{
+    transition: background-color .25s ease, color .25s ease, border-color .25s ease;
+  }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    height:100vh;
+    overflow:hidden;
+    display:flex;
+    justify-content:center;
+  }
+  #app{
+    width:100%;
+    max-width: 480px;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    background: var(--bg);
+    overflow:hidden;
+  }
+
+  /* ---- panoramic drifting background (behind everything, z-index 0) ---- */
+  .bg-clip{ position:absolute; inset:0; z-index:0; overflow:hidden; }
+  .bg-track{ position:absolute; top:0; left:0; width:400%; height:100%; transition: transform .46s cubic-bezier(.22,1,.36,1); background: var(--bg); }
+  .blob{ position:absolute; border-radius:50%; filter:blur(46px); transition: background .3s ease; }
+  .blob.c1{ background:var(--blob1); opacity:.85; }
+  .blob.c2{ background:var(--blob2); opacity:.5; }
+  .blob.c3{ background:var(--blob3); opacity:.85; }
+  .blob.c4{ background:var(--blob4); opacity:.35; }
+  @keyframes drift1{ 0%{transform:translate(0,0);} 100%{transform:translate(22px,16px);} }
+  @keyframes drift2{ 0%{transform:translate(0,0);} 100%{transform:translate(-18px,20px);} }
+  @keyframes drift3{ 0%{transform:translate(0,0);} 100%{transform:translate(14px,-18px);} }
+  @media (prefers-reduced-motion: reduce){ .blob{ animation:none !important; } }
