@@ -91,7 +91,14 @@ function renderTasks(main){
   }
   main.innerHTML = html;
   main.querySelectorAll('[data-complete-task]').forEach(btn=>{
-    btn.addEventListener('click', ()=> completeTask(btn.dataset.completeTask));
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.completeTask;
+      const task = state.tasks.find(x=>x.id===id);
+      if(task && taskState(task)==='upcoming'){
+        if(!confirm(tr("This task isn't due yet — mark it as done early?"))) return;
+      }
+      completeTask(id);
+    });
   });
   main.querySelectorAll('[data-undo-task]').forEach(btn=>{
     btn.addEventListener('click', ()=> uncompleteTask(btn.dataset.undoTask));

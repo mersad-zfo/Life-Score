@@ -202,7 +202,7 @@ function readRecurrence(m, idPrefix){
 function timeDetailsFieldsHtml(prefix, timeVal, descVal, descPlaceholder){
   const hasExisting = !!(timeVal || descVal);
   return `
-    <a class="add-details-link" id="${prefix}AddDetailsLink" style="${hasExisting?'display:none;':''}">${tr('+ Add time & details')}</a>
+    <a class="add-details-link" id="${prefix}AddDetailsLink">${hasExisting ? tr('- Hide time & details') : tr('+ Add time & details')}</a>
     <div class="time-details-row" id="${prefix}DetailsField" style="${hasExisting?'':'display:none;'}">
       <div class="field time-field">
         <label>${tr('Time')}</label>
@@ -217,9 +217,11 @@ function timeDetailsFieldsHtml(prefix, timeVal, descVal, descPlaceholder){
 }
 function wireTimeDetailsToggle(m, prefix){
   const link = m.querySelector(`#${prefix}AddDetailsLink`);
+  const field = m.querySelector(`#${prefix}DetailsField`);
   link.addEventListener('click', ()=>{
-    m.querySelector(`#${prefix}DetailsField`).style.display = 'flex';
-    link.style.display = 'none';
+    const opening = field.style.display === 'none';
+    field.style.display = opening ? 'flex' : 'none';
+    link.textContent = opening ? tr('- Hide time & details') : tr('+ Add time & details');
   });
 }
 function readTimeDetails(m, prefix){
