@@ -163,7 +163,7 @@ function renderToday(listsEl, animateRing){
     html += `<div id="todayRoutinesList">`;
     dueRoutines.forEach(h=>{
       const done = routineDoneToday(h);
-      const pointsPreview = done ? h.awardedPoints : routinePreviewReward(h);
+      const pointsPreview = done ? h.awardedPoints : (routineHasSteps(h) ? routineStepsRemainingPoints(h) : routinePreviewReward(h));
       const rState = routineState(h);
       const lines = [];
       if(rState==='streak'){
@@ -173,16 +173,20 @@ function renderToday(listsEl, animateRing){
       }
       if(h.time) lines.push(`<div class="item-sub">${timeChipHtml(h.time)}</div>`);
       if(h.description) lines.push(`<div class="item-sub">${escapeHtml(h.description)}</div>`);
+      lines.push(stepsToggleRowHtml('routine', h));
       const subtitleHtml = lines.join('');
       html += `
-      <div class="card row" data-card-routine="${h.id}">
-        <span class="emoji-today">${h.emoji||ROUTINE_FALLBACK_EMOJI}</span>
-        <div style="flex:1;">
-          <div class="item-name">${escapeHtml(h.name)}</div>
-          ${subtitleHtml}
+      <div class="card" data-card-routine="${h.id}">
+        <div class="row">
+          ${emojiWithStepsBadgeHtml('emoji-today', h.emoji||ROUTINE_FALLBACK_EMOJI, h, 'routine')}
+          <div style="flex:1;">
+            <div class="item-name">${escapeHtml(h.name)}</div>
+            ${subtitleHtml}
+          </div>
+          ${done ? '' : `<span class="pill ${pointsPreview<0?'negative':''}" data-pill-routine="${h.id}">${pointsPreview}</span>`}
+          <button class="btn-done ${done?'done':''}" data-routine="${h.id}">${done? '✓' : ''}</button>
         </div>
-        ${done ? '' : `<span class="pill ${pointsPreview<0?'negative':''}" data-pill-routine="${h.id}">${pointsPreview}</span>`}
-        <button class="btn-done ${done?'done':''}" data-routine="${h.id}">${done? '✓' : ''}</button>
+        ${stepsBodyHtml('routine', h)}
       </div>`;
     });
     html += `</div>`;
@@ -196,21 +200,25 @@ function renderToday(listsEl, animateRing){
   } else {
     html += `<div id="todayTasksList">`;
     openTasks.forEach(task=>{
-      const val = taskDisplayValue(task);
+      const val = taskHasSteps(task) ? taskStepsRemainingPoints(task) : taskDisplayValue(task);
       const st = taskState(task);
       const taskLines = [];
       if(task.time) taskLines.push(`<div class="item-sub">${timeChipHtml(task.time)}</div>`);
       if(task.description) taskLines.push(`<div class="item-sub">${escapeHtml(task.description)}</div>`);
       taskLines.push(`<div class="item-sub">${st==='overdue' ? trTaskOverdueShort() : trTaskDueTodayShort()}</div>`);
+      taskLines.push(stepsToggleRowHtml('task', task));
       html += `
-      <div class="card row" data-card-task="${task.id}">
-        <span class="emoji-today">${task.emoji||TASK_DEFAULT_EMOJI}</span>
-        <div style="flex:1;">
-          <div class="item-name">${escapeHtml(task.name)}</div>
-          ${taskLines.join('')}
+      <div class="card" data-card-task="${task.id}">
+        <div class="row">
+          ${emojiWithStepsBadgeHtml('emoji-today', task.emoji||TASK_DEFAULT_EMOJI, task, 'task')}
+          <div style="flex:1;">
+            <div class="item-name">${escapeHtml(task.name)}</div>
+            ${taskLines.join('')}
+          </div>
+          <span class="pill ${val<0?'negative':''}" data-pill-task="${task.id}">${val}</span>
+          <button class="btn-done-square" data-complete-task-today="${task.id}">✓</button>
         </div>
-        <span class="pill ${val<0?'negative':''}" data-pill-task="${task.id}">${val}</span>
-        <button class="btn-done-square" data-complete-task-today="${task.id}">✓</button>
+        ${stepsBodyHtml('task', task)}
       </div>`;
     });
     html += `</div>`;
@@ -234,6 +242,17 @@ function renderToday(listsEl, animateRing){
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.routine;
       const h = state.routines.find(x=>x.id===id);
+      if(routineHasSteps(h)){
+        if(!routineDoneToday(h)){
+          const pillEl = main.querySelector(`[data-pill-routine="${id}"]`);
+          if(pillEl){
+            const num = routineStepsRemainingPoints(h);
+            spawnFloatingPoints(pillEl, (num>=0?'+':'') + num, num<0);
+          }
+        }
+        toggleAllRoutineSteps(id);
+        return;
+      }
       if(routineDoneToday(h)){
         uncompleteRoutine(id);
       } else {
@@ -252,6 +271,16 @@ function renderToday(listsEl, animateRing){
   main.querySelectorAll('[data-complete-task-today]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.completeTaskToday;
+      const task = state.tasks.find(x=>x.id===id);
+      if(task && taskHasSteps(task)){
+        const pillEl = main.querySelector(`[data-pill-task="${id}"]`);
+        if(pillEl){
+          const num = taskStepsRemainingPoints(task);
+          spawnFloatingPoints(pillEl, (num>=0?'+':'') + num, num<0);
+        }
+        toggleAllTaskSteps(id);
+        return;
+      }
       const pillEl = main.querySelector(`[data-pill-task="${id}"]`);
       if(pillEl){
         const num = Math.round(parseFloat(pillEl.textContent));
@@ -260,4 +289,6 @@ function renderToday(listsEl, animateRing){
       completeTask(id);
     });
   });
+  dueRoutines.forEach(h=> wireStepsUi(main, 'routine', h));
+  openTasks.forEach(task=> wireStepsUi(main, 'task', task));
 }

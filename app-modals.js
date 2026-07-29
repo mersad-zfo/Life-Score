@@ -134,18 +134,21 @@ function readDifficulty(m, idPrefix){
 // ---------- Recurrence-specific fields (day grid + difficulty) ----------
 function routineRecurrenceFieldsHtml(idPrefix, recurrence, routine, diffLocked){
   const diff = routine ? (routine.difficulty || 'normal') : 'normal';
+  const stepsHtml = stepsFieldHtml(idPrefix, routine ? routine.steps : null, diffLocked);
   const diffPicker = buildDifficultyPicker(idPrefix, diff, diffLocked);
-  if(recurrence==='daily') return diffPicker;
+  if(recurrence==='daily') return stepsHtml + diffPicker;
   const sched = routine ? routine.schedule : [];
   return `
     <div class="field">
       <label>${recurrence==='weekly' ? tr('Which day(s) of the week') : tr('Which day(s) of the month')}</label>
       ${buildDayGrid(idPrefix, recurrence, sched)}
     </div>
+    ${stepsHtml}
     ${diffPicker}`;
 }
 function wireRecurFields(m, idPrefix, diffLocked){
   wireDayGrid(m, idPrefix);
+  if(!diffLocked) wireStepsToggle(m, idPrefix);
   if(!diffLocked) wireDifficultyPicker(m, idPrefix);
 }
 
@@ -231,6 +234,100 @@ function readTimeDetails(m, prefix){
   };
 }
 
+// ---------- Shared "+ Add steps" row (checklist sub-items, split points evenly) ----------
+// Matches the owner-supplied "Add steps (isolated)" prototype: numbered rows, a circular ×
+// remove button per row, and a dashed "+ Add another step" button. Same collapsed-behind-a-link
+// pattern as "+ Add time & details" above. Sits directly above the Difficulty picker in both the
+// routine and task creator/edit modals (see routineRecurrenceFieldsHtml below and the task
+// modals). Existing steps keep their original `id` (read back via a data attribute) so live
+// completion state and historical log entries stay correctly linked across an edit; newly-added
+// rows get a fresh uid() only when the form is actually saved.
+function stepRowHtml(id, val, num, locked){
+  return `<div class="step-row" data-step-row data-step-id="${id||''}">
+    <span class="step-num">${num}.</span>
+    <input type="text" class="step-name" placeholder="${tr('Step name')}" value="${escapeHtml(val||'')}" ${locked?'disabled':''} />
+    ${locked ? '' : `<button type="button" class="step-remove" data-remove-step aria-label="${tr('Remove')}">×</button>`}
+  </div>`;
+}
+function stepsFieldHtml(prefix, existingSteps, locked){
+  const hasExisting = !!(existingSteps && existingSteps.length>0);
+  if(locked && !hasExisting) return ''; // nothing to lock/show
+  const rowsHtml = hasExisting
+    ? existingSteps.map((s,i)=>stepRowHtml(s.id, s.name, i+1, locked)).join('')
+    : [stepRowHtml(null, '', 1, locked), stepRowHtml(null, '', 2, locked)].join('');
+  if(locked){
+    return `
+      <div class="field">
+        <label>${tr('Steps')}</label>
+        <div class="steps-field seg-locked" id="${prefix}StepsField">
+          <div id="${prefix}StepsRows">${rowsHtml}</div>
+        </div>
+        <div class="lock-note" style="margin-top:4px;">${tr('Locked after the first day')}</div>
+      </div>`;
+  }
+  return `
+    <a class="add-details-link" id="${prefix}AddStepsLink">${hasExisting ? tr('- Hide steps') : tr('+ Add steps')}</a>
+    <div class="steps-field" id="${prefix}StepsField" style="${hasExisting?'':'display:none;'}">
+      <div id="${prefix}StepsRows">${rowsHtml}</div>
+      <button type="button" class="step-add-btn" id="${prefix}AddStepRow">${tr('+ Add another step')}</button>
+    </div>
+  `;
+}
+function wireStepsToggle(m, prefix){
+  const link = m.querySelector(`#${prefix}AddStepsLink`);
+  const field = m.querySelector(`#${prefix}StepsField`);
+  link.addEventListener('click', ()=>{
+    const opening = field.style.display === 'none';
+    field.style.display = opening ? 'block' : 'none';
+    link.textContent = opening ? tr('- Hide steps') : tr('+ Add steps');
+  });
+  wireStepRows(m, prefix);
+}
+function wireStepRows(m, prefix){
+  const addBtn = m.querySelector(`#${prefix}AddStepRow`);
+  const rows = m.querySelector(`#${prefix}StepsRows`);
+  function renumber(){
+    rows.querySelectorAll('[data-step-row]').forEach((row,i)=>{
+      row.querySelector('.step-num').textContent = (i+1)+'.';
+    });
+  }
+  function wireRemove(){
+    rows.querySelectorAll('[data-remove-step]').forEach(btn=>{
+      btn.onclick = ()=>{
+        // Always leave at least one (empty) row rather than collapsing to nothing mid-edit.
+        if(rows.querySelectorAll('[data-step-row]').length>1){
+          btn.closest('[data-step-row]').remove();
+          renumber();
+        } else {
+          btn.closest('[data-step-row]').querySelector('.step-name').value = '';
+        }
+      };
+    });
+  }
+  addBtn.addEventListener('click', ()=>{
+    const wrap = document.createElement('div');
+    wrap.innerHTML = stepRowHtml(null, '', rows.querySelectorAll('[data-step-row]').length+1);
+    const row = wrap.firstElementChild;
+    rows.appendChild(row);
+    wireRemove();
+    row.querySelector('input').focus();
+  });
+  wireRemove();
+}
+// Returns null (feature off for this item) if the field is collapsed or every row is empty,
+// otherwise the array of {id, name} to store on the routine/task.
+function readSteps(m, prefix){
+  const field = m.querySelector(`#${prefix}StepsField`);
+  if(!field || field.style.display==='none') return null;
+  const rows = Array.from(m.querySelectorAll(`#${prefix}StepsRows [data-step-row]`));
+  const steps = rows.map(row=>{
+    const name = row.querySelector('.step-name').value.trim();
+    if(!name) return null;
+    return { id: row.dataset.stepId || uid(), name };
+  }).filter(Boolean);
+  return steps.length>0 ? steps : null;
+}
+
 // ---------- Add Routine ----------
 function openAddRoutineModal(){
   const m = openModal(`
@@ -266,10 +363,11 @@ function openAddRoutineModal(){
     const {time, description} = readTimeDetails(m, 'h');
     const recurrence = readRecurrence(m, 'h');
     const difficulty = readDifficulty(m, 'h');
+    const steps = readSteps(m, 'h');
     if(!name){ showToast(tr('Give it a name')); return; }
     const graceToday = shouldGraceToday();
     const base = {
-      id: uid(), name, emoji, description, time, recurrence, difficulty,
+      id: uid(), name, emoji, description, time, recurrence, difficulty, steps,
       createdDate: todayStr(),
       streak:0, neglect:0, recoveryChain:false, neglectMilestoneHit:false,
       lastCompletedDate:null, lastEvaluatedDate: graceToday ? todayStr() : addDays(todayStr(),-1),
@@ -278,7 +376,7 @@ function openAddRoutineModal(){
     };
     if(recurrence==='daily'){
       const basePoints = difficultyPointsFor('daily', difficulty);
-      state.routines.push({...base, basePoints, configHistory: [{from: base.createdDate, basePoints}]});
+      state.routines.push({...base, basePoints, configHistory: [{from: base.createdDate, basePoints, steps}]});
     } else {
       const schedule = readDayGrid(m, 'h');
       if(schedule.length===0){ showToast(tr('Pick at least one day')); return; }
@@ -287,7 +385,7 @@ function openAddRoutineModal(){
         ...base,
         rewardValue,
         schedule,
-        configHistory: [{from: base.createdDate, schedule, rewardValue}]
+        configHistory: [{from: base.createdDate, schedule, rewardValue, steps}]
       });
     }
     saveState();
@@ -340,6 +438,7 @@ function openEditRoutineModal(id){
     h.description = description;
     h.time = time;
     if(!diffLocked){
+      h.steps = readSteps(m, 'eh');
       const difficulty = readDifficulty(m, 'eh');
       h.difficulty = difficulty;
       if(h.recurrence==='daily'){
@@ -378,11 +477,12 @@ function openAddTaskModal(){
         <input id="tName" type="text" placeholder="${tr('e.g. Call dentist')}" style="flex:1;" />
       </div>
     </div>
+    ${timeDetailsFieldsHtml('t', null, null, tr('Add extra detail, e.g. a phone number'))}
     <div class="field">
       <label>${trTaskDueDateFieldLabel()}</label>
       <input id="tDueDate" type="date" value="${todayStr()}" min="${todayStr()}" />
     </div>
-    ${timeDetailsFieldsHtml('t', null, null, tr('Add extra detail, e.g. a phone number'))}
+    ${stepsFieldHtml('t', null)}
     ${buildDifficultyPicker('t', 'normal', false)}
     <div class="modal-actions">
       <button class="btn-secondary" id="tCancel">${tr('Cancel')}</button>
@@ -391,6 +491,7 @@ function openAddTaskModal(){
   `);
   wireDifficultyPicker(m, 't');
   wireTimeDetailsToggle(m, 't');
+  wireStepsToggle(m, 't');
   let emojiTouched = false;
   limitToOneGrapheme(m.querySelector('#tEmoji'));
   m.querySelector('#tEmoji').addEventListener('input', ()=>{ emojiTouched = true; });
@@ -405,8 +506,9 @@ function openAddTaskModal(){
     if(!name){ showToast(tr('Give it a name')); return; }
     const difficulty = readDifficulty(m, 't');
     const dueDate = m.querySelector('#tDueDate').value || todayStr();
+    const steps = readSteps(m, 't');
     state.tasks.push({
-      id: uid(), name, emoji, description, time, difficulty, recurrence:'once',
+      id: uid(), name, emoji, description, time, difficulty, recurrence:'once', steps,
       createdDate: todayStr(), dueDate, completedDate: null, awardedPoints: null,
       startValue: difficultyPointsFor('task', difficulty),
       decayRate: TASK_DECAY_RATE
@@ -433,12 +535,13 @@ function openEditTaskModal(id){
         <input id="etName" type="text" value="${escapeHtml(task.name)}" style="flex:1;" />
       </div>
     </div>
+    ${timeDetailsFieldsHtml('et', task.time, task.description, tr('Add extra detail, e.g. a phone number'))}
     <div class="field">
       <label>${trTaskDueDateFieldLabel()}</label>
       <input id="etDueDate" type="date" value="${task.dueDate}" min="${todayStr()}" ${diffLocked?'disabled':''} class="${diffLocked?'seg-locked':''}" />
       ${diffLocked ? `<div class="lock-note" style="margin-top:4px;">${tr('Locked after the first day')}</div>` : ''}
     </div>
-    ${timeDetailsFieldsHtml('et', task.time, task.description, tr('Add extra detail, e.g. a phone number'))}
+    ${stepsFieldHtml('et', task.steps, diffLocked)}
     ${buildDifficultyPicker('et', task.difficulty || 'normal', diffLocked)}
     <div class="modal-actions">
       <button class="btn-secondary" id="etCancel">${tr('Cancel')}</button>
@@ -447,6 +550,7 @@ function openEditTaskModal(id){
   `);
   if(!diffLocked) wireDifficultyPicker(m, 'et');
   wireTimeDetailsToggle(m, 'et');
+  if(!diffLocked) wireStepsToggle(m, 'et');
   limitToOneGrapheme(m.querySelector('#etEmoji'));
   m.querySelector('#etCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#etSave').addEventListener('click', ()=>{
@@ -463,6 +567,7 @@ function openEditTaskModal(id){
       task.difficulty = difficulty;
       task.startValue = difficultyPointsFor('task', difficulty);
       task.decayRate = TASK_DECAY_RATE;
+      task.steps = readSteps(m, 'et');
       const dueDate = m.querySelector('#etDueDate').value;
       if(dueDate) task.dueDate = dueDate;
     }

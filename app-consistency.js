@@ -73,6 +73,9 @@ function ensureRoutineShape(r){
   if(r.neglect===undefined) r.neglect = 0;
   if(r.graceAppliedDate===undefined) r.graceAppliedDate = null;
   if(r.recoveryChain===undefined) r.recoveryChain = false;
+  // Steps (this session — see app-steps.js "Steps"): optional checklist of sub-items that split
+  // the routine's points evenly. null/[] = feature not used on this routine.
+  if(r.steps===undefined) r.steps = null;
   if(r.lastEvaluatedDate===undefined){
     // Migrating older data, or a brand-new routine: don't invent retroactive misses —
     // just start tracking from "as of yesterday" so today's catch-up loop has nothing to replay.
@@ -86,7 +89,8 @@ function ensureRoutineShape(r){
       from: r.createdDate,
       schedule: r.schedule,
       basePoints: r.basePoints,
-      rewardValue: r.rewardValue
+      rewardValue: r.rewardValue,
+      steps: r.steps || null
     }];
   }
 }
@@ -232,7 +236,19 @@ function applyRoutineCatchUp(){
     const cutoff = r.deleted ? r.deletedDate : t; // deleted routines stop accruing misses/penalties
     let d = addDays(r.lastEvaluatedDate, 1);
     while(d < cutoff){
-      if(isRoutineOccurrenceDay(r, d)) applyRoutineMiss(r, d);
+      if(isRoutineOccurrenceDay(r, d)){
+        // Steps (this session — see app-steps.js): a day that had steps in effect (per the
+        // VERSIONED config, not the live one) is never a plain miss — applyRoutineStepMiss()
+        // reads how many of that day's steps were actually checked off (via state.log) and
+        // applies the proportional-penalty/frozen-streak rule instead. A day with no steps in
+        // effect falls through to the normal binary miss exactly as before.
+        const cfg = configAt(r, d);
+        if(cfg.steps && cfg.steps.length>0){
+          applyRoutineStepMiss(r, d, cfg);
+        } else {
+          applyRoutineMiss(r, d);
+        }
+      }
       r.lastEvaluatedDate = d;
       d = addDays(d, 1);
     }
@@ -389,7 +405,7 @@ function reorderRoutine(id, dir){
 // any date-specific lookup (getDailyBasePoints, isScheduledOn) reads whichever version was
 // actually in effect on that historical day — never the current live fields.
 function currentRoutineConfig(r){
-  return { schedule: r.schedule, basePoints: r.basePoints, rewardValue: r.rewardValue };
+  return { schedule: r.schedule, basePoints: r.basePoints, rewardValue: r.rewardValue, steps: r.steps || null };
 }
 function pushConfigVersion(r){
   const t = todayStr();

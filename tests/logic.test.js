@@ -22,6 +22,7 @@ const APP_FILES = [
   'app-i18n.js',
   'app-rating.js',
   'app-consistency.js',
+  'app-steps.js',
   'app-emoji.js',
   'app-render-progression.js',
 ];
@@ -47,6 +48,10 @@ function loadApp(){
     requestAnimationFrame: (fn) => fn(),
     setTimeout, clearTimeout,
     renderMain(){}, updateHeader(){},
+    // applyRoutineMiss() calls this Category-2 notification hook (app-notif-triggers.js, not
+    // loaded here — it needs IndexedDB) whenever a miss crosses a neglect milestone. Stubbed so
+    // the pure rating/consistency/steps math under test can run standalone.
+    notifyNeglectMilestoneIfCrossed(){},
   };
   sandbox.global = sandbox;
   vm.createContext(sandbox);
@@ -399,6 +404,70 @@ test('getRatingForRange: a genuine short custom range still uses a week-scale th
   // round(7*4/7)=4 -> 7>=4 -> capped, same as the Score tab's week-level behavior.
   const { rating } = withFixedToday('2026-07-07', () => app.getRatingForRange('2026-07-01', '2026-07-07'));
   assert.strictEqual(rating, 'GOOD');
+});
+
+// =====================================================================================
+section('Steps — point splitting');
+// =====================================================================================
+test('splitPointsEvenly: remainder folds into the LAST step, sum always exact', () => {
+  assertShapeEqual(app.splitPointsEvenly(20, 3), [7, 7, 6]); // not [7,7,7]=21
+  assertShapeEqual(app.splitPointsEvenly(20, 4), [5, 5, 5, 5]);
+  assertShapeEqual(app.splitPointsEvenly(10, 1), [10]);
+});
+test('splitPointsEvenly: n<=0 -> empty list', () => {
+  assertShapeEqual(app.splitPointsEvenly(20, 0), []);
+});
+
+// =====================================================================================
+section('Steps — miss-day rule (proportional penalty, frozen streak/neglect on a partial day)');
+// =====================================================================================
+// v1 rule (owner-flagged for further refinement — see DECISIONS.md): a day with SOME but not all
+// steps checked logs a penalty proportional to what's left undone, and leaves streak/neglect
+// exactly where they were — only a 0% day (nothing checked at all) behaves like a normal miss.
+function stepRoutineFixture(id, streak, steps) {
+  return {
+    id, recurrence: 'daily', createdDate: '2026-01-01', basePoints: 40, difficulty: 'normal',
+    streak, neglect: 0, recoveryChain: false, neglectMilestoneHit: false,
+    lastCompletedDate: '2026-01-03', lastEvaluatedDate: '2026-01-03',
+    graceAppliedDate: null, awardedPoints: null,
+    steps,
+    configHistory: [{ from: '2026-01-01', basePoints: 40, steps }],
+  };
+}
+test('2/4 steps done -> penalty is exactly half the base (10 -> 5), streak/neglect frozen (not reset)', () => {
+  resetState('2026-01-01');
+  const steps = [{ id: 's1', name: 'a' }, { id: 's2', name: 'b' }, { id: 's3', name: 'c' }, { id: 's4', name: 'd' }];
+  app.state.routines.push(stepRoutineFixture('r1', 3, steps)); // pre-existing 3-day streak
+  app.state.log.push({ id: 'l1', kind: 'routine_step', refId: 'r1', stepId: 's1', name: 'a', points: 10, date: '2026-01-04' });
+  app.state.log.push({ id: 'l2', kind: 'routine_step', refId: 'r1', stepId: 's2', name: 'b', points: 10, date: '2026-01-04' });
+  withFixedToday('2026-01-05', () => app.applyRoutineCatchUp());
+  const r = app.state.routines.find(x => x.id === 'r1');
+  assert.strictEqual(r.streak, 3, 'streak stays frozen on a partial day, never resets');
+  assert.strictEqual(r.neglect, 0, 'neglect stays frozen on a partial day');
+  const penalty = app.state.log.find(l => l.kind === 'routine_penalty' && l.refId === 'r1' && l.date === '2026-01-04');
+  assert.ok(penalty, 'a partial day still logs a penalty entry');
+  assert.strictEqual(penalty.points, -5); // round(10 * (1 - 2/4))
+});
+test('3/4 steps done -> smaller proportional penalty (10 * 1/4 = 2.5 -> rounds to 3)', () => {
+  resetState('2026-01-01');
+  const steps = [{ id: 's1', name: 'a' }, { id: 's2', name: 'b' }, { id: 's3', name: 'c' }, { id: 's4', name: 'd' }];
+  app.state.routines.push(stepRoutineFixture('r1', 0, steps));
+  ['s1', 's2', 's3'].forEach((sid, i) => {
+    app.state.log.push({ id: 'l' + i, kind: 'routine_step', refId: 'r1', stepId: sid, name: sid, points: 10, date: '2026-01-04' });
+  });
+  withFixedToday('2026-01-05', () => app.applyRoutineCatchUp());
+  const penalty = app.state.log.find(l => l.kind === 'routine_penalty' && l.refId === 'r1' && l.date === '2026-01-04');
+  assert.strictEqual(penalty.points, -3); // round(10 * (1 - 3/4)) = round(2.5) = 3
+});
+test('0/4 steps done -> falls through to a normal miss (streak actually resets)', () => {
+  resetState('2026-01-01');
+  const steps = [{ id: 's1', name: 'a' }, { id: 's2', name: 'b' }];
+  app.state.routines.push(stepRoutineFixture('r2', 3, steps)); // pre-existing streak, nothing logged this day
+  withFixedToday('2026-01-05', () => app.applyRoutineCatchUp());
+  const r = app.state.routines.find(x => x.id === 'r2');
+  assert.strictEqual(r.streak, 0, 'a genuine 0% day breaks the streak exactly like a non-stepped routine');
+  const penalty = app.state.log.find(l => l.kind === 'routine_penalty' && l.refId === 'r2' && l.date === '2026-01-04');
+  assert.strictEqual(penalty.points, -10); // full base penalty, same as round(10 * (1-0))
 });
 
 // =====================================================================================

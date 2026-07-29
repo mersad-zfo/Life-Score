@@ -56,6 +56,8 @@ function ensureStateShape(){
   // Migration: tasks created before the due-date feature have no dueDate — default it to
   // createdDate so they behave exactly as before (immediately due, decay starts right away).
   state.tasks.forEach(t=>{ if(!t.dueDate) t.dueDate = t.createdDate; });
+  // Migration: tasks created before Steps (this session) have no steps field yet.
+  state.tasks.forEach(t=>{ if(t.steps===undefined) t.steps = null; });
   if(!state.session) state.session = { loggedIn: !!state.profile };
   if(state.session.loggedIn===undefined) state.session.loggedIn = !!state.profile;
 }

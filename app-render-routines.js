@@ -10,11 +10,12 @@ function renderDailyRoutineCard(r){
   if(r.time) lines.push(`<div class="item-sub">${timeChipHtml(r.time)}</div>`);
   if(r.description) lines.push(`<div class="item-sub" style="color:var(--ink);">${escapeHtml(r.description)}</div>`);
   lines.push(`<div class="item-sub">${stateText}</div>`);
+  lines.push(stepsToggleRowHtml('routine', r));
   return `
   <div class="card" data-card-routine="${r.id}" data-drag-item data-drag-id="${r.id}">
     <div class="row">
       <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
-      <span class="emoji-list">${r.emoji||ROUTINE_FALLBACK_EMOJI}</span>
+      ${emojiWithStepsBadgeHtml('emoji-list', r.emoji||ROUTINE_FALLBACK_EMOJI, r, 'routine')}
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(r.name)}</div>
         ${lines.join('')}
@@ -22,6 +23,7 @@ function renderDailyRoutineCard(r){
       <span class="pill">${r.basePoints}</span>
       <button class="btn-done ${done?'done':''}" data-routine="${r.id}">${done? '✓' : ''}</button>
     </div>
+    ${stepsBodyHtml('routine', r)}
     <div class="row" style="margin-top:8px;">
       <button class="link-danger" style="font-size:12px;" data-del-routine="${r.id}">${tr('Remove')}</button>
       <button class="btn-complete-task" data-edit-routine="${r.id}">${tr('Edit')}</button>
@@ -70,12 +72,13 @@ function renderRecurringRoutineCard(r){
   if(r.description) lines.push(`<div class="item-sub" style="color:var(--ink);">${escapeHtml(r.description)}</div>`);
   lines.push(`<div class="item-sub">${stateText}${secondaryText?` · ${secondaryText}`:''}</div>`);
   lines.push(`<div class="item-sub">${trDueDates(scheduleText)}</div>`);
+  lines.push(stepsToggleRowHtml('routine', r));
 
   return `
   <div class="card ${!isDue?'not-due':''}" data-card-routine="${r.id}" data-drag-item data-drag-id="${r.id}">
     <div class="row">
       <span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
-      <span class="emoji-list">${r.emoji||ROUTINE_FALLBACK_EMOJI}</span>
+      ${emojiWithStepsBadgeHtml('emoji-list', r.emoji||ROUTINE_FALLBACK_EMOJI, r, 'routine')}
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(r.name)}</div>
         ${lines.join('')}
@@ -83,6 +86,7 @@ function renderRecurringRoutineCard(r){
       <span class="pill ${pointsPreview<0?'negative':''}">${pointsPreview}</span>
       ${doneBtnHtml}
     </div>
+    ${stepsBodyHtml('routine', r)}
     <div class="row" style="margin-top:8px;">
       <button class="link-danger" style="font-size:12px;" data-del-routine="${r.id}">${tr('Remove')}</button>
       <button class="btn-complete-task" data-edit-routine="${r.id}">${tr('Edit')}</button>
@@ -137,9 +141,11 @@ function renderRoutines(main){
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.routine;
       const h = state.routines.find(x=>x.id===id);
+      if(routineHasSteps(h)){ toggleAllRoutineSteps(id); return; }
       if(routineDoneToday(h)) uncompleteRoutine(id); else completeRoutine(id);
     });
   });
+  live.forEach(r=> wireStepsUi(main, 'routine', r));
   main.querySelectorAll('[data-del-routine]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       if(confirm(tr('Remove this routine? It will disappear from your active lists, but its past history stays exactly as it was.'))) deleteRoutine(btn.dataset.delRoutine);

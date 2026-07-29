@@ -13,13 +13,14 @@ function renderTaskCard(task, draggable){
     lines.push(`<div class="item-sub">${trTaskOverdueShort()}</div>`);
     lines.push(`<div class="item-sub" style="color:var(--rust);">${trTaskCurrentDecayLine(taskDecayAmount(task))}</div>`);
   }
+  lines.push(stepsToggleRowHtml('task', task));
   const dragAttrs = draggable ? `data-drag-item data-drag-id="${task.id}"` : '';
   const dragHandle = draggable ? `<span class="drag-handle"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>` : '';
   return `
   <div class="card ${st==='upcoming'?'task-upcoming':''}" data-card-task="${task.id}" ${dragAttrs}>
     <div class="row">
       ${dragHandle}
-      <span class="emoji-list">${task.emoji||TASK_DEFAULT_EMOJI}</span>
+      ${emojiWithStepsBadgeHtml('emoji-list', task.emoji||TASK_DEFAULT_EMOJI, task, 'task')}
       <div style="flex:1;">
         <div class="item-name">${escapeHtml(task.name)}</div>
         ${lines.join('')}
@@ -27,6 +28,7 @@ function renderTaskCard(task, draggable){
       <span class="pill ${val<0?'negative':''}">${val}</span>
       <button class="btn-done-square" data-complete-task="${task.id}">✓</button>
     </div>
+    ${stepsBodyHtml('task', task)}
     <div class="row" style="margin-top:10px;">
       <button class="link-danger" style="font-size:12px;" data-del-task="${task.id}">${tr('Remove')}</button>
       <button class="btn-complete-task" data-edit-task="${task.id}">${tr('Edit')}</button>
@@ -94,12 +96,14 @@ function renderTasks(main){
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.completeTask;
       const task = state.tasks.find(x=>x.id===id);
+      if(task && taskHasSteps(task)){ toggleAllTaskSteps(id); return; }
       if(task && taskState(task)==='upcoming'){
         if(!confirm(tr("This task isn't due yet — mark it as done early?"))) return;
       }
       completeTask(id);
     });
   });
+  openAll.forEach(task=> wireStepsUi(main, 'task', task));
   main.querySelectorAll('[data-undo-task]').forEach(btn=>{
     btn.addEventListener('click', ()=> uncompleteTask(btn.dataset.undoTask));
   });
