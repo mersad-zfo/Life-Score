@@ -53,6 +53,30 @@ function waitForLifyarCloud(timeoutMs){
     })();
   });
 }
+// Compares local vs. cloud data and applies whichever is newer — "newest wins" wholesale, no
+// field-level merging (see app-firebase.js for why). Called both at boot (app-main.js) and right
+// after a successful login (app-render-settings.js / app-onboarding.js's completeCloudSignIn) —
+// a returning user's data needs to show up the moment they sign in, not on the next page load.
+// Returns true if remote data was pulled down and replaced local state, false otherwise (nothing
+// to pull yet, or local was already newer — in which case local gets pushed up instead).
+async function reconcileWithCloud(){
+  const cloud = window.LifyarCloud;
+  if(!cloud) return false;
+  await cloud.ready;
+  const remote = await cloud.pullState();
+  const localMeta = getSyncMeta();
+  if(remote && remote.state && remote.lastModified > localMeta.lastModified){
+    state = remote.state;
+    ensureStateShape();
+    migrateRecurringTasksToRoutines();
+    applyRoutineCatchUp();
+    applyTheme();
+    setSyncMeta(remote.lastModified);
+    return true;
+  }
+  cloud.scheduleSync(()=>state, ()=>localMeta.lastModified || Date.now());
+  return false;
+}
 
 function ensureStateShape(){
   // Migration: older saved data used "habits" (state.habits, log kind 'habit') before the

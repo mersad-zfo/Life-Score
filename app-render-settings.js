@@ -146,6 +146,7 @@ function renderSettings(main){
       if(confirm(tr('Log out? Your profile stays saved on this device — you can log back in anytime. Your routines, tasks, and scores are unaffected either way.'))){
         state.session.loggedIn = false;
         saveState();
+        if(window.LifyarCloud) window.LifyarCloud.signOutCloud();
         renderSettings(main);
         showToast(tr('Logged out'));
       }
@@ -205,9 +206,9 @@ function openLoginModal(){
     if(email && !emailPattern.test(email)){ showToast(tr("That email doesn't look right")); return null; }
     return { name, email };
   }
-  // Saves the local display profile and, if we now have a real Firebase account, aligns
-  // state.profile.email with it — matches what's actually happening rather than showing stale info.
-  function finishLogin(name, email){
+  // Saves the local display profile only — used for the "already have a real account, just
+  // editing the display name" path, where no new sign-in happened so there's nothing new to pull.
+  function saveNameOnly(name, email){
     state.profile = { name, email };
     state.session.loggedIn = true;
     saveState();
@@ -224,17 +225,15 @@ function openLoginModal(){
       'auth/user-not-found': tr('No account found with that email'),
       'auth/weak-password': tr('Password should be at least 6 characters'),
       'auth/invalid-email': tr("That email doesn't look right"),
-      'auth/popup-closed-by-user': null, // user cancelled — no error toast needed
       'auth/network-request-failed': tr('No internet connection — try again'),
     };
-    if(code && map[code]===null) return null;
     return (code && map[code]) || tr('Something went wrong — try again');
   }
 
   if(hasRealAccount){
     m.querySelector('#loginSave').addEventListener('click', ()=>{
       const info = readNameAndEmail();
-      if(info) finishLogin(info.name, info.email);
+      if(info) saveNameOnly(info.name, info.email);
     });
   } else {
     let mode = 'signup'; // 'signup' | 'login' — toggled by the link below, no separate screen
@@ -259,29 +258,26 @@ function openLoginModal(){
         ? await cloud.signUpWithEmail(info.email, password)
         : await cloud.logInWithEmail(info.email, password);
       signUpBtn.disabled = false;
-      if(!result.ok){
-        const msg = cloudErrorMessage(result.code);
-        if(msg) showToast(msg);
-        return;
-      }
-      finishLogin(info.name, info.email);
+      if(!result.ok){ showToast(cloudErrorMessage(result.code)); return; }
+      m.remove();
+      // Pulls cloud data right now (item 4) and, if returning-user data actually came down while
+      // still in onboarding, skips ahead past picking routines/tasks (item 5) — see
+      // completeCloudSignIn in app-onboarding.js.
+      completeCloudSignIn(info.name, info.email, onboardingActive);
     });
 
-    m.querySelector('#loginGoogle').addEventListener('click', async ()=>{
+    m.querySelector('#loginGoogle').addEventListener('click', ()=>{
       if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
-      const googleBtn = m.querySelector('#loginGoogle');
-      googleBtn.disabled = true;
-      const result = await cloud.signInWithGoogle();
-      googleBtn.disabled = false;
-      if(!result.ok){
-        const msg = cloudErrorMessage(result.code);
-        if(msg) showToast(msg);
-        return;
-      }
-      const name = m.querySelector('#loginName').value.trim() || (cloud.getUser() && cloud.getUser().displayName) || '';
+      const name = m.querySelector('#loginName').value.trim();
       if(!name){ showToast(tr('Enter a name')); return; }
-      const user = cloud.getUser();
-      finishLogin(name, (user && user.email) || '');
+      // Google sign-in now navigates the whole page away and back (a redirect, not a popup — see
+      // item 6 / app-firebase.js) — this click handler's execution effectively ends at
+      // signInWithGoogle() below, so stash what's needed to finish up once the app reloads.
+      // Picked back up by handlePendingGoogleRedirect() in app-onboarding.js.
+      try{
+        localStorage.setItem(PENDING_GOOGLE_KEY, JSON.stringify({ name, wasOnboarding: onboardingActive }));
+      }catch(e){ /* best effort — if this fails, sign-in still completes, just without the name pre-filled */ }
+      cloud.signInWithGoogle();
     });
   }
 

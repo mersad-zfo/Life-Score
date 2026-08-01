@@ -1,7 +1,7 @@
 importScripts('./app-notif-db.js');
 importScripts('./app-notif-shared.js');
 
-const CACHE_NAME = 'lifyar-v76';
+const CACHE_NAME = 'lifyar-v77';
 const ASSETS = [
   './',
   './index.html',
@@ -55,14 +55,19 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const isSameOrigin = event.request.url.startsWith(self.location.origin);
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
-        // cache new same-origin requests for next time offline
-        if (event.request.method === 'GET' && response.ok) {
+        // Only cache same-origin GET requests for offline use. A cross-origin request — like the
+        // Firebase SDK's own CDN imports in app-firebase.js — can hit a browser quirk where
+        // cache.put() throws "Entry was not found" for certain fetch types (module imports in
+        // particular), and there's no reason to cache those here anyway: the CDN serves its own
+        // cache headers, we were never trying to intermediate that.
+        if (isSameOrigin && event.request.method === 'GET' && response.ok) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(()=>{});
         }
         return response;
       }).catch(() => cached);

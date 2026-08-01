@@ -20,8 +20,8 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
 import {
-  getAuth, onAuthStateChanged, signInAnonymously,
-  GoogleAuthProvider, signInWithPopup, linkWithPopup, signInWithCredential,
+  getAuth, onAuthStateChanged, signInAnonymously, signOut,
+  GoogleAuthProvider, signInWithRedirect, linkWithRedirect, getRedirectResult, signInWithCredential,
   EmailAuthProvider, linkWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword,
 } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import {
@@ -110,31 +110,45 @@ function scheduleSync(getStateFn, getLastModifiedFn) {
   }, 2500);
 }
 
+// Resolves once we've checked whether THIS page load is the app coming back from a Google
+// redirect sign-in. On a normal load (not a redirect return), Firebase resolves this near-
+// instantly with null — it's a one-time internal state check, not a hidden network wait on every
+// launch. { notARedirect: true } means "this load wasn't a redirect return, nothing to do."
+let redirectResultResolve;
+const redirectResult = new Promise((res) => { redirectResultResolve = res; });
+getRedirectResult(auth).then((result) => {
+  redirectResultResolve(result ? { ok: true } : { notARedirect: true });
+}).catch((e) => {
+  if (e.code === 'auth/credential-already-in-use') {
+    // Same account-collision case as below — this Google account already has a real Lifyar
+    // account from before. Switch to it instead of failing.
+    const cred = GoogleAuthProvider.credentialFromError(e);
+    signInWithCredential(auth, cred)
+      .then(() => redirectResultResolve({ ok: true, switchedAccount: true }))
+      .catch((e2) => redirectResultResolve({ ok: false, code: e2.code, error: e2.message }));
+    return;
+  }
+  redirectResultResolve({ ok: false, code: e.code, error: e.message });
+});
+
+// Navigates the whole page away to Google and back — there is no useful return value here for
+// the caller to await (see redirectResult above, which is what actually carries the outcome once
+// the app reloads). A popup was the original design but is unreliable in embedded/in-app browsers
+// and gets blocked by some browsers' popup blockers by default; a redirect works everywhere.
 async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
+  if (currentUser && currentUser.isAnonymous) {
+    await linkWithRedirect(currentUser, provider);
+  } else {
+    await signInWithRedirect(auth, provider);
+  }
+}
+
+async function signOutCloud() {
   try {
-    if (currentUser && currentUser.isAnonymous) {
-      // Upgrade the existing anonymous account in place — same uid, same data already backed up
-      // under it, nothing to merge.
-      await linkWithPopup(currentUser, provider);
-    } else {
-      await signInWithPopup(auth, provider);
-    }
+    await signOut(auth);
     return { ok: true };
   } catch (e) {
-    if (e.code === 'auth/credential-already-in-use') {
-      // This Google account already has a real Lifyar account from before (e.g. signing in on a
-      // second device, where that device got its own fresh anonymous account first). Switch to
-      // the existing account instead of failing outright — app-main.js's boot-time reconciliation
-      // then decides, by lastModified, whether the local or cloud copy of data wins.
-      try {
-        const cred = GoogleAuthProvider.credentialFromError(e);
-        await signInWithCredential(auth, cred);
-        return { ok: true, switchedAccount: true };
-      } catch (e2) {
-        return { ok: false, code: e2.code, error: e2.message };
-      }
-    }
     return { ok: false, code: e.code, error: e.message };
   }
 }
@@ -174,12 +188,14 @@ async function logInWithEmail(email, password) {
 
 window.LifyarCloud = {
   ready,
+  redirectResult,
   getUser: () => currentUser,
   isAnonymous: () => !!(currentUser && currentUser.isAnonymous),
   onChange: (cb) => changeListeners.push(cb),
   signInWithGoogle,
   signUpWithEmail,
   logInWithEmail,
+  signOutCloud,
   pullState,
   pushState,
   scheduleSync,

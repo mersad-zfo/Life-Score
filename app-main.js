@@ -168,19 +168,17 @@ document.getElementById('fab').addEventListener('click', ()=>{
   waitForLifyarCloud(5000).then(async (cloud)=>{
     if(!cloud) return;
     await cloud.ready;
-    const remote = await cloud.pullState();
-    const localMeta = getSyncMeta();
-    if(remote && remote.state && remote.lastModified > localMeta.lastModified){
-      state = remote.state;
-      ensureStateShape();
-      migrateRecurringTasksToRoutines();
-      applyRoutineCatchUp();
-      applyTheme();
-      setSyncMeta(remote.lastModified);
+    // A pending Google redirect sign-in (see completeCloudSignIn in app-onboarding.js) takes
+    // priority over a plain boot-time check — it already does its own reconciliation.
+    const pendingGoogle = await cloud.redirectResult;
+    if(pendingGoogle && !pendingGoogle.notARedirect){
+      await handlePendingGoogleRedirect(pendingGoogle);
+      return;
+    }
+    const pulled = await reconcileWithCloud();
+    if(pulled){
       renderMain();
       showToast(tr('Restored your data from the cloud'));
-    } else {
-      cloud.scheduleSync(()=>state, ()=>localMeta.lastModified || Date.now());
     }
   }).catch((e)=> console.error('Cloud sync check failed', e));
   if('serviceWorker' in navigator){

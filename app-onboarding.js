@@ -56,6 +56,50 @@ function obResetState(){
   obLastRenderedStep = null;
 }
 
+// Finishes up ANY successful cloud sign-in (email/password, or Google once it returns from its
+// redirect — see handlePendingGoogleRedirect below) the same way: pull down cloud data right now
+// rather than waiting for the next app launch (item 4), save the display name, and — if we were
+// still in onboarding and real cloud data actually came down — skip straight to the final
+// onboarding step instead of making a returning user re-pick routines/tasks they already have
+// (item 5), mirroring the existing file-based restore flow (see restoreData() in
+// app-render-settings.js).
+async function completeCloudSignIn(name, email, wasOnboarding){
+  const pulled = await reconcileWithCloud();
+  state.profile = { name, email };
+  state.session.loggedIn = true;
+  saveState();
+  if(pulled && wasOnboarding){
+    obRestoredViaOnboarding = true;
+    obStep = 5;
+  }
+  renderMain();
+  showToast(pulled ? tr('Restored your data from the cloud') : trWelcome(name));
+}
+
+const PENDING_GOOGLE_KEY = 'lifyar_pending_google_signin';
+// Google sign-in now uses a full-page redirect (item 6), not a popup — the click that starts it
+// navigates away immediately, so there's no modal left to finish the job when the app reloads.
+// This picks that back up: the name typed just before redirecting (and whether onboarding was
+// active) was stashed in localStorage — see the Google button handler in app-render-settings.js —
+// and gets read back here once app-main.js's boot sequence confirms a Google sign-in just landed.
+async function handlePendingGoogleRedirect(result){
+  let pending = null;
+  try{
+    const raw = localStorage.getItem(PENDING_GOOGLE_KEY);
+    if(raw) pending = JSON.parse(raw);
+  }catch(e){ /* fall through */ }
+  localStorage.removeItem(PENDING_GOOGLE_KEY);
+  if(!result.ok){
+    showToast(tr('Something went wrong — try again'));
+    return;
+  }
+  const cloud = window.LifyarCloud;
+  const user = cloud ? cloud.getUser() : null;
+  const name = (pending && pending.name) || (user && user.displayName) || '';
+  if(!name) return; // nothing usable to finish the sign-in with — user can just sign in again
+  await completeCloudSignIn(name, (user && user.email) || '', !!(pending && pending.wasOnboarding));
+}
+
 function enterOnboarding(){
   onboardingActive = true;
   obResetState();
@@ -353,6 +397,7 @@ function obRenderStep2(content, footer){
       if(confirm(tr('Log out? Your profile stays saved on this device — you can log back in anytime. Your routines, tasks, and scores are unaffected either way.'))){
         state.session.loggedIn = false;
         saveState();
+        if(window.LifyarCloud) window.LifyarCloud.signOutCloud();
         renderOnboarding();
         showToast(tr('Logged out'));
       }
