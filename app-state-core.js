@@ -22,6 +22,38 @@ let storageReady = false;
 let backupTapped = false;
 let restoreTapped = false;
 
+// Cloud-sync bookkeeping — deliberately kept OUT of `state` itself and its own separate
+// localStorage key. This is plumbing for the Firebase backup layer (app-firebase.js), not app
+// data, so it never goes through ensureStateShape()/migrations or touches the historically-
+// sensitive data model at all.
+const SYNC_META_KEY = 'lifyar_sync_meta_v1';
+function getSyncMeta(){
+  try{
+    const raw = localStorage.getItem(SYNC_META_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ /* fall through to default */ }
+  return { lastModified: 0 };
+}
+function setSyncMeta(lastModified){
+  try{ localStorage.setItem(SYNC_META_KEY, JSON.stringify({ lastModified })); }catch(e){ /* best effort */ }
+}
+// app-firebase.js loads as a <script type="module">, which — unlike every other classic script
+// here — is deferred, so it finishes AFTER app-main.js's init() has already started (see the long
+// comment at the top of app-firebase.js). This lets init() wait for it instead of assuming
+// window.LifyarCloud already exists. Gives up gracefully after timeoutMs (e.g. the module failed
+// to load at all — no network, or a script blocker) — the app carries on fully local-only either
+// way, same as it does today.
+function waitForLifyarCloud(timeoutMs){
+  return new Promise((resolve)=>{
+    const start = Date.now();
+    (function poll(){
+      if(window.LifyarCloud) return resolve(window.LifyarCloud);
+      if(Date.now()-start > timeoutMs) return resolve(null);
+      setTimeout(poll, 50);
+    })();
+  });
+}
+
 function ensureStateShape(){
   // Migration: older saved data used "habits" (state.habits, log kind 'habit') before the
   // Habit -> Routine rename. Without this, state.routines would be undefined on real devices
@@ -154,6 +186,13 @@ async function loadState(){
 async function saveState(){
   try{
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    const lastModified = Date.now();
+    setSyncMeta(lastModified);
+    // Cloud backup is additive only — the local save above already succeeded and remains the
+    // real source of truth. If the Firebase module hasn't finished loading yet (see
+    // waitForLifyarCloud), or a push fails/is offline, this call is simply skipped this time —
+    // the next saveState() (or the next app launch's reconciliation) tries again.
+    if(window.LifyarCloud) window.LifyarCloud.scheduleSync(()=>state, ()=>lastModified);
   }catch(e){
     console.error('Save failed', e);
     showToast(tr('Could not save — try again'));

@@ -168,35 +168,123 @@ function renderSettings(main){
 
 function openLoginModal(){
   const existing = state.profile;
+  const cloud = window.LifyarCloud;
+  const cloudUser = cloud ? cloud.getUser() : null;
+  const hasRealAccount = !!(cloudUser && !cloudUser.isAnonymous);
   const m = openModal(`
     <h3>${existing ? tr('Log back in') : tr('Sign up / Log in')}</h3>
     <div class="field" style="color:var(--ink-soft); font-size:13px; line-height:1.5; margin-bottom:16px;">
-      ${tr("This just creates a local profile on this device for now — no account is created on a server, and nothing is verified. It's here so your name can be used in the app, and so it's ready for real accounts in a future version.")}
+      ${hasRealAccount
+        ? tr('Your data backs up to the cloud automatically. Add your name so it can be used in the app.')
+        : tr('Create an account (or continue with Google) to back up your data to the cloud and recover it if this device ever loses it.')}
     </div>
     <div class="field"><label>${tr('Name')}</label><input id="loginName" type="text" placeholder="${tr('Your name')}" value="${existing ? escapeHtml(existing.name) : ''}" /></div>
+    ${hasRealAccount ? '' : `
     <div class="field"><label>${tr('Email')}</label><input id="loginEmail" type="email" placeholder="you@example.com" value="${existing ? escapeHtml(existing.email||'') : ''}" /></div>
+    <div class="field"><label>${tr('Password')}</label><input id="loginPassword" type="password" placeholder="${tr('At least 6 characters')}" /></div>
+    `}
     <div class="modal-actions">
       <button class="btn-secondary" id="loginCancel">${tr('Cancel')}</button>
-      <button class="btn-primary" id="loginSave">${existing ? tr('Log in') : tr('Save')}</button>
+      ${hasRealAccount
+        ? `<button class="btn-primary" id="loginSave">${tr('Save')}</button>`
+        : `<button class="btn-primary" id="loginSignUp">${tr('Create account')}</button>`}
     </div>
+    ${hasRealAccount ? '' : `
+    <a class="add-details-link" id="loginLogInInstead">${tr('Already have an account? Log in instead')}</a>
+    <button class="btn-secondary" id="loginGoogle" style="width:100%;margin-top:10px;">${tr('Continue with Google')}</button>
+    `}
   `);
   m.querySelector('#loginCancel').addEventListener('click', ()=>m.remove());
-  m.querySelector('#loginSave').addEventListener('click', ()=>{
+
+  function readNameAndEmail(){
     const name = m.querySelector('#loginName').value.trim();
-    const email = m.querySelector('#loginEmail').value.trim();
-    if(!name){ showToast(tr('Enter a name')); return; }
+    if(!name){ showToast(tr('Enter a name')); return null; }
+    const emailInput = m.querySelector('#loginEmail');
+    const email = emailInput ? emailInput.value.trim() : (existing ? existing.email||'' : '');
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if(email && !emailPattern.test(email)){
-      showToast(tr("That email doesn't look right"));
-      return;
-    }
+    if(email && !emailPattern.test(email)){ showToast(tr("That email doesn't look right")); return null; }
+    return { name, email };
+  }
+  // Saves the local display profile and, if we now have a real Firebase account, aligns
+  // state.profile.email with it — matches what's actually happening rather than showing stale info.
+  function finishLogin(name, email){
     state.profile = { name, email };
     state.session.loggedIn = true;
     saveState();
     m.remove();
     renderMain();
     showToast(trWelcome(name));
-  });
+  }
+  function cloudErrorMessage(code){
+    // A small, deliberately short map for the handful of errors a person will actually hit —
+    // everything else falls back to a generic message rather than surfacing raw Firebase text.
+    const map = {
+      'auth/wrong-password': tr('Incorrect password'),
+      'auth/invalid-credential': tr('Incorrect email or password'),
+      'auth/user-not-found': tr('No account found with that email'),
+      'auth/weak-password': tr('Password should be at least 6 characters'),
+      'auth/invalid-email': tr("That email doesn't look right"),
+      'auth/popup-closed-by-user': null, // user cancelled — no error toast needed
+      'auth/network-request-failed': tr('No internet connection — try again'),
+    };
+    if(code && map[code]===null) return null;
+    return (code && map[code]) || tr('Something went wrong — try again');
+  }
+
+  if(hasRealAccount){
+    m.querySelector('#loginSave').addEventListener('click', ()=>{
+      const info = readNameAndEmail();
+      if(info) finishLogin(info.name, info.email);
+    });
+  } else {
+    let mode = 'signup'; // 'signup' | 'login' — toggled by the link below, no separate screen
+    const signUpBtn = m.querySelector('#loginSignUp');
+    const switchLink = m.querySelector('#loginLogInInstead');
+    function setMode(next){
+      mode = next;
+      signUpBtn.textContent = mode==='signup' ? tr('Create account') : tr('Log in');
+      switchLink.textContent = mode==='signup' ? tr('Already have an account? Log in instead') : tr('New here? Create an account instead');
+    }
+    switchLink.addEventListener('click', ()=> setMode(mode==='signup' ? 'login' : 'signup'));
+
+    signUpBtn.addEventListener('click', async ()=>{
+      const info = readNameAndEmail();
+      if(!info) return;
+      if(!info.email){ showToast(tr('Enter your email')); return; }
+      const password = m.querySelector('#loginPassword').value;
+      if(!password || password.length<6){ showToast(tr('Password should be at least 6 characters')); return; }
+      if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
+      signUpBtn.disabled = true;
+      const result = mode==='signup'
+        ? await cloud.signUpWithEmail(info.email, password)
+        : await cloud.logInWithEmail(info.email, password);
+      signUpBtn.disabled = false;
+      if(!result.ok){
+        const msg = cloudErrorMessage(result.code);
+        if(msg) showToast(msg);
+        return;
+      }
+      finishLogin(info.name, info.email);
+    });
+
+    m.querySelector('#loginGoogle').addEventListener('click', async ()=>{
+      if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
+      const googleBtn = m.querySelector('#loginGoogle');
+      googleBtn.disabled = true;
+      const result = await cloud.signInWithGoogle();
+      googleBtn.disabled = false;
+      if(!result.ok){
+        const msg = cloudErrorMessage(result.code);
+        if(msg) showToast(msg);
+        return;
+      }
+      const name = m.querySelector('#loginName').value.trim() || (cloud.getUser() && cloud.getUser().displayName) || '';
+      if(!name){ showToast(tr('Enter a name')); return; }
+      const user = cloud.getUser();
+      finishLogin(name, (user && user.email) || '');
+    });
+  }
+
   setTimeout(()=>m.querySelector('#loginName').focus(), 100);
 }
 

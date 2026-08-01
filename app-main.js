@@ -159,6 +159,30 @@ document.getElementById('fab').addEventListener('click', ()=>{
     console.error('Failed to load saved data', e);
     showToast(tr('Something went wrong loading your data'));
   }
+  // Cloud reconciliation happens in the background, after the local-first load/render above —
+  // it never blocks startup or the splash screen. Whichever copy (local vs. cloud) has the newer
+  // lastModified wins wholesale — see app-firebase.js for why a simple whole-blob "newest wins"
+  // was chosen over field-level merging. If the Firebase module never loads (offline, blocked,
+  // etc.), waitForLifyarCloud() just gives up after 5s and the app stays fully local-only, same
+  // as it behaves today.
+  waitForLifyarCloud(5000).then(async (cloud)=>{
+    if(!cloud) return;
+    await cloud.ready;
+    const remote = await cloud.pullState();
+    const localMeta = getSyncMeta();
+    if(remote && remote.state && remote.lastModified > localMeta.lastModified){
+      state = remote.state;
+      ensureStateShape();
+      migrateRecurringTasksToRoutines();
+      applyRoutineCatchUp();
+      applyTheme();
+      setSyncMeta(remote.lastModified);
+      renderMain();
+      showToast(tr('Restored your data from the cloud'));
+    } else {
+      cloud.scheduleSync(()=>state, ()=>localMeta.lastModified || Date.now());
+    }
+  }).catch((e)=> console.error('Cloud sync check failed', e));
   if('serviceWorker' in navigator){
     try{
       await navigator.serviceWorker.register('./service-worker.js');
