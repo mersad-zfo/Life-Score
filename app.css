@@ -524,6 +524,12 @@
     border-radius:24px 24px 0 0;
     padding:22px 20px calc(22px + env(safe-area-inset-bottom));
     animation: slideup .24s cubic-bezier(.22,1,.36,1);
+    /* A modal with many steps (or otherwise long content) can grow taller than the viewport —
+       cap it and let it scroll internally instead of overflowing off-screen with no way back. */
+    max-height:85vh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    box-sizing:border-box;
   }
   @keyframes slideup{ from{transform:translateY(20px); opacity:0;} to{transform:translateY(0); opacity:1;} }
   .modal h3{

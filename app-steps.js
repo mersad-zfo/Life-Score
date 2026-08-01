@@ -184,6 +184,14 @@ function taskStepDoneToday(task, stepId){
   const t = todayStr();
   return state.log.some(l=> l.kind==='task_step' && l.refId===task.id && l.stepId===stepId && l.date===t);
 }
+// A step checked off on an earlier day is permanently locked: its points never decay further,
+// it can't be unchecked (see uncompleteTaskStep's taskStepDoneToday guard below), and its edit-
+// modal row can't be edited or removed (see stepsFieldHtml's perStepLocked param). A step checked
+// TODAY is not locked yet — it stays fully undoable, and its points still rebalance live if the
+// step list itself is edited (see realignStepLogPointsForToday below) — same as an unchecked step.
+function taskStepLockedPast(task, stepId){
+  return taskStepDone(task, stepId) && !taskStepDoneToday(task, stepId);
+}
 function taskStepsAllDone(task){
   return taskHasSteps(task) && task.steps.every(s=> taskStepDone(task, s.id));
 }
@@ -261,6 +269,60 @@ function toggleAllTaskSteps(taskId){
   } else {
     task.steps.forEach(s=>{ if(!taskStepDone(task, s.id)) completeTaskStep(taskId, s.id); });
   }
+}
+
+// ================= Step-list edit realignment =================
+// Called right after a routine's or task's `steps` array is reassigned via the edit modal (see
+// app-modals.js). A step's log entry stores a fixed `points` value from the moment it was
+// checked — correct at that instant, but stale the moment the step LIST itself changes (a step
+// added or removed changes what an even split even means). This only ever touches TODAY's log
+// entries — the same "today is still genuinely mutable" exception the rest of the app follows
+// (see ARCHITECTURE.md "Historical Data Integrity"); a step checked on an earlier day is never
+// touched, matching the existing same-day-undo-only rule for steps.
+//
+// A step removed from the list entirely loses its today-only log entry (it can no longer claim
+// to be "one of N steps" on an item that no longer has it). Every step still present gets its
+// logged share rebalanced to a fresh even split of the item's current total (base/reward for a
+// routine, current decayed value for a task) across ALL its steps — so the still-unlogged steps'
+// live "remaining pool" (computed elsewhere from total minus doneSum) automatically continues to
+// add up to that same total, exactly, no matter how many times the list is edited.
+function realignStepLogPointsForToday(kind, item){
+  const t = todayStr();
+  const stepKind = kind==='routine' ? 'routine_step' : 'task_step';
+  const validIds = new Set((item.steps||[]).map(s=>s.id));
+  // A step permanently locked from an earlier day can't be removed in the edit modal in the
+  // first place (see stepsFieldHtml's perStepLocked), so this can only ever drop a today-checked
+  // or never-checked step that got removed from the list.
+  state.log = state.log.filter(l=> !(l.kind===stepKind && l.refId===item.id && l.date===t && !validIds.has(l.stepId)));
+  if(!item.steps || item.steps.length===0) return;
+
+  if(kind==='routine'){
+    // Routines don't carry a step across days the way a task can — every routine_step entry is
+    // inherently "today's", so a plain even split across all current steps is correct.
+    const total = routineStepsBaseAmount(item);
+    const newSplit = splitPointsEvenly(total, item.steps.length);
+    item.steps.forEach((s,i)=>{
+      const entry = state.log.find(l=> l.kind==='routine_step' && l.refId===item.id && l.stepId===s.id && l.date===t);
+      if(entry) entry.points = newSplit[i];
+    });
+    return;
+  }
+
+  // Tasks: steps checked on an earlier day are permanently locked and must be excluded from both
+  // the pool and the redistribution — same "pool minus what's already permanently earned, split
+  // across what's left" math taskStepPoints() already uses live for display.
+  const pastLockedSum = item.steps.reduce((sum,s)=>{
+    if(!taskStepLockedPast(item, s.id)) return sum;
+    const entry = state.log.find(l=> l.kind==='task_step' && l.refId===item.id && l.stepId===s.id);
+    return sum + (entry ? entry.points : 0);
+  }, 0);
+  const changeable = item.steps.filter(s=> !taskStepLockedPast(item, s.id));
+  const pool = taskCurrentValue(item) - pastLockedSum;
+  const newSplit = splitPointsEvenly(pool, changeable.length);
+  changeable.forEach((s,i)=>{
+    const entry = state.log.find(l=> l.kind==='task_step' && l.refId===item.id && l.stepId===s.id && l.date===t);
+    if(entry) entry.points = newSplit[i];
+  });
 }
 
 // ================= Shared card render helpers =================

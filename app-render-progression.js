@@ -289,9 +289,12 @@ function renderProgDayView(container){
   // Points/penalty actually logged for this item on this day, if any (routines log both a
   // completion entry and, separately, a missed-day penalty entry; tasks currently only log a
   // completion entry — there's no per-day penalty log for ongoing task decay, so we simply don't
-  // show a number for a not-yet-completed task rather than guessing one).
+  // show a number for a not-yet-completed task rather than guessing one). A stepped item splits
+  // its points across per-step log entries instead of one lump entry — routine_step/task_step —
+  // including those must be counted too, or a stepped item (fully done or only partially checked)
+  // would silently show no points at all.
   function loggedPointsFor(refKind, refId){
-    const kinds = refKind==='routine' ? ['routine','routine_penalty'] : ['task'];
+    const kinds = refKind==='routine' ? ['routine','routine_penalty','routine_step'] : ['task','task_step'];
     const entries = state.log.filter(e => e.date===d && e.refId===refId && kinds.includes(e.kind));
     if(entries.length===0) return null;
     return entries.reduce((sum,e)=> sum + (e.points||0), 0);

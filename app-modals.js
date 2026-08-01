@@ -249,11 +249,12 @@ function stepRowHtml(id, val, num, locked){
     ${locked ? '' : `<button type="button" class="step-remove" data-remove-step aria-label="${tr('Remove')}">×</button>`}
   </div>`;
 }
-function stepsFieldHtml(prefix, existingSteps, locked){
+function stepsFieldHtml(prefix, existingSteps, locked, perStepLocked){
   const hasExisting = !!(existingSteps && existingSteps.length>0);
   if(locked && !hasExisting) return ''; // nothing to lock/show
+  const anyRowPermLocked = hasExisting && !!perStepLocked && existingSteps.some((s,i)=>perStepLocked(s,i));
   const rowsHtml = hasExisting
-    ? existingSteps.map((s,i)=>stepRowHtml(s.id, s.name, i+1, locked)).join('')
+    ? existingSteps.map((s,i)=>stepRowHtml(s.id, s.name, i+1, locked || (perStepLocked && perStepLocked(s,i)))).join('')
     : [stepRowHtml(null, '', 1, locked), stepRowHtml(null, '', 2, locked)].join('');
   if(locked){
     return `
@@ -263,6 +264,20 @@ function stepsFieldHtml(prefix, existingSteps, locked){
           <div id="${prefix}StepsRows">${rowsHtml}</div>
         </div>
         <div class="lock-note" style="margin-top:4px;">${tr('Locked after the first day')}</div>
+      </div>`;
+  }
+  if(anyRowPermLocked){
+    // At least one step was already checked off on an earlier day — its points are permanently
+    // earned/locked (see taskStepLockedPast() in app-steps.js), so the checklist itself can no
+    // longer be fully turned off. Skip the collapse toggle entirely, always show it open; still
+    // allow adding further (unlocked) steps.
+    return `
+      <div class="field">
+        <label>${tr('Steps')}</label>
+        <div class="steps-field" id="${prefix}StepsField">
+          <div id="${prefix}StepsRows">${rowsHtml}</div>
+          <button type="button" class="step-add-btn" id="${prefix}AddStepRow">${tr('+ Add another step')}</button>
+        </div>
       </div>`;
   }
   return `
@@ -276,11 +291,15 @@ function stepsFieldHtml(prefix, existingSteps, locked){
 function wireStepsToggle(m, prefix){
   const link = m.querySelector(`#${prefix}AddStepsLink`);
   const field = m.querySelector(`#${prefix}StepsField`);
-  link.addEventListener('click', ()=>{
-    const opening = field.style.display === 'none';
-    field.style.display = opening ? 'block' : 'none';
-    link.textContent = opening ? tr('- Hide steps') : tr('+ Add steps');
-  });
+  // No link when the section can't be collapsed at all (fully locked, or a permanently-locked
+  // step is present — see stepsFieldHtml above) — the rows themselves still need wiring either way.
+  if(link && field){
+    link.addEventListener('click', ()=>{
+      const opening = field.style.display === 'none';
+      field.style.display = opening ? 'block' : 'none';
+      link.textContent = opening ? tr('- Hide steps') : tr('+ Add steps');
+    });
+  }
   wireStepRows(m, prefix);
 }
 function wireStepRows(m, prefix){
@@ -457,6 +476,11 @@ function openEditRoutineModal(id){
     // in effect back then. Without this, editing schedule/difficulty would silently rewrite the
     // base/due calculation for every already-elapsed day too.
     pushConfigVersion(h);
+    // Rebalance today's already-logged step points to the (possibly just-edited) step list/
+    // difficulty — see app-steps.js realignStepLogPointsForToday(). Only ever touches today's
+    // log entries, never a past day's — same "today is still mutable" exception as everywhere
+    // else in the Historical Data Integrity design.
+    if(!diffLocked) realignStepLogPointsForToday('routine', h);
     saveState();
     m.remove();
     renderMain();
@@ -541,7 +565,7 @@ function openEditTaskModal(id){
       <input id="etDueDate" type="date" value="${task.dueDate}" min="${todayStr()}" ${diffLocked?'disabled':''} class="${diffLocked?'seg-locked':''}" />
       ${diffLocked ? `<div class="lock-note" style="margin-top:4px;">${tr('Locked after the first day')}</div>` : ''}
     </div>
-    ${stepsFieldHtml('et', task.steps, diffLocked)}
+    ${stepsFieldHtml('et', task.steps, false, (s)=>taskStepLockedPast(task, s.id))}
     ${buildDifficultyPicker('et', task.difficulty || 'normal', diffLocked)}
     <div class="modal-actions">
       <button class="btn-secondary" id="etCancel">${tr('Cancel')}</button>
@@ -550,7 +574,7 @@ function openEditTaskModal(id){
   `);
   if(!diffLocked) wireDifficultyPicker(m, 'et');
   wireTimeDetailsToggle(m, 'et');
-  if(!diffLocked) wireStepsToggle(m, 'et');
+  wireStepsToggle(m, 'et');
   limitToOneGrapheme(m.querySelector('#etEmoji'));
   m.querySelector('#etCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#etSave').addEventListener('click', ()=>{
@@ -562,15 +586,20 @@ function openEditTaskModal(id){
     task.emoji = emoji;
     task.description = description;
     task.time = time;
+    // Steps are never locked (only difficulty/dueDate are, the day after dueDate passes) — see
+    // CLAUDE.md/ARCHITECTURE.md. Read+apply regardless of diffLocked.
+    task.steps = readSteps(m, 'et');
     if(!diffLocked){
       const difficulty = readDifficulty(m, 'et');
       task.difficulty = difficulty;
       task.startValue = difficultyPointsFor('task', difficulty);
       task.decayRate = TASK_DECAY_RATE;
-      task.steps = readSteps(m, 'et');
       const dueDate = m.querySelector('#etDueDate').value;
       if(dueDate) task.dueDate = dueDate;
     }
+    // Rebalance today's already-logged step points to the (possibly just-edited) step list —
+    // see app-steps.js realignStepLogPointsForToday().
+    realignStepLogPointsForToday('task', task);
     saveState();
     m.remove();
     renderMain();
