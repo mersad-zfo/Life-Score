@@ -1,4 +1,4 @@
-// ---------- Firebase glue (Auth + Firestore cloud backup) ----------
+// ---------- Firebase glue (Auth + cloud backup via a Cloudflare Worker) ----------
 // Loaded via <script type="module"> in index.html — deliberately the ONLY module script in the
 // project. Module scripts get their own isolated top-level scope (unlike every other file here,
 // which is a classic script relying on shared global scope) — that isolation is exactly why this
@@ -15,22 +15,41 @@
 //
 // What this file deliberately does NOT do: touch `state`, decide WHEN to sync, or render
 // anything. That's app-state-core.js's job (saveState()/loadState()) and app-main.js's boot
-// sequence. This file is pure plumbing to Firebase and nothing else — keeping it that way means
-// the security-sensitive parts of this feature live in exactly one place.
+// sequence. This file is pure plumbing to Firebase (and the sync Worker) and nothing else —
+// keeping it that way means the security-sensitive parts of this feature live in exactly one place.
+//
+// SDK files are vendored locally (./vendor/firebase/) rather than loaded from gstatic.com, and
+// Auth's apiHost/tokenApiHost are pointed at our own Cloudflare Worker instead of Google's real
+// hosts — both exist to route around gstatic.com/identitytoolkit.googleapis.com/
+// securetoken.googleapis.com being unreachable (a real, confirmed problem, not hypothetical) for
+// many users in Iran. See the chat this was built in for the full reasoning and the live
+// Network-tab test that confirmed the exact request shape this depends on.
+//
+// Firestore's client SDK is NOT used at all (dropped entirely, not just proxied) — its own
+// streaming/long-polling protocol is much harder to relay reliably than plain REST. Instead, the
+// Worker itself talks to Firestore server-to-server (see Worker/sync-worker.js) and this file
+// just calls its plain /sync endpoint like any other API, authenticated with the signed-in user's
+// Firebase ID token.
 
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
+import { initializeApp } from './vendor/firebase/firebase-app.js';
 import {
-  getAuth, onAuthStateChanged, signInAnonymously, signOut,
+  getAuth, onAuthStateChanged, signInAnonymously, signOut, getIdToken,
   GoogleAuthProvider, signInWithRedirect, linkWithRedirect, getRedirectResult, signInWithCredential,
   EmailAuthProvider, linkWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
-import {
-  getFirestore, doc, getDoc, setDoc, serverTimestamp,
-} from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+} from './vendor/firebase/firebase-auth.js';
 
-// Public by design — not a secret. See ARCHITECTURE.md / the chat where this was set up: the
-// actual access control is the Firestore security rule (a signed-in user may only touch
-// /users/{their own uid}), not this config being hidden.
+// The Worker that proxies Auth's REST calls and serves as the actual sync backend — see
+// Worker/sync-worker.js. Both apiHost/tokenApiHost point here (confirmed via a real Network-tab
+// test that the SDK sends plain paths like "/v1/accounts:signUp" with no extra prefix — the
+// Worker routes by those real paths, not anything we get to invent).
+const SYNC_WORKER_HOST = 'lifyar-sync.mersad-ziro.workers.dev';
+const SYNC_WORKER_URL = `https://${SYNC_WORKER_HOST}/sync`;
+
+// Public by design — not a secret. See the chat where this was set up: the actual access control
+// is the sync Worker verifying each caller's Firebase ID token itself before touching any data
+// (see Worker/sync-worker.js) — not this config being hidden, and not Firestore's own security
+// rule either, since that rule doesn't apply on this path anymore (the Worker talks to Firestore
+// as itself, via a service account, not as the signed-in end user).
 const firebaseConfig = {
   apiKey: "AIzaSyAKoYd8baiZ9x7wSWByUQ5-Gju-XKtIGpA",
   authDomain: "lifyar-c13ce.firebaseapp.com",
@@ -42,7 +61,14 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
-const db = getFirestore(fbApp);
+// Not an officially documented/supported override — see the top-of-file comment and the chat
+// this was built in: there's an open issue in Firebase's own SDK repo noting these fields aren't
+// meant to be externally writable. It works today because nothing stops a plain runtime property
+// mutation, confirmed via a real Network-tab test, but isn't guaranteed to survive a future SDK
+// version bump. If Auth requests mysteriously start failing after upgrading the vendored SDK
+// files, this is the first thing to check.
+auth.config.apiHost = SYNC_WORKER_HOST;
+auth.config.tokenApiHost = SYNC_WORKER_HOST;
 
 let currentUser = null;
 let readyResolve;
@@ -66,17 +92,19 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-function userDocRef(uid) { return doc(db, 'users', uid); }
-
 // Returns { state, lastModified } from this user's cloud document, or null if there isn't one
-// yet (brand new account) or the read failed (e.g. offline) — callers treat both the same way:
-// nothing to restore, so fall back to local data as-is.
+// yet (brand new account), the read failed (e.g. offline), or the Worker rejected the request —
+// callers treat all of these the same way: nothing to restore, so fall back to local data as-is.
 async function pullState() {
   if (!currentUser) return null;
   try {
-    const snap = await getDoc(userDocRef(currentUser.uid));
-    if (!snap.exists()) return null;
-    const data = snap.data();
+    const idToken = await getIdToken(currentUser);
+    const resp = await fetch(SYNC_WORKER_URL, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data.state) return null;
     return { state: data.state, lastModified: data.lastModified || 0 };
   } catch (e) {
     console.error('Cloud pull failed', e);
@@ -87,12 +115,13 @@ async function pullState() {
 async function pushState(stateObj, lastModified) {
   if (!currentUser) return false;
   try {
-    await setDoc(userDocRef(currentUser.uid), {
-      state: stateObj,
-      lastModified,
-      updatedAt: serverTimestamp(),
+    const idToken = await getIdToken(currentUser);
+    const resp = await fetch(SYNC_WORKER_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: stateObj, lastModified }),
     });
-    return true;
+    return resp.ok;
   } catch (e) {
     console.error('Cloud push failed', e);
     return false;
