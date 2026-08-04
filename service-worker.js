@@ -1,7 +1,7 @@
 importScripts('./app-notif-db.js');
 importScripts('./app-notif-shared.js');
 
-const CACHE_NAME = 'lifyar-v78';
+const CACHE_NAME = 'lifyar-v79';
 const ASSETS = [
   './',
   './index.html',
@@ -15,8 +15,6 @@ const ASSETS = [
   './onboarding.css',
   './app-state-core.js',
   './app-firebase.js',
-  './vendor/firebase/firebase-app.js',
-  './vendor/firebase/firebase-auth.js',
   './app-i18n.js',
   './app-rating.js',
   './app-consistency.js',
@@ -63,9 +61,10 @@ self.addEventListener('fetch', (event) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
         // Only cache same-origin GET requests for offline use. A cross-origin request — like the
-        // calls to the sync Worker in app-firebase.js — can hit a browser quirk where cache.put()
-        // throws "Entry was not found" for certain fetch types, and there's no reason to cache
-        // those here anyway: they're live API calls, not static assets.
+        // Firebase SDK's own CDN imports in app-firebase.js — can hit a browser quirk where
+        // cache.put() throws "Entry was not found" for certain fetch types (module imports in
+        // particular), and there's no reason to cache those here anyway: the CDN serves its own
+        // cache headers, we were never trying to intermediate that.
         if (isSameOrigin && event.request.method === 'GET' && response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(()=>{});
