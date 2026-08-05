@@ -8,7 +8,6 @@ function renderSettings(main){
   const effectiveThemeIsDark = theme==='dark' || (theme!=='light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const sound = state.settings.sound;
   const lang = state.settings.language || 'en';
-  const isLoggedIn = state.profile && state.session.loggedIn;
   let html = `
     <div class="settings-group">
       <div class="item-name" style="margin-bottom:10px;">${tr('Appearance')}</div>
@@ -50,39 +49,12 @@ function renderSettings(main){
       </div>
     </div>
 
-    <div class="settings-group">
-      <div class="settings-group-title">${tr('Account')}</div>
-      ${isLoggedIn ? `
-        <div class="account-card">
-          <div class="acc-name">${escapeHtml(state.profile.name)}</div>
-          <div class="acc-email">${escapeHtml(state.profile.email||'')}</div>
-          <div class="settings-btn-row">
-            <div class="toggle-row" style="cursor:pointer;" id="backupBtn">
-              <div>
-                <div class="item-name">${tr('Backup')}</div>
-                ${backupTapped ? `<div class="item-sub">${tr('Saved to your Downloads folder with the name "lifyar-backup"')}</div>` : ''}
-              </div>
-            </div>
-            <div class="toggle-row" style="cursor:pointer;" id="restoreBtn">
-              <div>
-                <div class="item-name">${tr('Restore')}</div>
-                ${restoreTapped ? `<div class="item-sub">${tr('Look for "lifyar-backup.json" in your Downloads folder')}</div>` : ''}
-              </div>
-            </div>
-            <button class="settings-btn danger-text" id="logoutBtn">${tr('Log out')}</button>
-          </div>
-        </div>
-      ` : `
-        <div class="item-sub" style="margin-bottom:10px;">${tr('Log in to back up your data to this device, or restore it on another.')}</div>
-        <button class="settings-btn" id="loginBtn">${state.profile ? tr('Log back in') : tr('Sign up / Log in')}</button>
-      `}
-    </div>
+    ${accountCardHtml('settings')}
 
     <div class="settings-group">
       <div class="settings-group-title">${tr('Danger zone')}</div>
       <div class="settings-btn-row">
         <button class="settings-btn danger-text" id="resetBtn">${tr('Reset everything')}</button>
-        ${state.profile ? `<button class="settings-btn danger-text" id="deleteAccountBtn">${tr('Delete account')}</button>` : ''}
       </div>
     </div>
 
@@ -131,159 +103,13 @@ function renderSettings(main){
     renderMain();
   });
   document.getElementById('resetBtn').addEventListener('click', ()=> openResetModal());
-  if(isLoggedIn){
-    document.getElementById('backupBtn').addEventListener('click', ()=>{
-      backupData();
-      backupTapped = true;
-      renderSettings(main);
-    });
-    document.getElementById('restoreBtn').addEventListener('click', ()=>{
-      restoreTapped = true;
-      renderSettings(main);
-      restoreData();
-    });
-    document.getElementById('logoutBtn').addEventListener('click', ()=>{
-      if(confirm(tr('Log out? Your profile stays saved on this device — you can log back in anytime. Your routines, tasks, and scores are unaffected either way.'))){
-        state.session.loggedIn = false;
-        saveState();
-        if(window.LifyarCloud) window.LifyarCloud.signOutCloud();
-        renderSettings(main);
-        showToast(tr('Logged out'));
-      }
-    });
-  } else {
-    document.getElementById('loginBtn').addEventListener('click', openLoginModal);
-  }
-  if(state.profile){
-    document.getElementById('deleteAccountBtn').addEventListener('click', ()=>{
-      if(confirm(tr('Permanently delete this profile (name and email) from this device? Your routines, tasks, and scores are not affected — only the account itself is removed.'))){
-        state.profile = null;
-        state.session.loggedIn = false;
-        saveState();
-        renderSettings(main);
-        showToast(tr('Account deleted'));
-      }
-    });
-  }
+  wireAccountCard(main, 'settings');
 }
 
-function openLoginModal(){
-  const existing = state.profile;
-  const cloud = window.LifyarCloud;
-  const cloudUser = cloud ? cloud.getUser() : null;
-  const hasRealAccount = !!(cloudUser && !cloudUser.isAnonymous);
-  const m = openModal(`
-    <h3>${existing ? tr('Log back in') : tr('Sign up / Log in')}</h3>
-    <div class="field" style="color:var(--ink-soft); font-size:13px; line-height:1.5; margin-bottom:16px;">
-      ${hasRealAccount
-        ? tr('Your data backs up to the cloud automatically. Add your name so it can be used in the app.')
-        : tr('Create an account (or continue with Google) to back up your data to the cloud and recover it if this device ever loses it.')}
-    </div>
-    <div class="field"><label>${tr('Name')}</label><input id="loginName" type="text" placeholder="${tr('Your name')}" value="${existing ? escapeHtml(existing.name) : ''}" /></div>
-    ${hasRealAccount ? '' : `
-    <div class="field"><label>${tr('Email')}</label><input id="loginEmail" type="email" placeholder="you@example.com" value="${existing ? escapeHtml(existing.email||'') : ''}" /></div>
-    <div class="field"><label>${tr('Password')}</label><input id="loginPassword" type="password" placeholder="${tr('At least 6 characters')}" /></div>
-    `}
-    <div class="modal-actions">
-      <button class="btn-secondary" id="loginCancel">${tr('Cancel')}</button>
-      ${hasRealAccount
-        ? `<button class="btn-primary" id="loginSave">${tr('Save')}</button>`
-        : `<button class="btn-primary" id="loginSignUp">${tr('Create account')}</button>`}
-    </div>
-    ${hasRealAccount ? '' : `
-    <a class="add-details-link" id="loginLogInInstead">${tr('Already have an account? Log in instead')}</a>
-    <button class="btn-secondary" id="loginGoogle" style="width:100%;margin-top:10px;">${tr('Continue with Google')}</button>
-    `}
-  `);
-  m.querySelector('#loginCancel').addEventListener('click', ()=>m.remove());
-
-  function readNameAndEmail(){
-    const name = m.querySelector('#loginName').value.trim();
-    if(!name){ showToast(tr('Enter a name')); return null; }
-    const emailInput = m.querySelector('#loginEmail');
-    const email = emailInput ? emailInput.value.trim() : (existing ? existing.email||'' : '');
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if(email && !emailPattern.test(email)){ showToast(tr("That email doesn't look right")); return null; }
-    return { name, email };
-  }
-  // Saves the local display profile only — used for the "already have a real account, just
-  // editing the display name" path, where no new sign-in happened so there's nothing new to pull.
-  function saveNameOnly(name, email){
-    state.profile = { name, email };
-    state.session.loggedIn = true;
-    saveState();
-    m.remove();
-    renderMain();
-    showToast(trWelcome(name));
-  }
-  function cloudErrorMessage(code){
-    // A small, deliberately short map for the handful of errors a person will actually hit —
-    // everything else falls back to a generic message rather than surfacing raw Firebase text.
-    const map = {
-      'auth/wrong-password': tr('Incorrect password'),
-      'auth/invalid-credential': tr('Incorrect email or password'),
-      'auth/user-not-found': tr('No account found with that email'),
-      'auth/weak-password': tr('Password should be at least 6 characters'),
-      'auth/invalid-email': tr("That email doesn't look right"),
-      'auth/network-request-failed': tr('No internet connection — try again'),
-    };
-    return (code && map[code]) || tr('Something went wrong — try again');
-  }
-
-  if(hasRealAccount){
-    m.querySelector('#loginSave').addEventListener('click', ()=>{
-      const info = readNameAndEmail();
-      if(info) saveNameOnly(info.name, info.email);
-    });
-  } else {
-    let mode = 'signup'; // 'signup' | 'login' — toggled by the link below, no separate screen
-    const signUpBtn = m.querySelector('#loginSignUp');
-    const switchLink = m.querySelector('#loginLogInInstead');
-    function setMode(next){
-      mode = next;
-      signUpBtn.textContent = mode==='signup' ? tr('Create account') : tr('Log in');
-      switchLink.textContent = mode==='signup' ? tr('Already have an account? Log in instead') : tr('New here? Create an account instead');
-    }
-    switchLink.addEventListener('click', ()=> setMode(mode==='signup' ? 'login' : 'signup'));
-
-    signUpBtn.addEventListener('click', async ()=>{
-      const info = readNameAndEmail();
-      if(!info) return;
-      if(!info.email){ showToast(tr('Enter your email')); return; }
-      const password = m.querySelector('#loginPassword').value;
-      if(!password || password.length<6){ showToast(tr('Password should be at least 6 characters')); return; }
-      if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
-      signUpBtn.disabled = true;
-      const result = mode==='signup'
-        ? await cloud.signUpWithEmail(info.email, password)
-        : await cloud.logInWithEmail(info.email, password);
-      signUpBtn.disabled = false;
-      if(!result.ok){ showToast(cloudErrorMessage(result.code)); return; }
-      m.remove();
-      // Pulls cloud data right now (item 4) and, if returning-user data actually came down while
-      // still in onboarding, skips ahead past picking routines/tasks (item 5) — see
-      // completeCloudSignIn in app-onboarding.js.
-      completeCloudSignIn(info.name, info.email, onboardingActive);
-    });
-
-    m.querySelector('#loginGoogle').addEventListener('click', ()=>{
-      if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
-      const name = m.querySelector('#loginName').value.trim();
-      if(!name){ showToast(tr('Enter a name')); return; }
-      // Google sign-in now navigates the whole page away and back (a redirect, not a popup — see
-      // item 6 / app-firebase.js) — this click handler's execution effectively ends at
-      // signInWithGoogle() below, so stash what's needed to finish up once the app reloads.
-      // Picked back up by handlePendingGoogleRedirect() in app-onboarding.js.
-      try{
-        localStorage.setItem(PENDING_GOOGLE_KEY, JSON.stringify({ name, wasOnboarding: onboardingActive }));
-      }catch(e){ /* best effort — if this fails, sign-in still completes, just without the name pre-filled */ }
-      cloud.signInWithGoogle();
-    });
-  }
-
-  setTimeout(()=>m.querySelector('#loginName').focus(), 100);
-}
-
+// Local-file backup/restore — the only backup mechanism actually wired up so far. The account
+// card's "Back up now" / "Restore from cloud" buttons call these for now; swap for real Firestore
+// pushState()/pullState() calls once that manual-trigger UX is designed (automatic sync via
+// scheduleSync()/reconcileWithCloud() already happens independently of these).
 function backupData(){
   try{
     const json = JSON.stringify(state, null, 2);
@@ -296,6 +122,7 @@ function backupData(){
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    showToast(tr('Saved to your Downloads folder with the name "lifyar-backup"'));
   }catch(e){
     showToast(tr('Backup failed — try again'));
   }

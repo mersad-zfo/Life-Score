@@ -63,7 +63,6 @@ function getHeaderGreeting(){
 
 const TAB_PAGE_TITLES = { routines: 'Your routines', tasks: 'Your tasks', score: 'Your score', settings: 'Settings', notifications: 'Notifications' };
 function headerBackAction(){
-  if(currentTab==='settings'){ backupTapped = false; restoreTapped = false; }
   setTab(previousTab);
 }
 function updateHeader(){
@@ -135,8 +134,6 @@ document.getElementById('gearBtn').addEventListener('click', ()=>{
       if(leavingEl) leavingEl.scrollTop = 0;
     }
     currentTab = 'settings';
-    backupTapped = false;
-    restoreTapped = false;
     document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.remove('active'));
     updateHeaderAnimated();
     renderMain();

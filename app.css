@@ -562,6 +562,10 @@
     min-height:64px;
     line-height:1.4;
   }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:none;
+    border-color:var(--accent);
+  }
   .modal-actions{
     display:flex; gap:10px; margin-top:18px;
   }
@@ -1053,11 +1057,43 @@
   .account-card{
     background:var(--paper);
     border:1px solid var(--line);
-    border-radius:14px;
-    padding:16px;
+    border-radius:16px;
+    padding:18px;
   }
-  .account-card .acc-name{ font-size:15px; font-weight:600; }
-  .account-card .acc-email{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .acc-head{ display:flex; align-items:center; gap:13px; }
+  .acc-avatar{
+    width:52px; height:52px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Newsreader', serif; font-size:20px; font-weight:600; color:#fff;
+    background:linear-gradient(135deg, var(--accent), #6FAE86);
+    overflow:hidden;
+  }
+  .acc-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .acc-name-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .acc-name{ font-size:16px; font-weight:600; }
+  .acc-email{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+  .verify-badge{
+    display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600;
+    padding:2px 7px; border-radius:20px; letter-spacing:.02em;
+  }
+  .verify-badge.ok{ background:var(--accent-soft); color:var(--accent); }
+  .verify-badge.pending{ background:var(--rust-soft); color:var(--rust); }
+  .provider-row{
+    display:flex; align-items:center; gap:6px; margin-top:10px; font-size:12px; color:var(--ink-soft);
+  }
+  .provider-chip{
+    display:inline-flex; align-items:center; gap:5px; background:var(--bg); border:1px solid var(--line);
+    border-radius:20px; padding:3px 9px 3px 6px; font-size:11.5px; color:var(--ink);
+  }
+  .provider-chip svg, .provider-chip .glyph{ width:13px; height:13px; }
+  .verify-banner{
+    display:flex; align-items:center; gap:10px; background:var(--rust-soft); border:1px solid rgba(181,72,60,0.25);
+    border-radius:12px; padding:12px 14px; margin-top:14px; font-size:12.5px; color:var(--rust);
+  }
+  .verify-banner button{
+    margin-left:auto; background:none; border:none; color:var(--rust); font-weight:600; font-size:12px;
+    text-decoration:underline; cursor:pointer; font-family:inherit; white-space:nowrap;
+  }
   .settings-btn-row{
     display:flex; flex-direction:column; gap:8px; margin-top:14px;
   }
@@ -1072,6 +1108,58 @@
   }
   .settings-btn:active{ background:var(--accent-soft); }
   .settings-btn.danger-text{ color:var(--rust); }
+  .settings-group-title-row{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .settings-group-title-row .settings-group-title{ margin-bottom:0; }
+  .empty-state-mini{
+    font-size:12.5px; color:var(--ink-soft); background:var(--bg); border:1px dashed var(--line);
+    border-radius:10px; padding:10px 12px; margin-top:10px; line-height:1.5;
+  }
+  .btn-oauth{
+    width:100%; background:var(--paper); border:1px solid var(--line); padding:12px 14px; border-radius:12px;
+    font-size:14.5px; font-weight:500; color:var(--ink); cursor:pointer; font-family:inherit;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+  }
+  .btn-oauth:active{ background:var(--accent-soft); }
+  .btn-oauth:disabled{ opacity:.55; cursor:default; }
+  .btn-oauth svg, .btn-oauth .glyph{ width:18px; height:18px; flex-shrink:0; }
+  .field-pw-wrap{ position:relative; }
+  .field-pw-wrap input{ padding-right:44px; }
+  .pw-toggle{
+    position:absolute; right:4px; top:4px; bottom:4px; width:36px;
+    display:flex; align-items:center; justify-content:center; background:none; border:none;
+    color:var(--ink-soft); cursor:pointer; font-size:13px;
+  }
+  .field-err{ font-size:12px; color:var(--rust); margin-top:5px; display:none; }
+  .field-err.show{ display:block; }
+  .field.has-error input{ border-color:var(--rust); }
+  .divider-row{
+    display:flex; align-items:center; gap:12px; margin:18px 0; color:var(--ink-soft); font-size:12px;
+  }
+  .divider-row::before, .divider-row::after{ content:""; flex:1; height:1px; background:var(--line); }
+  .modal-close-x{
+    position:absolute; right:16px; top:16px; width:30px; height:30px; border-radius:50%;
+    background:var(--bg); border:1px solid var(--line); color:var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;
+  }
+  .modal-inner{ position:relative; }
+  .modal .modal-sub{ font-size:13px; color:var(--ink-soft); line-height:1.5; margin-bottom:18px; }
+  .spinner{
+    width:15px; height:15px; border-radius:50%; border:2px solid rgba(255,255,255,.35);
+    border-top-color:#fff; animation:spin .7s linear infinite; flex-shrink:0;
+  }
+  .btn-oauth .spinner, .btn-secondary .spinner{ border-color:var(--line); border-top-color:var(--ink-soft); }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .pw-strength{ display:flex; gap:4px; margin-top:8px; }
+  .pw-strength i{ flex:1; height:3px; border-radius:3px; background:var(--line); }
+  .pw-strength.weak i:nth-child(1){ background:var(--rust); }
+  .pw-strength.medium i:nth-child(1),.pw-strength.medium i:nth-child(2){ background:var(--gold); }
+  .pw-strength.strong i{ background:var(--accent); }
+  .pw-hint{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; }
+  .link-btn{ background:none; border:none; color:var(--accent); font-size:13px; font-weight:500; cursor:pointer; font-family:inherit; padding:0; }
+  .form-footnote{ text-align:center; font-size:13px; color:var(--ink-soft); margin-top:16px; }
+  .checkbox-row{ display:flex; align-items:flex-start; gap:9px; margin:14px 0 6px; }
+  .checkbox-row input{ margin-top:2px; accent-color:var(--accent); width:16px; height:16px; flex-shrink:0; }
+  .checkbox-row label{ font-size:12.5px; color:var(--ink-soft); line-height:1.5; }
   .credit-line{
     text-align:center;
     font-size:11px;
@@ -1132,6 +1220,13 @@
   body.lang-fa .lock-note,
   body.lang-fa .acc-name,
   body.lang-fa .acc-email,
+  body.lang-fa .modal-sub,
+  body.lang-fa .provider-row,
+  body.lang-fa .verify-banner span,
+  body.lang-fa .empty-state-mini,
+  body.lang-fa .pw-hint,
+  body.lang-fa .form-footnote,
+  body.lang-fa .checkbox-row label,
   body.lang-fa .credit-line,
   body.lang-fa .add-details-link,
   body.lang-fa .steps-toggle,

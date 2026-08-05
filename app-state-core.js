@@ -19,8 +19,6 @@ let previousTab = 'today';
 let routinesPenaltyInfoOpen = false;
 let tasksPenaltyInfoOpen = false;
 let storageReady = false;
-let backupTapped = false;
-let restoreTapped = false;
 
 // Cloud-sync bookkeeping — deliberately kept OUT of `state` itself and its own separate
 // localStorage key. This is plumbing for the Firebase backup layer (app-firebase.js), not app

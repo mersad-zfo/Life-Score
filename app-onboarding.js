@@ -331,7 +331,6 @@ function obRenderStep1(content, footer){
 }
 
 function obRenderStep2(content, footer){
-  const isLoggedIn = state.profile && state.session.loggedIn;
   // "System" is no longer a selectable option (a fresh state still defaults theme to 'system'
   // internally) — resolve the same way applyTheme() does, so the correct button starts highlighted.
   const obThemeIsDark = state.settings.theme==='dark' || (state.settings.theme!=='light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -358,24 +357,7 @@ function obRenderStep2(content, footer){
       </div>
     </div>
 
-    <div class="settings-group ob-account-card">
-      <div class="settings-group-title">${tr('Account')}</div>
-      ${isLoggedIn ? `
-        <div class="account-card">
-          <div class="acc-name">${escapeHtml(state.profile.name)}</div>
-          <div class="acc-email">${escapeHtml(state.profile.email||'')}</div>
-          <div class="settings-btn-row">
-            <div class="toggle-row" style="cursor:pointer;" id="obRestoreBtn">
-              <div><div class="item-name">${tr('Restore')}</div></div>
-            </div>
-            <button class="settings-btn danger-text" id="obLogoutBtn">${tr('Log out')}</button>
-          </div>
-        </div>
-      ` : `
-        <div class="item-sub" style="margin-bottom:10px;">${tr('Log in to restore your data to this device.')}</div>
-        <button class="settings-btn" id="obLoginBtn">${state.profile ? tr('Log back in') : tr('Sign up / Log in')}</button>
-      `}
-    </div>
+    <div class="ob-account-card">${accountCardHtml('onboarding')}</div>
   `;
   content.querySelectorAll('[data-theme]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -391,20 +373,7 @@ function obRenderStep2(content, footer){
     saveState();
     renderOnboarding();
   });
-  if(isLoggedIn){
-    content.querySelector('#obRestoreBtn').addEventListener('click', ()=> restoreData());
-    content.querySelector('#obLogoutBtn').addEventListener('click', ()=>{
-      if(confirm(tr('Log out? Your profile stays saved on this device — you can log back in anytime. Your routines, tasks, and scores are unaffected either way.'))){
-        state.session.loggedIn = false;
-        saveState();
-        if(window.LifyarCloud) window.LifyarCloud.signOutCloud();
-        renderOnboarding();
-        showToast(tr('Logged out'));
-      }
-    });
-  } else {
-    content.querySelector('#obLoginBtn').addEventListener('click', openLoginModal);
-  }
+  wireAccountCard(content, 'onboarding');
   footer.innerHTML = `
     <button class="btn-secondary" id="obSkipBtn">${tr('Skip setup')}</button>
     <button class="btn-primary" id="obNextBtn">${tr('Continue')}</button>
