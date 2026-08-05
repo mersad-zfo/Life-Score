@@ -63,14 +63,21 @@ function obResetState(){
 // onboarding step instead of making a returning user re-pick routines/tasks they already have
 // (item 5), mirroring the existing file-based restore flow (see restoreData() in
 // app-render-settings.js).
-async function completeCloudSignIn(name, email, wasOnboarding){
+async function completeCloudSignIn(name, email, wasOnboarding, resumeStep){
   const pulled = await reconcileWithCloud();
   state.profile = { name, email };
   state.session.loggedIn = true;
   saveState();
-  if(pulled && wasOnboarding){
-    obRestoredViaOnboarding = true;
-    obStep = 5;
+  if(wasOnboarding){
+    // Resume wherever the person actually was (passed in by the caller) rather than wherever
+    // obStep happens to be right now — for the Google-redirect path in particular, the page has
+    // fully reloaded since they clicked, and initOnboarding() has already reset obStep back to 1
+    // by the time this async code runs.
+    if(typeof resumeStep === 'number') obStep = resumeStep;
+    if(pulled){
+      obRestoredViaOnboarding = true;
+      obStep = 5;
+    }
   }
   renderMain();
   showToast(pulled ? tr('Restored your data from the cloud') : trWelcome(name));
@@ -97,7 +104,7 @@ async function handlePendingGoogleRedirect(result){
   const user = cloud ? cloud.getUser() : null;
   const name = (pending && pending.name) || (user && user.displayName) || '';
   if(!name) return; // nothing usable to finish the sign-in with — user can just sign in again
-  await completeCloudSignIn(name, (user && user.email) || '', !!(pending && pending.wasOnboarding));
+  await completeCloudSignIn(name, (user && user.email) || '', !!(pending && pending.wasOnboarding), pending && pending.obStep);
 }
 
 function enterOnboarding(){

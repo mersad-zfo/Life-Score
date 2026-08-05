@@ -63,7 +63,13 @@ async function reconcileWithCloud(){
   await cloud.ready;
   const remote = await cloud.pullState();
   const localMeta = getSyncMeta();
-  if(remote && remote.state && remote.lastModified > localMeta.lastModified){
+  // A brand-new / still-mid-onboarding local session (no routines, tasks, or history yet) has
+  // nothing worth protecting — its lastModified only reflects trivial preference toggles (theme,
+  // language, etc.) made moments ago, which would otherwise look "newer" than a real returning
+  // user's cloud data and wrongly win a plain timestamp race. Prefer the cloud copy outright
+  // whenever local is genuinely empty like this, rather than only when it's provably older.
+  const localIsEmpty = (!state.routines || !state.routines.length) && (!state.tasks || !state.tasks.length) && (!state.log || !state.log.length);
+  if(remote && remote.state && (localIsEmpty || remote.lastModified > localMeta.lastModified)){
     state = remote.state;
     ensureStateShape();
     migrateRecurringTasksToRoutines();

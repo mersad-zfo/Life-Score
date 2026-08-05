@@ -294,7 +294,7 @@ function wireAuthModal(m, mode){
       // app-firebase.js) — this click handler's execution effectively ends at signInWithGoogle()
       // below. Picked back up by handlePendingGoogleRedirect() in app-onboarding.js, which falls
       // back to the Google account's own display name since there's no name field on this screen.
-      try{ localStorage.setItem(PENDING_GOOGLE_KEY, JSON.stringify({ wasOnboarding: onboardingActive })); }catch(e){ /* best effort */ }
+      try{ localStorage.setItem(PENDING_GOOGLE_KEY, JSON.stringify({ wasOnboarding: onboardingActive, obStep: onboardingActive ? obStep : undefined })); }catch(e){ /* best effort */ }
       const btn = m.querySelector('#oauthGoogle');
       btn.disabled = true;
       btn.innerHTML = `<span class="spinner"></span> ${tr('Connecting to Google…')}`;
@@ -350,7 +350,7 @@ function wireAuthModal(m, mode){
         return;
       }
       m.remove();
-      completeCloudSignIn(name, email, onboardingActive);
+      completeCloudSignIn(name, email, onboardingActive, onboardingActive ? obStep : undefined);
     });
   }
 
@@ -374,7 +374,7 @@ function wireAuthModal(m, mode){
       m.remove();
       const user = cloud.getUser();
       const name = (user && user.displayName) || (state.profile && state.profile.name) || email.split('@')[0];
-      completeCloudSignIn(name, email, onboardingActive);
+      completeCloudSignIn(name, email, onboardingActive, onboardingActive ? obStep : undefined);
     });
   }
 
