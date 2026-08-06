@@ -640,8 +640,12 @@ function openResetModal(){
     ]);
 
     const oldSettings = state.settings;
+    // Deliberately does NOT carry over `profile` — the person asked for a full reset, and
+    // "reset" should mean fully signed out too, not just data-empty-but-still-logged-in (which is
+    // also what ensureStateShape()'s `session` migration default would silently produce if a
+    // profile were kept here without an explicit session alongside it).
     state = {
-      routines: [], tasks: [], log: [], profile: state.profile,
+      routines: [], tasks: [], log: [], profile: null,
       settings: {
         theme: oldSettings.theme, sound: oldSettings.sound, language: oldSettings.language,
         nightOwlMode: oldSettings.nightOwlMode,
@@ -652,6 +656,9 @@ function openResetModal(){
     };
     ensureStateShape();
     await saveState();
+    // Also drop the real Firebase session (back to anonymous) — otherwise the next auto-sync
+    // would push this freshly-emptied state up and silently overwrite their real cloud backup.
+    if(window.LifyarCloud) window.LifyarCloud.signOutCloud();
     applyTheme();
     m.remove();
     enterOnboarding();

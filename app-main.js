@@ -165,11 +165,15 @@ document.getElementById('fab').addEventListener('click', ()=>{
   waitForLifyarCloud(5000).then(async (cloud)=>{
     if(!cloud) return;
     await cloud.ready;
-    // A pending Google redirect sign-in (see completeCloudSignIn in app-onboarding.js) takes
-    // priority over a plain boot-time check — it already does its own reconciliation.
-    const pendingGoogle = await cloud.redirectResult;
-    if(pendingGoogle && !pendingGoogle.notARedirect){
-      await handlePendingGoogleRedirect(pendingGoogle);
+    // Our own marker (set immediately before navigating to Google — see app-account.js) is a
+    // more reliable signal that this page load is a Google-redirect return than Firebase's own
+    // getRedirectResult(), which has not reliably flagged the return in testing here — see
+    // handlePendingGoogleRedirect() in app-onboarding.js for details. Trust either signal.
+    let hadPendingGoogle = false;
+    try{ hadPendingGoogle = !!localStorage.getItem(PENDING_GOOGLE_KEY); }catch(e){ /* best effort */ }
+    const redirectResult = await cloud.redirectResult;
+    if(hadPendingGoogle || (redirectResult && !redirectResult.notARedirect)){
+      await handlePendingGoogleRedirect();
       return;
     }
     const pulled = await reconcileWithCloud();

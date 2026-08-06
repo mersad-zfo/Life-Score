@@ -83,28 +83,52 @@ async function completeCloudSignIn(name, email, wasOnboarding, resumeStep){
   showToast(pulled ? tr('Restored your data from the cloud') : trWelcome(name));
 }
 
+// Waits (briefly) for the Firebase user to become a real, non-anonymous account — used right
+// after a Google redirect return, where `cloud.ready` can resolve just before the SDK finishes
+// upgrading the still-anonymous session to the linked Google account. Resolves with whatever
+// user we have once either the upgrade completes or the timeout is hit (best-effort either way,
+// never blocks longer than timeoutMs).
+function waitForRealUser(cloud, timeoutMs){
+  return new Promise(resolve=>{
+    const already = cloud.getUser();
+    if(already && !already.isAnonymous){ resolve(already); return; }
+    let settled = false;
+    cloud.onChange((u)=>{
+      if(settled) return;
+      if(u && !u.isAnonymous){ settled = true; resolve(u); }
+    });
+    setTimeout(()=>{ if(!settled){ settled = true; resolve(cloud.getUser()); } }, timeoutMs);
+  });
+}
+
 const PENDING_GOOGLE_KEY = 'lifyar_pending_google_signin';
 // Google sign-in now uses a full-page redirect (item 6), not a popup — the click that starts it
 // navigates away immediately, so there's no modal left to finish the job when the app reloads.
-// This picks that back up: the name typed just before redirecting (and whether onboarding was
-// active) was stashed in localStorage — see the Google button handler in app-render-settings.js —
-// and gets read back here once app-main.js's boot sequence confirms a Google sign-in just landed.
-async function handlePendingGoogleRedirect(result){
+// This picks that back up: whether onboarding was active (and which step) was stashed in
+// localStorage just before redirecting — see the Google button handler in app-account.js — and
+// gets read back here. Success is judged by the Firebase user actually being real and
+// non-anonymous now (see waitForRealUser above), NOT by Firebase's own getRedirectResult()
+// outcome — that call has not reliably flagged this page load as a redirect return in testing,
+// particularly for the linkWithRedirect path signInWithGoogle() uses to upgrade an existing
+// anonymous session (see app-firebase.js). App-main.js's boot sequence calls this whenever our
+// own pending-sign-in marker is present, regardless of what getRedirectResult() reports.
+async function handlePendingGoogleRedirect(){
   let pending = null;
   try{
     const raw = localStorage.getItem(PENDING_GOOGLE_KEY);
     if(raw) pending = JSON.parse(raw);
   }catch(e){ /* fall through */ }
   localStorage.removeItem(PENDING_GOOGLE_KEY);
-  if(!result.ok){
+  const cloud = window.LifyarCloud;
+  if(!cloud){ showToast(tr('Something went wrong — try again')); return; }
+  const user = await waitForRealUser(cloud, 4000);
+  if(!user || user.isAnonymous){
     showToast(tr('Something went wrong — try again'));
     return;
   }
-  const cloud = window.LifyarCloud;
-  const user = cloud ? cloud.getUser() : null;
-  const name = (pending && pending.name) || (user && user.displayName) || '';
+  const name = (pending && pending.name) || user.displayName || '';
   if(!name) return; // nothing usable to finish the sign-in with — user can just sign in again
-  await completeCloudSignIn(name, (user && user.email) || '', !!(pending && pending.wasOnboarding), pending && pending.obStep);
+  await completeCloudSignIn(name, user.email || '', !!(pending && pending.wasOnboarding), pending && pending.obStep);
 }
 
 function enterOnboarding(){
