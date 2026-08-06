@@ -119,14 +119,17 @@ async function handlePendingGoogleRedirect(){
     if(raw) pending = JSON.parse(raw);
   }catch(e){ /* fall through */ }
   localStorage.removeItem(PENDING_GOOGLE_KEY);
+  console.log('[Lifyar debug] handlePendingGoogleRedirect: pending marker was', pending);
   const cloud = window.LifyarCloud;
   if(!cloud){ showToast(tr('Something went wrong — try again')); return; }
   const user = await waitForRealUser(cloud, 4000);
+  console.log('[Lifyar debug] handlePendingGoogleRedirect: resolved user =', user && { uid: user.uid, isAnonymous: user.isAnonymous, email: user.email, displayName: user.displayName });
   if(!user || user.isAnonymous){
     showToast(tr('Something went wrong — try again'));
     return;
   }
   const name = (pending && pending.name) || user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
+  console.log('[Lifyar debug] handlePendingGoogleRedirect: calling completeCloudSignIn with', { name, email: user.email, wasOnboarding: !!(pending && pending.wasOnboarding), resumeStep: pending && pending.obStep });
   await completeCloudSignIn(name, user.email || '', !!(pending && pending.wasOnboarding), pending && pending.obStep);
 }
 

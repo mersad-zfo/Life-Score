@@ -295,6 +295,7 @@ function wireAuthModal(m, mode){
       // below. Picked back up by handlePendingGoogleRedirect() in app-onboarding.js, which falls
       // back to the Google account's own display name since there's no name field on this screen.
       try{ localStorage.setItem(PENDING_GOOGLE_KEY, JSON.stringify({ wasOnboarding: onboardingActive, obStep: onboardingActive ? obStep : undefined })); }catch(e){ /* best effort */ }
+      console.log('[Lifyar debug] Google button clicked, pending marker set to:', localStorage.getItem(PENDING_GOOGLE_KEY));
       const btn = m.querySelector('#oauthGoogle');
       btn.disabled = true;
       btn.innerHTML = `<span class="spinner"></span> ${tr('Connecting to Google…')}`;

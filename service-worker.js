@@ -1,7 +1,7 @@
 importScripts('./app-notif-db.js');
 importScripts('./app-notif-shared.js');
 
-const CACHE_NAME = 'lifyar-v83';
+const CACHE_NAME = 'lifyar-v84';
 const ASSETS = [
   './',
   './index.html',

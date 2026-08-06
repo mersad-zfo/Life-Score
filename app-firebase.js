@@ -54,6 +54,7 @@ const changeListeners = [];
 
 onAuthStateChanged(auth, (user) => {
   currentUser = user;
+  console.log('[Lifyar debug] onAuthStateChanged fired:', user && { uid: user.uid, isAnonymous: user.isAnonymous, email: user.email, displayName: user.displayName });
   changeListeners.forEach((cb) => { try { cb(user); } catch (e) { console.error(e); } });
   if (user) {
     if (readyResolve) { readyResolve(user); readyResolve = null; }
@@ -117,8 +118,10 @@ function scheduleSync(getStateFn, getLastModifiedFn) {
 let redirectResultResolve;
 const redirectResult = new Promise((res) => { redirectResultResolve = res; });
 getRedirectResult(auth).then((result) => {
+  console.log('[Lifyar debug] getRedirectResult resolved with:', result);
   redirectResultResolve(result ? { ok: true } : { notARedirect: true });
 }).catch((e) => {
+  console.error('[Lifyar debug] getRedirectResult rejected:', e.code, e.message);
   if (e.code === 'auth/credential-already-in-use') {
     // Same account-collision case as below — this Google account already has a real Lifyar
     // account from before. Switch to it instead of failing.
@@ -137,6 +140,7 @@ getRedirectResult(auth).then((result) => {
 // and gets blocked by some browsers' popup blockers by default; a redirect works everywhere.
 async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
+  console.log('[Lifyar debug] signInWithGoogle: currentUser before redirect =', currentUser && { uid: currentUser.uid, isAnonymous: currentUser.isAnonymous });
   if (currentUser && currentUser.isAnonymous) {
     await linkWithRedirect(currentUser, provider);
   } else {

@@ -163,7 +163,7 @@ document.getElementById('fab').addEventListener('click', ()=>{
   // etc.), waitForLifyarCloud() just gives up after 5s and the app stays fully local-only, same
   // as it behaves today.
   waitForLifyarCloud(5000).then(async (cloud)=>{
-    if(!cloud) return;
+    if(!cloud){ console.log('[Lifyar debug] waitForLifyarCloud timed out — Firebase module never loaded'); return; }
     await cloud.ready;
     // Our own marker (set immediately before navigating to Google — see app-account.js) is a
     // more reliable signal that this page load is a Google-redirect return than Firebase's own
@@ -172,10 +172,17 @@ document.getElementById('fab').addEventListener('click', ()=>{
     let hadPendingGoogle = false;
     try{ hadPendingGoogle = !!localStorage.getItem(PENDING_GOOGLE_KEY); }catch(e){ /* best effort */ }
     const redirectResult = await cloud.redirectResult;
+    const user = cloud.getUser();
+    console.log('[Lifyar debug] boot cloud check:', {
+      hadPendingGoogle, redirectResult,
+      user: user && { uid: user.uid, isAnonymous: user.isAnonymous, email: user.email, displayName: user.displayName }
+    });
     if(hadPendingGoogle || (redirectResult && !redirectResult.notARedirect)){
+      console.log('[Lifyar debug] -> taking Google-redirect-finish path (handlePendingGoogleRedirect)');
       await handlePendingGoogleRedirect();
       return;
     }
+    console.log('[Lifyar debug] -> taking plain background-reconcile path (NOT treated as a Google sign-in return)');
     const pulled = await reconcileWithCloud();
     if(pulled){
       renderMain();
