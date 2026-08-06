@@ -126,8 +126,7 @@ async function handlePendingGoogleRedirect(){
     showToast(tr('Something went wrong — try again'));
     return;
   }
-  const name = (pending && pending.name) || user.displayName || '';
-  if(!name) return; // nothing usable to finish the sign-in with — user can just sign in again
+  const name = (pending && pending.name) || user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
   await completeCloudSignIn(name, user.email || '', !!(pending && pending.wasOnboarding), pending && pending.obStep);
 }
 
