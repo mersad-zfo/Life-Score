@@ -333,6 +333,11 @@ const LANG_DICT = {
     'No internet connection — try again': 'اتصال اینترنت برقرار نیست — دوباره تلاش کنید',
     'Something went wrong — try again': 'مشکلی پیش آمد — دوباره تلاش کنید',
     'Enter your name': 'نام خود را وارد کنید',
+    'Connect your Google account': 'اتصال حساب گوگل شما',
+    'An account with this email already exists. Enter its password to connect your Google account to it — after that, either one signs you in.':
+      'حسابی با این ایمیل از قبل وجود دارد. رمز عبور آن را وارد کنید تا حساب گوگل شما به آن متصل شود — پس از آن، هر کدام برای ورود کافی است.',
+    'Connect account': 'اتصال حساب',
+    'Connecting…': 'در حال اتصال…',
     'Enter your password': 'رمز عبور خود را وارد کنید',
   }
 };

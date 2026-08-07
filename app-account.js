@@ -163,7 +163,7 @@ function openAuthModal(mode = 'choose'){
   return m;
 }
 
-function authModalBody(mode){
+function authModalBody(mode, ctx){
   if(mode === 'choose'){
     return `
       <button class="modal-close-x" type="button" data-close>✕</button>
@@ -266,12 +266,33 @@ function authModalBody(mode){
       <button class="btn-primary" type="button" data-close style="width:100%;">${tr('Done')}</button>
     `;
   }
+  if(mode === 'link-google'){
+    const email = (ctx && ctx.email) || '';
+    return `
+      <button class="modal-close-x" type="button" data-close>✕</button>
+      <h3>${tr('Connect your Google account')}</h3>
+      <p class="modal-sub">${tr('An account with this email already exists. Enter its password to connect your Google account to it — after that, either one signs you in.')}</p>
+      <div class="field">
+        <label>${tr('Email')}</label>
+        <input id="fLinkEmail" type="email" placeholder="you@example.com" autocomplete="email" value="${escapeHtml(email)}">
+      </div>
+      <div class="field">
+        <label>${tr('Password')}</label>
+        <div class="field-pw-wrap">
+          <input id="fLinkPassword" type="password" placeholder="${tr('Your password')}" autocomplete="current-password">
+          <button type="button" class="pw-toggle" data-pwtoggle="fLinkPassword">${ICON_EYE}</button>
+        </div>
+        <div class="field-err" id="errLink">${tr('Incorrect password')}</div>
+      </div>
+      <button class="btn-primary" type="button" id="btnLinkGoogle" style="width:100%;">${tr('Connect account')}</button>
+    `;
+  }
 }
 
 function wireAuthModal(m, mode){
   const cloud = window.LifyarCloud;
-  const swapTo = (next)=>{
-    m.querySelector('.modal-inner').innerHTML = authModalBody(next);
+  const swapTo = (next, ctx)=>{
+    m.querySelector('.modal-inner').innerHTML = authModalBody(next, ctx);
     wireAuthModal(m, next);
   };
 
@@ -297,6 +318,13 @@ function wireAuthModal(m, mode){
       if(!result.ok){
         btn.disabled = false;
         btn.innerHTML = `${ICON_GOOGLE} ${tr('Continue with Google')}`;
+        if(result.needsLink){
+          // Stash the pending Google credential on the modal itself (not in the HTML, obviously)
+          // before swapping steps, so the link-google step below can still reach it.
+          m._pendingGoogleCredential = result.credential;
+          swapTo('link-google', { email: result.email || '' });
+          return;
+        }
         if(result.code !== 'auth/popup-closed-by-user' && result.code !== 'auth/cancelled-popup-request'){
           showToast(cloudErrorMessage(result.code));
         }
@@ -387,6 +415,30 @@ function wireAuthModal(m, mode){
 
   if(mode === 'forgot'){
     m.querySelector('#btnSendReset').addEventListener('click', ()=> showToast(tr("Password reset isn't connected yet")));
+  }
+
+  if(mode === 'link-google'){
+    m.querySelector('#btnLinkGoogle').addEventListener('click', async ()=>{
+      const email = m.querySelector('#fLinkEmail').value.trim();
+      const pw = m.querySelector('#fLinkPassword').value;
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if(!emailPattern.test(email)){ showToast(tr("That email doesn't look right")); return; }
+      if(!pw){ showToast(tr('Enter your password')); return; }
+      if(!cloud || !m._pendingGoogleCredential){ showToast(tr('Cloud backup is unavailable right now')); return; }
+      const btn = m.querySelector('#btnLinkGoogle');
+      btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Connecting…')}`;
+      const result = await cloud.linkGoogleWithPassword(email, pw, m._pendingGoogleCredential);
+      if(!result.ok){
+        btn.disabled = false; btn.textContent = tr('Connect account');
+        m.querySelector('#errLink').classList.add('show');
+        showToast(cloudErrorMessage(result.code));
+        return;
+      }
+      const user = cloud.getUser();
+      const name = user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
+      m.remove();
+      completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
+    });
   }
 }
 

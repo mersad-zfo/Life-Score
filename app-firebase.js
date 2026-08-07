@@ -142,6 +142,31 @@ async function signInWithGoogle() {
         return { ok: false, code: e2.code, error: e2.message };
       }
     }
+    if (e.code === 'auth/email-already-in-use' || e.code === 'auth/account-exists-with-different-credential') {
+      // This Google account's email already belongs to a real password-based Lifyar account —
+      // Firebase won't silently merge the two. Hand back what's needed to let the person link
+      // them instead of just failing: the pending Google credential (only usable once, briefly,
+      // and only for this) and the email if Firebase's error included it — it may not, depending
+      // on this project's email-enumeration-protection setting, so the caller should be ready to
+      // ask the person to type it again. See linkGoogleWithPassword below.
+      const cred = GoogleAuthProvider.credentialFromError(e);
+      const email = e.customData && e.customData.email;
+      return { ok: false, code: e.code, needsLink: true, email, credential: cred };
+    }
+    return { ok: false, code: e.code, error: e.message };
+  }
+}
+
+// Completes the link started above: proves the person owns the existing password account (by
+// actually signing into it), then attaches the pending Google credential to that SAME account —
+// after this, either method logs into the same uid, so cloud data stays unified rather than
+// split across two accounts.
+async function linkGoogleWithPassword(email, password, credential) {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    await linkWithCredential(result.user, credential);
+    return { ok: true };
+  } catch (e) {
     return { ok: false, code: e.code, error: e.message };
   }
 }
@@ -194,6 +219,7 @@ window.LifyarCloud = {
   isAnonymous: () => !!(currentUser && currentUser.isAnonymous),
   onChange: (cb) => changeListeners.push(cb),
   signInWithGoogle,
+  linkGoogleWithPassword,
   signUpWithEmail,
   logInWithEmail,
   signOutCloud,
