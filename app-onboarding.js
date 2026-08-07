@@ -56,23 +56,20 @@ function obResetState(){
   obLastRenderedStep = null;
 }
 
-// Finishes up ANY successful cloud sign-in (email/password, or Google once it returns from its
-// redirect — see handlePendingGoogleRedirect below) the same way: pull down cloud data right now
-// rather than waiting for the next app launch (item 4), save the display name, and — if we were
-// still in onboarding and real cloud data actually came down — skip straight to the final
+// Finishes up ANY successful cloud sign-in (email/password or Google — both now resolve directly
+// in the click handler that started them, see app-account.js) the same way: pull down cloud data
+// right now rather than waiting for the next app launch (item 4), save the display name, and — if
+// we were still in onboarding and real cloud data actually came down — skip straight to the final
 // onboarding step instead of making a returning user re-pick routines/tasks they already have
 // (item 5), mirroring the existing file-based restore flow (see restoreData() in
-// app-render-settings.js).
+// app-render-settings.js). `resumeStep` lets a caller pin which onboarding step to land back on;
+// only really needed if a caller's own step could have drifted by the time this resolves.
 async function completeCloudSignIn(name, email, wasOnboarding, resumeStep){
   const pulled = await reconcileWithCloud();
   state.profile = { name, email };
   state.session.loggedIn = true;
   saveState();
   if(wasOnboarding){
-    // Resume wherever the person actually was (passed in by the caller) rather than wherever
-    // obStep happens to be right now — for the Google-redirect path in particular, the page has
-    // fully reloaded since they clicked, and initOnboarding() has already reset obStep back to 1
-    // by the time this async code runs.
     if(typeof resumeStep === 'number') obStep = resumeStep;
     if(pulled){
       obRestoredViaOnboarding = true;
@@ -81,56 +78,6 @@ async function completeCloudSignIn(name, email, wasOnboarding, resumeStep){
   }
   renderMain();
   showToast(pulled ? tr('Restored your data from the cloud') : trWelcome(name));
-}
-
-// Waits (briefly) for the Firebase user to become a real, non-anonymous account — used right
-// after a Google redirect return, where `cloud.ready` can resolve just before the SDK finishes
-// upgrading the still-anonymous session to the linked Google account. Resolves with whatever
-// user we have once either the upgrade completes or the timeout is hit (best-effort either way,
-// never blocks longer than timeoutMs).
-function waitForRealUser(cloud, timeoutMs){
-  return new Promise(resolve=>{
-    const already = cloud.getUser();
-    if(already && !already.isAnonymous){ resolve(already); return; }
-    let settled = false;
-    cloud.onChange((u)=>{
-      if(settled) return;
-      if(u && !u.isAnonymous){ settled = true; resolve(u); }
-    });
-    setTimeout(()=>{ if(!settled){ settled = true; resolve(cloud.getUser()); } }, timeoutMs);
-  });
-}
-
-const PENDING_GOOGLE_KEY = 'lifyar_pending_google_signin';
-// Google sign-in now uses a full-page redirect (item 6), not a popup — the click that starts it
-// navigates away immediately, so there's no modal left to finish the job when the app reloads.
-// This picks that back up: whether onboarding was active (and which step) was stashed in
-// localStorage just before redirecting — see the Google button handler in app-account.js — and
-// gets read back here. Success is judged by the Firebase user actually being real and
-// non-anonymous now (see waitForRealUser above), NOT by Firebase's own getRedirectResult()
-// outcome — that call has not reliably flagged this page load as a redirect return in testing,
-// particularly for the linkWithRedirect path signInWithGoogle() uses to upgrade an existing
-// anonymous session (see app-firebase.js). App-main.js's boot sequence calls this whenever our
-// own pending-sign-in marker is present, regardless of what getRedirectResult() reports.
-async function handlePendingGoogleRedirect(){
-  let pending = null;
-  try{
-    const raw = localStorage.getItem(PENDING_GOOGLE_KEY);
-    if(raw) pending = JSON.parse(raw);
-  }catch(e){ /* fall through */ }
-  localStorage.removeItem(PENDING_GOOGLE_KEY);
-  console.log('[Lifyar debug] handlePendingGoogleRedirect: pending marker was', pending);
-  const cloud = window.LifyarCloud;
-  if(!cloud){ showToast(tr('Something went wrong — try again')); return; }
-  const user = await waitForRealUser(cloud, 4000);
-  console.log('[Lifyar debug] handlePendingGoogleRedirect: resolved user =', user && { uid: user.uid, isAnonymous: user.isAnonymous, email: user.email, displayName: user.displayName });
-  if(!user || user.isAnonymous){
-    showToast(tr('Something went wrong — try again'));
-    return;
-  }
-  const name = (pending && pending.name) || user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
-  console.log('[Lifyar debug] handlePendingGoogleRedirect: calling completeCloudSignIn with', { name, email: user.email, wasOnboarding: !!(pending && pending.wasOnboarding), resumeStep: pending && pending.obStep });
-  await completeCloudSignIn(name, user.email || '', !!(pending && pending.wasOnboarding), pending && pending.obStep);
 }
 
 function enterOnboarding(){

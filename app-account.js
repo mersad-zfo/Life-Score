@@ -288,18 +288,24 @@ function wireAuthModal(m, mode){
   });
 
   if(mode === 'choose'){
-    m.querySelector('#oauthGoogle').addEventListener('click', ()=>{
+    m.querySelector('#oauthGoogle').addEventListener('click', async ()=>{
       if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
-      // Google sign-in navigates the whole page away and back (a redirect, not a popup — see
-      // app-firebase.js) — this click handler's execution effectively ends at signInWithGoogle()
-      // below. Picked back up by handlePendingGoogleRedirect() in app-onboarding.js, which falls
-      // back to the Google account's own display name since there's no name field on this screen.
-      try{ localStorage.setItem(PENDING_GOOGLE_KEY, JSON.stringify({ wasOnboarding: onboardingActive, obStep: onboardingActive ? obStep : undefined })); }catch(e){ /* best effort */ }
-      console.log('[Lifyar debug] Google button clicked, pending marker set to:', localStorage.getItem(PENDING_GOOGLE_KEY));
       const btn = m.querySelector('#oauthGoogle');
       btn.disabled = true;
       btn.innerHTML = `<span class="spinner"></span> ${tr('Connecting to Google…')}`;
-      cloud.signInWithGoogle();
+      const result = await cloud.signInWithGoogle();
+      if(!result.ok){
+        btn.disabled = false;
+        btn.innerHTML = `${ICON_GOOGLE} ${tr('Continue with Google')}`;
+        if(result.code !== 'auth/popup-closed-by-user' && result.code !== 'auth/cancelled-popup-request'){
+          showToast(cloudErrorMessage(result.code));
+        }
+        return;
+      }
+      const user = cloud.getUser();
+      const name = user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
+      m.remove();
+      completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
     });
     m.querySelector('#oauthApple').addEventListener('click', ()=> showToast(tr('Apple sign-in is coming soon')));
     m.querySelector('#goEmail').addEventListener('click', ()=> swapTo('email-entry'));
