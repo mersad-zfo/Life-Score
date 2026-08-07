@@ -239,8 +239,8 @@ function authModalBody(mode, ctx){
           <button type="button" class="pw-toggle" data-pwtoggle="fPassword2">${ICON_EYE}</button>
         </div>
         <div class="field-err" id="errLogin">
-          ${tr("That email and password don't match.")}
-          <button type="button" class="link-btn" id="tryGoogleLink" style="margin-inline-start:6px;">${tr('Try Google')}</button>
+          <span id="errLoginText"></span>
+          <button type="button" class="link-btn" id="tryGoogleLink" style="margin-inline-start:6px;display:none;">${tr('Try Google')}</button>
         </div>
       </div>
       <p style="text-align:right;margin:-6px 0 14px;"><button class="link-btn" type="button" data-mode="forgot">${tr('Forgot password?')}</button></p>
@@ -360,9 +360,9 @@ function wireAuthModal(m, mode){
         return;
       }
       // We can't check (without new backend work) whether this email already has an account, so
-      // default to signup — the "Already have an account? Log in" link on that screen covers it.
-      swapTo('signup');
-      setTimeout(()=>{ const f = m.querySelector('#fEmail2'); if(f) f.value = email; }, 0);
+      // default to the login screen — the "New here? Create an account" link there covers signup.
+      swapTo('login');
+      setTimeout(()=>{ const f = m.querySelector('#fEmail3'); if(f) f.value = email; }, 0);
     });
   }
 
@@ -413,6 +413,18 @@ function wireAuthModal(m, mode){
       const result = await cloud.logInWithEmail(email, pw);
       if(!result.ok){
         btn.disabled = false; btn.textContent = tr('Log in');
+        const errText = m.querySelector('#errLoginText');
+        const tryGoogleBtn = m.querySelector('#tryGoogleLink');
+        if(result.ambiguousProvider){
+          errText.textContent = tr("That email and password don't match.");
+          tryGoogleBtn.style.display = '';
+        } else {
+          // A non-ambiguous failure (e.g. no account at all under that email) — showing "Try
+          // Google" here would be misleading, since Google would just create a brand new account
+          // rather than reach an existing one.
+          errText.textContent = cloudErrorMessage(result.code);
+          tryGoogleBtn.style.display = 'none';
+        }
         m.querySelector('#errLogin').classList.add('show');
         showToast(result.ambiguousProvider ? tr("That didn't match. If you originally signed up with Google, try Continue with Google instead.") : cloudErrorMessage(result.code));
         return;
