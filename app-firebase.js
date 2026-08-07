@@ -191,13 +191,19 @@ async function signUpWithEmail(email, password) {
     return { ok: true };
   } catch (e) {
     if (e.code === 'auth/email-already-in-use') {
-      // Same idea as the Google collision above — sign into the existing account rather than
-      // failing, and let the normal reconciliation logic sort out which data wins.
+      // Same idea as the Google collision above — try signing into the existing account with
+      // what they just typed, in case they actually meant to log in. If THAT also fails, we
+      // genuinely can't tell why (by design — Firebase deliberately doesn't expose which
+      // providers an email uses, to prevent account enumeration): it could be a wrong password on
+      // a real password account, or it could be a Google-only account that never had a password
+      // set at all. `ambiguousProvider` flags this so the caller can show a message covering both
+      // possibilities rather than a flat "wrong password", which would be actively misleading in
+      // the Google-only case.
       try {
         await signInWithEmailAndPassword(auth, email, password);
         return { ok: true, switchedAccount: true };
       } catch (e2) {
-        return { ok: false, code: e2.code, error: e2.message };
+        return { ok: false, code: e2.code, error: e2.message, ambiguousProvider: true };
       }
     }
     return { ok: false, code: e.code, error: e.message };
@@ -207,6 +213,28 @@ async function signUpWithEmail(email, password) {
 async function logInWithEmail(email, password) {
   try {
     await signInWithEmailAndPassword(auth, email, password);
+    return { ok: true };
+  } catch (e) {
+    // Same ambiguity as above: a "credentials didn't match" family of errors can mean a wrong
+    // password OR an account that has no password at all (Google-only) — Firebase won't say
+    // which. auth/user-not-found (no account exists here at all) is NOT ambiguous, if we even see
+    // it distinctly — some projects' enumeration-protection settings fold it into
+    // invalid-credential too, in which case we can't do better than the ambiguous message anyway.
+    const ambiguousProvider = e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password';
+    return { ok: false, code: e.code, error: e.message, ambiguousProvider };
+  }
+}
+
+// Attaches a password to whichever account is currently signed in (e.g. a Google-only account
+// that has never had one) — the other half of the linking story: signInWithGoogle handles
+// Google-account-collides-with-existing-password-account, this handles the reverse, letting a
+// Google-only account gain a password afterward so either method works from then on. Must be
+// called while genuinely signed in as that real account, not anonymous.
+async function addPasswordToAccount(email, password) {
+  if (!currentUser || currentUser.isAnonymous) return { ok: false, code: 'no-user' };
+  try {
+    const cred = EmailAuthProvider.credential(email, password);
+    await linkWithCredential(currentUser, cred);
     return { ok: true };
   } catch (e) {
     return { ok: false, code: e.code, error: e.message };
@@ -222,6 +250,7 @@ window.LifyarCloud = {
   linkGoogleWithPassword,
   signUpWithEmail,
   logInWithEmail,
+  addPasswordToAccount,
   signOutCloud,
   pullState,
   pushState,

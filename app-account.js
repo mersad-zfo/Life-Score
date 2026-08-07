@@ -381,7 +381,7 @@ function wireAuthModal(m, mode){
       const result = await cloud.signUpWithEmail(email, pw);
       if(!result.ok){
         btn.disabled = false; btn.textContent = tr('Create account');
-        showToast(cloudErrorMessage(result.code));
+        showToast(result.ambiguousProvider ? tr("That didn't match. If you originally signed up with Google, try Continue with Google instead.") : cloudErrorMessage(result.code));
         return;
       }
       m.remove();
@@ -403,7 +403,7 @@ function wireAuthModal(m, mode){
       if(!result.ok){
         btn.disabled = false; btn.textContent = tr('Log in');
         m.querySelector('#errLogin').classList.add('show');
-        showToast(cloudErrorMessage(result.code));
+        showToast(result.ambiguousProvider ? tr("That didn't match. If you originally signed up with Google, try Continue with Google instead.") : cloudErrorMessage(result.code));
         return;
       }
       m.remove();
@@ -490,6 +490,7 @@ function openManageModal(){
 }
 
 function openChangePasswordModal(isAdd){
+  const profile = getAccountProfile();
   const html = `
     <button class="modal-close-x" type="button" data-close>✕</button>
     <h3>${isAdd ? tr('Add a password') : tr('Change password')}</h3>
@@ -498,7 +499,11 @@ function openChangePasswordModal(isAdd){
     <div class="field">
       <label>${tr('Current password')}</label>
       <input type="password" placeholder="${tr('Current password')}">
-    </div>` : ''}
+    </div>` : `
+    <div class="field">
+      <label>${tr('Email')}</label>
+      <input type="email" value="${escapeHtml(profile ? profile.email : '')}" disabled>
+    </div>`}
     <div class="field">
       <label>${tr('New password')}</label>
       <div class="field-pw-wrap">
@@ -518,8 +523,28 @@ function openChangePasswordModal(isAdd){
       btn.innerHTML = isPw ? ICON_EYE_OFF : ICON_EYE;
     });
   });
-  m.querySelector('#btnSavePw').addEventListener('click', ()=>{
+  m.querySelector('#btnSavePw').addEventListener('click', async ()=>{
+    const pw = m.querySelector('#fNewPw').value;
+    if(pw.length < 6){ showToast(tr('Password should be at least 6 characters')); return; }
+    if(!isAdd){
+      // Changing an EXISTING password needs the person to re-prove who they are first
+      // (Firebase requires a recent sign-in for this, which the current-password field above
+      // would drive) — that reauthentication flow isn't wired up yet.
+      m.remove();
+      showToast(tr("Changing your password isn't connected yet"));
+      return;
+    }
+    const cloud = window.LifyarCloud;
+    if(!cloud || !profile){ showToast(tr('Cloud backup is unavailable right now')); return; }
+    const btn = m.querySelector('#btnSavePw');
+    btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Connecting…')}`;
+    const result = await cloud.addPasswordToAccount(profile.email, pw);
+    if(!result.ok){
+      btn.disabled = false; btn.textContent = tr('Add password');
+      showToast(cloudErrorMessage(result.code));
+      return;
+    }
     m.remove();
-    showToast(isAdd ? tr("Adding a password isn't connected yet") : tr("Changing your password isn't connected yet"));
+    showToast(tr('Password added — you can now log in with email too'));
   });
 }
