@@ -338,6 +338,7 @@ const LANG_DICT = {
       'حسابی با این ایمیل از قبل وجود دارد. رمز عبور آن را وارد کنید تا حساب گوگل شما به آن متصل شود — پس از آن، هر کدام برای ورود کافی است.',
     'Connect account': 'اتصال حساب',
     'Connecting…': 'در حال اتصال…',
+    'Try Google': 'امتحان با گوگل',
     "That didn't match. If you originally signed up with Google, try Continue with Google instead.":
       'مطابقت نداشت. اگر ابتدا با گوگل ثبت‌نام کرده‌اید، به‌جای آن «ادامه با گوگل» را امتحان کنید.',
     'Password added — you can now log in with email too': 'رمز عبور اضافه شد — اکنون می‌توانید با ایمیل هم وارد شوید',

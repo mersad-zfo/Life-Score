@@ -238,7 +238,10 @@ function authModalBody(mode, ctx){
           <input id="fPassword2" type="password" placeholder="${tr('Your password')}" autocomplete="current-password">
           <button type="button" class="pw-toggle" data-pwtoggle="fPassword2">${ICON_EYE}</button>
         </div>
-        <div class="field-err" id="errLogin">${tr("That email and password don't match.")}</div>
+        <div class="field-err" id="errLogin">
+          ${tr("That email and password don't match.")}
+          <button type="button" class="link-btn" id="tryGoogleLink" style="margin-inline-start:6px;">${tr('Try Google')}</button>
+        </div>
       </div>
       <p style="text-align:right;margin:-6px 0 14px;"><button class="link-btn" type="button" data-mode="forgot">${tr('Forgot password?')}</button></p>
       <button class="btn-primary" type="button" id="btnLogin" style="width:100%;">${tr('Log in')}</button>
@@ -308,32 +311,40 @@ function wireAuthModal(m, mode){
     });
   });
 
-  if(mode === 'choose'){
-    m.querySelector('#oauthGoogle').addEventListener('click', async ()=>{
-      if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
-      const btn = m.querySelector('#oauthGoogle');
-      btn.disabled = true;
-      btn.innerHTML = `<span class="spinner"></span> ${tr('Connecting to Google…')}`;
-      const result = await cloud.signInWithGoogle();
-      if(!result.ok){
-        btn.disabled = false;
-        btn.innerHTML = `${ICON_GOOGLE} ${tr('Continue with Google')}`;
-        if(result.needsLink){
-          // Stash the pending Google credential on the modal itself (not in the HTML, obviously)
-          // before swapping steps, so the link-google step below can still reach it.
-          m._pendingGoogleCredential = result.credential;
-          swapTo('link-google', { email: result.email || '' });
-          return;
-        }
-        if(result.code !== 'auth/popup-closed-by-user' && result.code !== 'auth/cancelled-popup-request'){
-          showToast(cloudErrorMessage(result.code));
-        }
+  // Shared by the "Continue with Google" button on the choose screen and the "Try Google" link
+  // shown after a failed email login (in case that email actually belongs to a Google-only
+  // account with no password set) — same outcome either way, just a different trigger button and
+  // idle label to restore on failure.
+  const runGoogleSignIn = async (btn, idleLabel)=>{
+    if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
+    const originalDisabled = btn.disabled;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> ${tr('Connecting to Google…')}`;
+    const result = await cloud.signInWithGoogle();
+    if(!result.ok){
+      btn.disabled = originalDisabled;
+      btn.innerHTML = idleLabel;
+      if(result.needsLink){
+        // Stash the pending Google credential on the modal itself (not in the HTML, obviously)
+        // before swapping steps, so the link-google step below can still reach it.
+        m._pendingGoogleCredential = result.credential;
+        swapTo('link-google', { email: result.email || '' });
         return;
       }
-      const user = cloud.getUser();
-      const name = user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
-      m.remove();
-      completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
+      if(result.code !== 'auth/popup-closed-by-user' && result.code !== 'auth/cancelled-popup-request'){
+        showToast(cloudErrorMessage(result.code));
+      }
+      return;
+    }
+    const user = cloud.getUser();
+    const name = user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
+    m.remove();
+    completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
+  };
+
+  if(mode === 'choose'){
+    m.querySelector('#oauthGoogle').addEventListener('click', ()=>{
+      runGoogleSignIn(m.querySelector('#oauthGoogle'), `${ICON_GOOGLE} ${tr('Continue with Google')}`);
     });
     m.querySelector('#oauthApple').addEventListener('click', ()=> showToast(tr('Apple sign-in is coming soon')));
     m.querySelector('#goEmail').addEventListener('click', ()=> swapTo('email-entry'));
@@ -410,6 +421,9 @@ function wireAuthModal(m, mode){
       const user = cloud.getUser();
       const name = (user && user.displayName) || (state.profile && state.profile.name) || email.split('@')[0];
       completeCloudSignIn(name, email, onboardingActive, onboardingActive ? obStep : undefined);
+    });
+    m.querySelector('#tryGoogleLink').addEventListener('click', ()=>{
+      runGoogleSignIn(m.querySelector('#tryGoogleLink'), tr('Try Google'));
     });
   }
 
