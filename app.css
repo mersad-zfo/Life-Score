@@ -1060,6 +1060,10 @@
     border-radius:16px;
     padding:18px;
   }
+  .account-card.pending{
+    opacity:.72;
+    border-style:dashed;
+  }
   .acc-head{ display:flex; align-items:center; gap:13px; }
   .acc-avatar{
     width:52px; height:52px; border-radius:50%; flex-shrink:0;

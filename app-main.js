@@ -165,6 +165,16 @@ document.getElementById('fab').addEventListener('click', ()=>{
   waitForLifyarCloud(5000).then(async (cloud)=>{
     if(!cloud) return;
     await cloud.ready;
+    // If they verified their email on another device/tab since we last saw them, this finishes
+    // the sign-in right now (and does its own reconcile + render + toast) — see
+    // tryCompletePendingVerification in app-account.js.
+    const justCompleted = await tryCompletePendingVerification(onboardingActive ? 'onboarding' : 'settings', true);
+    if(justCompleted) return;
+    const user = cloud.getUser();
+    // Anonymous sessions and not-yet-verified accounts are never backed up (see pushState/
+    // pullState in app-firebase.js) — skip the read entirely rather than asking Firestore for a
+    // document that, by that same policy, was never written for them.
+    if(!user || user.isAnonymous || !user.emailVerified) return;
     const pulled = await reconcileWithCloud();
     if(pulled){
       renderMain();

@@ -53,12 +53,102 @@ function openAccountModal(innerHtml){
   return openModal(`<div class="modal-inner">${innerHtml}</div>`);
 }
 
+const PENDING_EMAIL_VERIFY_KEY = 'lifyar_pending_email_verify';
+function stashPendingEmailVerify(name, email){
+  try{ localStorage.setItem(PENDING_EMAIL_VERIFY_KEY, JSON.stringify({ name, email })); }catch(e){ /* best effort */ }
+}
+function readPendingEmailVerify(){
+  try{
+    const raw = localStorage.getItem(PENDING_EMAIL_VERIFY_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function clearPendingEmailVerify(){
+  try{ localStorage.removeItem(PENDING_EMAIL_VERIFY_KEY); }catch(e){ /* best effort */ }
+}
+
+// A real (non-anonymous) Firebase user who hasn't clicked their verification link yet counts as
+// NOT signed in, by design — see the note on pushState/pullState in app-firebase.js. This is what
+// lets accountCardHtml (and the boot-time check in app-main.js) recognize "there's a signup
+// waiting to be finished" without needing its own separate bookkeeping — it's entirely derived
+// from Firebase's own user object plus whether we've actually completed sign-in locally yet.
+function getPendingVerificationEmail(){
+  if(state.profile && state.session.loggedIn) return null;
+  const cloud = window.LifyarCloud;
+  const user = cloud ? cloud.getUser() : null;
+  if(user && !user.isAnonymous && !user.emailVerified) return user.email;
+  return null;
+}
+
+// Checks (against Firebase's servers, not a cached flag) whether the pending sign-up has been
+// verified yet, and if so, finishes it — same completeCloudSignIn every other sign-in path uses.
+// `silent` suppresses the "not verified yet" toast for automatic checks (window focus, app boot)
+// where nagging the person for just switching tabs would be annoying; the manual "I've verified —
+// continue" button passes silent=false so a too-early click gets clear feedback.
+// Returns true if sign-in was actually completed just now.
+async function tryCompletePendingVerification(context, silent){
+  const cloud = window.LifyarCloud;
+  if(!cloud) return false;
+  const user = cloud.getUser();
+  if(!user || user.isAnonymous || user.emailVerified) return false; // nothing pending
+  const result = await cloud.checkEmailVerified();
+  if(!result.verified){
+    if(!silent) showToast(tr("Not verified yet — check your inbox and tap the link."));
+    return false;
+  }
+  const pending = readPendingEmailVerify();
+  const name = (pending && pending.name) || user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
+  const email = (pending && pending.email) || user.email || '';
+  clearPendingEmailVerify();
+  await completeCloudSignIn(name, email, onboardingActive, onboardingActive ? obStep : undefined);
+  return true;
+}
+
+// Best-effort auto-detection: if they switch back to this tab after checking their email,
+// silently check whether they've verified yet and finish signing them in if so. The manual
+// "I've verified — continue" button and the boot-time check in app-main.js are the reliable
+// fallbacks — visibility events aren't guaranteed on every platform.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible'){
+    tryCompletePendingVerification(onboardingActive ? 'onboarding' : 'settings', true);
+  }
+});
+
 /* ============================================================
    ACCOUNT CARD — shared by Settings and Onboarding
 ============================================================ */
 function accountCardHtml(context){
   const profile = getAccountProfile();
   const isOnboarding = context === 'onboarding';
+  const pendingEmail = !profile ? getPendingVerificationEmail() : null;
+
+  if(pendingEmail){
+    return `
+      <div class="settings-group">
+        <div class="settings-group-title">${tr('Account')}</div>
+        <div class="account-card pending">
+          <div class="acc-head">
+            <div class="acc-avatar" style="background:var(--line);color:var(--ink-soft);">✉</div>
+            <div style="flex:1;min-width:0;">
+              <div class="acc-name-row">
+                <span class="acc-name">${tr('Verify your email')}</span>
+                <span class="verify-badge pending">${tr('Unverified')}</span>
+              </div>
+              <div class="acc-email">${escapeHtml(pendingEmail)}</div>
+            </div>
+          </div>
+          <div class="verify-banner">
+            <span>${tr('Check your inbox to finish signing up.')}</span>
+            <button type="button" id="btnResendPending-${context}">${tr('Resend')}</button>
+          </div>
+          <div class="settings-btn-row">
+            <button class="settings-btn" id="btnCheckVerified-${context}">${tr("I've verified — continue")}</button>
+            <button class="settings-btn danger-text" id="btnCancelPending-${context}">${tr('Use a different email')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
   if(!profile){
     return `
@@ -142,7 +232,39 @@ function wireAccountCard(root, context){
   });
 
   const resendBtn = root.querySelector(`#btnResendVerify-${context}`);
-  if(resendBtn) resendBtn.addEventListener('click', ()=> showToast(tr("Email verification isn't connected yet")));
+  if(resendBtn) resendBtn.addEventListener('click', async ()=>{
+    const cloud = window.LifyarCloud;
+    if(!cloud) return;
+    resendBtn.disabled = true;
+    const result = await cloud.sendVerificationEmail();
+    resendBtn.disabled = false;
+    showToast(result.ok ? tr('Verification email sent') : cloudErrorMessage(result.code));
+  });
+
+  const resendPendingBtn = root.querySelector(`#btnResendPending-${context}`);
+  if(resendPendingBtn) resendPendingBtn.addEventListener('click', async ()=>{
+    const cloud = window.LifyarCloud;
+    if(!cloud) return;
+    resendPendingBtn.disabled = true;
+    const result = await cloud.sendVerificationEmail();
+    resendPendingBtn.disabled = false;
+    showToast(result.ok ? tr('Verification email sent') : cloudErrorMessage(result.code));
+  });
+
+  const checkVerifiedBtn = root.querySelector(`#btnCheckVerified-${context}`);
+  if(checkVerifiedBtn) checkVerifiedBtn.addEventListener('click', async ()=>{
+    checkVerifiedBtn.disabled = true;
+    const completed = await tryCompletePendingVerification(context, false);
+    if(!completed) checkVerifiedBtn.disabled = false;
+  });
+
+  const cancelPendingBtn = root.querySelector(`#btnCancelPending-${context}`);
+  if(cancelPendingBtn) cancelPendingBtn.addEventListener('click', async ()=>{
+    const cloud = window.LifyarCloud;
+    if(cloud) await cloud.signOutCloud();
+    clearPendingEmailVerify();
+    rerender();
+  });
 
   const backupBtn = root.querySelector(`#btnBackup-${context}`);
   if(backupBtn) backupBtn.addEventListener('click', ()=> backupData());
@@ -290,6 +412,20 @@ function authModalBody(mode, ctx){
       <button class="btn-primary" type="button" id="btnLinkGoogle" style="width:100%;">${tr('Connect account')}</button>
     `;
   }
+  if(mode === 'verify-pending'){
+    const email = (ctx && ctx.email) || '';
+    return `
+      <button class="modal-close-x" type="button" data-close>✕</button>
+      <h3>${tr('Verify your email')}</h3>
+      <p class="modal-sub">${tr('We sent a link to')} <strong>${escapeHtml(email)}</strong>. ${tr('Click it, then come back here to finish signing up.')}</p>
+      <button class="btn-primary" type="button" id="btnCheckVerifiedModal" style="width:100%;">${tr("I've verified — continue")}</button>
+      <p class="form-footnote">
+        <button class="link-btn" type="button" id="btnResendModal">${tr('Resend email')}</button>
+        &nbsp;·&nbsp;
+        <button class="link-btn" type="button" id="btnCancelPendingModal">${tr('Use a different email')}</button>
+      </p>
+    `;
+  }
 }
 
 function wireAuthModal(m, mode){
@@ -392,7 +528,15 @@ function wireAuthModal(m, mode){
       const result = await cloud.signUpWithEmail(email, pw);
       if(!result.ok){
         btn.disabled = false; btn.textContent = tr('Create account');
-        showToast(result.ambiguousProvider ? tr("That didn't match. If you originally signed up with Google, try Continue with Google instead.") : cloudErrorMessage(result.code));
+        showToast(result.ambiguousProvider ? tr('Something went wrong. Try Google.') : cloudErrorMessage(result.code));
+        return;
+      }
+      const user = cloud.getUser();
+      if(user && !user.emailVerified){
+        stashPendingEmailVerify(name, email);
+        await cloud.sendVerificationEmail();
+        m.querySelector('.modal-inner').innerHTML = authModalBody('verify-pending', { email });
+        wireAuthModal(m, 'verify-pending');
         return;
       }
       m.remove();
@@ -416,7 +560,12 @@ function wireAuthModal(m, mode){
         const errText = m.querySelector('#errLoginText');
         const tryGoogleBtn = m.querySelector('#tryGoogleLink');
         if(result.ambiguousProvider){
-          errText.textContent = tr("That email and password don't match.");
+          // Deliberately the SAME message regardless of which of several possible causes this
+          // actually is (wrong password / no account yet / a Google-only account with no
+          // password) — Firebase's email-enumeration protection means it won't tell us which,
+          // and showing different wording per case would leak exactly the info that setting
+          // exists to hide. See the note on ambiguousProvider in app-firebase.js.
+          errText.textContent = tr('Something went wrong. Try Google.');
           tryGoogleBtn.style.display = '';
         } else {
           // A non-ambiguous failure (e.g. no account at all under that email) — showing "Try
@@ -426,11 +575,18 @@ function wireAuthModal(m, mode){
           tryGoogleBtn.style.display = 'none';
         }
         m.querySelector('#errLogin').classList.add('show');
-        showToast(result.ambiguousProvider ? tr("That didn't match. If you originally signed up with Google, try Continue with Google instead.") : cloudErrorMessage(result.code));
+        showToast(result.ambiguousProvider ? tr('Something went wrong. Try Google.') : cloudErrorMessage(result.code));
+        return;
+      }
+      const user = cloud.getUser();
+      if(user && !user.emailVerified){
+        stashPendingEmailVerify((user && user.displayName) || email.split('@')[0], email);
+        await cloud.sendVerificationEmail();
+        m.querySelector('.modal-inner').innerHTML = authModalBody('verify-pending', { email });
+        wireAuthModal(m, 'verify-pending');
         return;
       }
       m.remove();
-      const user = cloud.getUser();
       const name = (user && user.displayName) || (state.profile && state.profile.name) || email.split('@')[0];
       completeCloudSignIn(name, email, onboardingActive, onboardingActive ? obStep : undefined);
     });
@@ -464,6 +620,26 @@ function wireAuthModal(m, mode){
       const name = user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
       m.remove();
       completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
+    });
+  }
+
+  if(mode === 'verify-pending'){
+    m.querySelector('#btnCheckVerifiedModal').addEventListener('click', async ()=>{
+      const btn = m.querySelector('#btnCheckVerifiedModal');
+      btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Checking…')}`;
+      const completed = await tryCompletePendingVerification(onboardingActive ? 'onboarding' : 'settings', false);
+      if(completed){ m.remove(); return; }
+      btn.disabled = false; btn.textContent = tr("I've verified — continue");
+    });
+    m.querySelector('#btnResendModal').addEventListener('click', async ()=>{
+      if(!cloud) return;
+      const result = await cloud.sendVerificationEmail();
+      showToast(result.ok ? tr('Verification email sent') : cloudErrorMessage(result.code));
+    });
+    m.querySelector('#btnCancelPendingModal').addEventListener('click', async ()=>{
+      if(cloud) await cloud.signOutCloud();
+      clearPendingEmailVerify();
+      swapTo('choose');
     });
   }
 }

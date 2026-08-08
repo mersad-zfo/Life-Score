@@ -23,6 +23,7 @@ import {
   getAuth, onAuthStateChanged, signInAnonymously, signOut,
   GoogleAuthProvider, signInWithPopup, linkWithPopup, signInWithCredential,
   EmailAuthProvider, linkWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  sendEmailVerification, reload,
 } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, setDoc, serverTimestamp,
@@ -70,9 +71,11 @@ function userDocRef(uid) { return doc(db, 'users', uid); }
 
 // Returns { state, lastModified } from this user's cloud document, or null if there isn't one
 // yet (brand new account) or the read failed (e.g. offline) — callers treat both the same way:
-// nothing to restore, so fall back to local data as-is.
+// nothing to restore, so fall back to local data as-is. Anonymous and not-yet-verified users never
+// get this far — see the guard below — matching the "unverified = anonymous, doesn't get backed
+// up" policy: no point reading a doc that (by that same policy) was never written for them either.
 async function pullState() {
-  if (!currentUser) return null;
+  if (!currentUser || currentUser.isAnonymous || !currentUser.emailVerified) return null;
   try {
     const snap = await getDoc(userDocRef(currentUser.uid));
     if (!snap.exists()) return null;
@@ -85,7 +88,11 @@ async function pullState() {
 }
 
 async function pushState(stateObj, lastModified) {
-  if (!currentUser) return false;
+  // Deliberate policy, not just an optimization: anonymous sessions and not-yet-verified accounts
+  // never get backed up. This is the single enforcement point for that — every sync path
+  // (scheduleSync's debounced writes, manual "Back up now", reconcileWithCloud) funnels through
+  // here, so nothing needs to remember to check this elsewhere.
+  if (!currentUser || currentUser.isAnonymous || !currentUser.emailVerified) return false;
   try {
     await setDoc(userDocRef(currentUser.uid), {
       state: stateObj,
@@ -241,6 +248,33 @@ async function addPasswordToAccount(email, password) {
   }
 }
 
+// Sends (or resends) the verification link to whichever real, unverified user is currently signed
+// in — used right after email/password signup, and by the "Resend" action on the pending-
+// verification screen. Google accounts never need this; Firebase marks them verified immediately.
+async function sendVerificationEmail() {
+  if (!currentUser || currentUser.isAnonymous) return { ok: false, code: 'no-user' };
+  try {
+    await sendEmailVerification(currentUser);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: e.code, error: e.message };
+  }
+}
+
+// Refreshes the current user from Firebase's servers and reports whether they're verified now —
+// emailVerified on the cached user object doesn't update on its own just because they clicked the
+// link in another tab; this is what actually finds out. Called on window focus (they likely just
+// switched back from checking email), on app boot, and via the manual "I've verified" fallback.
+async function checkEmailVerified() {
+  if (!currentUser || currentUser.isAnonymous) return { ok: false, verified: false };
+  try {
+    await reload(currentUser);
+    return { ok: true, verified: !!currentUser.emailVerified };
+  } catch (e) {
+    return { ok: false, verified: false, code: e.code, error: e.message };
+  }
+}
+
 window.LifyarCloud = {
   ready,
   getUser: () => currentUser,
@@ -251,6 +285,8 @@ window.LifyarCloud = {
   signUpWithEmail,
   logInWithEmail,
   addPasswordToAccount,
+  sendVerificationEmail,
+  checkEmailVerified,
   signOutCloud,
   pullState,
   pushState,
