@@ -28,6 +28,8 @@ function cloudErrorMessage(code){
     'auth/weak-password': tr('Password should be at least 6 characters'),
     'auth/invalid-email': tr("That email doesn't look right"),
     'auth/network-request-failed': tr('No internet connection — try again'),
+    'auth/requires-recent-login': tr('Please re-enter your password to confirm — this needs a fresh sign-in'),
+    'auth/too-many-requests': tr('Too many attempts — try again in a bit'),
   };
   return (code && map[code]) || tr('Something went wrong — try again');
 }
@@ -51,6 +53,14 @@ function getAccountProfile(){
 
 function openAccountModal(innerHtml){
   return openModal(`<div class="modal-inner">${innerHtml}</div>`);
+}
+
+// Shared by every account-related action that needs to refresh the settings/onboarding view
+// after changing something (sign out, cancel pending verification, delete account, change name,
+// etc.) — context defaults to onboarding-vs-settings based on onboardingActive when not passed.
+function rerenderAccountView(context){
+  const ctx = context || (onboardingActive ? 'onboarding' : 'settings');
+  if(ctx === 'onboarding') renderOnboarding(); else renderSettings(document.getElementById('overlayContent'));
 }
 
 const PENDING_EMAIL_VERIFY_KEY = 'lifyar_pending_email_verify';
@@ -154,14 +164,16 @@ function accountCardHtml(context){
     return `
       <div class="settings-group">
         <div class="settings-group-title">${tr('Account')}</div>
-        <div class="item-sub" style="margin-bottom:14px;">
-          ${isOnboarding
-            ? tr('Create an account to back up your data and pick up right where you left off on any device.')
-            : tr('Sign in to back up your data to the cloud, or restore it on another device.')}
+        <div class="account-card" style="text-align:center;">
+          <div class="item-sub" style="margin-bottom:14px;">
+            ${isOnboarding
+              ? tr('Create an account to back up your data and pick up right where you left off on any device.')
+              : tr('Sign in to back up your data to the cloud, or restore it on another device.')}
+          </div>
+          <button class="settings-btn" style="text-align:center;font-weight:500;" id="btnOpenAuth-${context}">
+            ${tr('Sign up or log in')}
+          </button>
         </div>
-        <button class="settings-btn" style="text-align:center;font-weight:500;" id="btnOpenAuth-${context}">
-          ${tr('Sign up or log in')}
-        </button>
       </div>
     `;
   }
@@ -218,7 +230,7 @@ function wireAccountCard(root, context){
   const openBtn = root.querySelector(`#btnOpenAuth-${context}`);
   if(openBtn) openBtn.addEventListener('click', ()=> openAuthModal());
 
-  const rerender = ()=>{ if(context==='onboarding') renderOnboarding(); else renderSettings(document.getElementById('overlayContent')); };
+  const rerender = ()=> rerenderAccountView(context);
 
   const signOutBtn = root.querySelector(`#btnSignOut-${context}`);
   if(signOutBtn) signOutBtn.addEventListener('click', ()=>{
@@ -426,6 +438,18 @@ function authModalBody(mode, ctx){
       </p>
     `;
   }
+  if(mode === 'google-name'){
+    return `
+      <button class="modal-close-x" type="button" data-close>✕</button>
+      <h3>${tr('One more thing')}</h3>
+      <p class="modal-sub">${tr("What's your name?")}</p>
+      <div class="field">
+        <label>${tr('Name')}</label>
+        <input id="fGoogleName" type="text" placeholder="${tr('Your name')}" autocomplete="name">
+      </div>
+      <button class="btn-primary" type="button" id="btnGoogleNameNext" style="width:100%;">${tr('Continue')}</button>
+    `;
+  }
 }
 
 function wireAuthModal(m, mode){
@@ -473,7 +497,14 @@ function wireAuthModal(m, mode){
       return;
     }
     const user = cloud.getUser();
-    const name = user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
+    if(result.isNewUser){
+      // Brand-new account — same requirement as email signup: we need a name before completing
+      // sign-in. Existing accounts keep whatever name they already have (see completeCloudSignIn
+      // in app-onboarding.js) — this step only appears for genuinely first-time sign-ups.
+      swapTo('google-name', {});
+      return;
+    }
+    const name = (state.profile && state.profile.name) || user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
     m.remove();
     completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
   };
@@ -528,7 +559,7 @@ function wireAuthModal(m, mode){
       const result = await cloud.signUpWithEmail(email, pw);
       if(!result.ok){
         btn.disabled = false; btn.textContent = tr('Create account');
-        showToast(result.ambiguousProvider ? tr('Something went wrong. Try Google.') : cloudErrorMessage(result.code));
+        showToast(result.ambiguousProvider ? tr('Something went wrong. Try Google.') : cloudErrorMessage(result.code), 3500);
         return;
       }
       const user = cloud.getUser();
@@ -564,8 +595,10 @@ function wireAuthModal(m, mode){
           // actually is (wrong password / no account yet / a Google-only account with no
           // password) — Firebase's email-enumeration protection means it won't tell us which,
           // and showing different wording per case would leak exactly the info that setting
-          // exists to hide. See the note on ambiguousProvider in app-firebase.js.
-          errText.textContent = tr('Something went wrong. Try Google.');
+          // exists to hide. See the note on ambiguousProvider in app-firebase.js. Just "Something
+          // went wrong." here, not "...Try Google" too — the green button right next to this
+          // already says that; repeating it in the red text was showing "Try Google" twice.
+          errText.textContent = tr('Something went wrong.');
           tryGoogleBtn.style.display = '';
         } else {
           // A non-ambiguous failure (e.g. no account at all under that email) — showing "Try
@@ -575,7 +608,7 @@ function wireAuthModal(m, mode){
           tryGoogleBtn.style.display = 'none';
         }
         m.querySelector('#errLogin').classList.add('show');
-        showToast(result.ambiguousProvider ? tr('Something went wrong. Try Google.') : cloudErrorMessage(result.code));
+        showToast(result.ambiguousProvider ? tr('Something went wrong. Try Google.') : cloudErrorMessage(result.code), 3500);
         return;
       }
       const user = cloud.getUser();
@@ -596,7 +629,21 @@ function wireAuthModal(m, mode){
   }
 
   if(mode === 'forgot'){
-    m.querySelector('#btnSendReset').addEventListener('click', ()=> showToast(tr("Password reset isn't connected yet")));
+    m.querySelector('#btnSendReset').addEventListener('click', async ()=>{
+      const email = m.querySelector('#fEmail4').value.trim();
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if(!emailPattern.test(email)){ showToast(tr("That email doesn't look right")); return; }
+      if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
+      const btn = m.querySelector('#btnSendReset');
+      btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Sending…')}`;
+      const result = await cloud.sendPasswordReset(email);
+      if(!result.ok){
+        btn.disabled = false; btn.textContent = tr('Send reset link');
+        showToast(cloudErrorMessage(result.code));
+        return;
+      }
+      swapTo('reset-sent');
+    });
   }
 
   if(mode === 'link-google'){
@@ -642,6 +689,21 @@ function wireAuthModal(m, mode){
       swapTo('choose');
     });
   }
+
+  if(mode === 'google-name'){
+    const nameInput = m.querySelector('#fGoogleName');
+    setTimeout(()=> nameInput.focus(), 100);
+    m.querySelector('#btnGoogleNameNext').addEventListener('click', async ()=>{
+      const name = nameInput.value.trim();
+      if(!name){ showToast(tr('Enter your name')); return; }
+      const btn = m.querySelector('#btnGoogleNameNext');
+      btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Saving…')}`;
+      const user = cloud ? cloud.getUser() : null;
+      if(cloud) await cloud.setDisplayName(name); // best effort — state.profile.name is authoritative
+      m.remove();
+      completeCloudSignIn(name, (user && user.email) || '', onboardingActive, onboardingActive ? obStep : undefined);
+    });
+  }
 }
 
 /* ============================================================
@@ -655,6 +717,13 @@ function openManageModal(){
     <button class="modal-close-x" type="button" data-close>✕</button>
     <h3>${tr('Manage account')}</h3>
     <p class="modal-sub">${escapeHtml(profile.email)}</p>
+
+    <div class="settings-group">
+      <div class="settings-group-title">${tr('Profile')}</div>
+      <div class="settings-btn-row">
+        <button class="settings-btn" id="btnChangeName">${tr('Name')}: ${escapeHtml(profile.name)}</button>
+      </div>
+    </div>
 
     <div class="settings-group">
       <div class="settings-group-title">${tr('Sign-in method')}</div>
@@ -679,15 +748,101 @@ function openManageModal(){
   `;
   const m = openAccountModal(html);
   m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
+  m.querySelector('#btnChangeName').addEventListener('click', ()=>{ m.remove(); openChangeNameModal(); });
   const changePw = m.querySelector('#btnChangePw');
   if(changePw) changePw.addEventListener('click', ()=>{ m.remove(); openChangePasswordModal(false); });
   const addPw = m.querySelector('#btnAddPw');
   if(addPw) addPw.addEventListener('click', ()=>{ m.remove(); openChangePasswordModal(true); });
-  m.querySelector('#btnDeleteAcct').addEventListener('click', ()=>{
-    if(confirm(tr('Permanently delete this account? This removes your cloud backup — routines, tasks, and scores stored on this device are not affected.'))){
-      m.remove();
-      showToast(tr("Account deletion isn't connected yet"));
+  m.querySelector('#btnDeleteAcct').addEventListener('click', ()=>{ m.remove(); openDeleteAccountModal(); });
+}
+
+function openChangeNameModal(){
+  const profile = getAccountProfile();
+  if(!profile) return;
+  const html = `
+    <button class="modal-close-x" type="button" data-close>✕</button>
+    <h3>${tr('Change name')}</h3>
+    <div class="field">
+      <label>${tr('Name')}</label>
+      <input id="fNewName" type="text" value="${escapeHtml(profile.name)}" placeholder="${tr('Your name')}" autocomplete="name">
+    </div>
+    <button class="btn-primary" type="button" id="btnSaveName" style="width:100%;">${tr('Save')}</button>
+  `;
+  const m = openAccountModal(html);
+  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
+  m.querySelector('#btnSaveName').addEventListener('click', async ()=>{
+    const name = m.querySelector('#fNewName').value.trim();
+    if(!name){ showToast(tr('Enter your name')); return; }
+    const btn = m.querySelector('#btnSaveName');
+    btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Saving…')}`;
+    state.profile.name = name;
+    saveState();
+    const cloud = window.LifyarCloud;
+    if(cloud) await cloud.setDisplayName(name); // best effort — state.profile.name (synced via the normal state doc) is the real source of truth
+    m.remove();
+    showToast(tr('Name updated'));
+    rerenderAccountView();
+  });
+}
+
+function openDeleteAccountModal(){
+  const profile = getAccountProfile();
+  if(!profile) return;
+  const isPassword = profile.provider === 'password';
+  const html = `
+    <button class="modal-close-x" type="button" data-close>✕</button>
+    <h3>${tr('Delete account')}</h3>
+    <p class="modal-sub">${tr('Permanently delete this account? This removes your cloud backup — routines, tasks, and scores stored on this device are not affected.')}</p>
+    ${isPassword ? `
+    <div class="field">
+      <label>${tr('Password')}</label>
+      <div class="field-pw-wrap">
+        <input id="fDeletePw" type="password" placeholder="${tr('Your password')}" autocomplete="current-password">
+        <button type="button" class="pw-toggle" data-pwtoggle="fDeletePw">${ICON_EYE}</button>
+      </div>
+    </div>
+    ` : `
+    <div class="item-sub" style="margin-bottom:14px;">${tr('Re-authenticate with Google to confirm.')}</div>
+    `}
+    <button class="btn-primary" type="button" id="btnConfirmDelete" style="width:100%;background:var(--rust);border-color:var(--rust);">${tr('Permanently delete account')}</button>
+  `;
+  const m = openAccountModal(html);
+  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
+  m.querySelectorAll('[data-pwtoggle]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const input = m.querySelector('#'+btn.dataset.pwtoggle);
+      const isPw = input.type === 'password';
+      input.type = isPw ? 'text' : 'password';
+      btn.innerHTML = isPw ? ICON_EYE_OFF : ICON_EYE;
+    });
+  });
+  m.querySelector('#btnConfirmDelete').addEventListener('click', async ()=>{
+    const cloud = window.LifyarCloud;
+    if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
+    const btn = m.querySelector('#btnConfirmDelete');
+    let reauth;
+    if(isPassword){
+      const pw = m.querySelector('#fDeletePw').value;
+      if(!pw){ showToast(tr('Enter your password')); return; }
+      reauth = { type: 'password', email: profile.email, password: pw };
+    } else {
+      reauth = { type: 'google' };
     }
+    btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Deleting…')}`;
+    const result = await cloud.deleteAccount(reauth);
+    if(!result.ok){
+      btn.disabled = false; btn.textContent = tr('Permanently delete account');
+      if(result.code !== 'auth/popup-closed-by-user' && result.code !== 'auth/cancelled-popup-request'){
+        showToast(cloudErrorMessage(result.code));
+      }
+      return;
+    }
+    state.profile = null;
+    state.session.loggedIn = false;
+    saveState();
+    m.remove();
+    showToast(tr('Account deleted'));
+    rerenderAccountView();
   });
 }
 
@@ -700,7 +855,10 @@ function openChangePasswordModal(isAdd){
     ${!isAdd ? `
     <div class="field">
       <label>${tr('Current password')}</label>
-      <input type="password" placeholder="${tr('Current password')}">
+      <div class="field-pw-wrap">
+        <input id="fCurrentPw" type="password" placeholder="${tr('Current password')}" autocomplete="current-password">
+        <button type="button" class="pw-toggle" data-pwtoggle="fCurrentPw">${ICON_EYE}</button>
+      </div>
     </div>` : `
     <div class="field">
       <label>${tr('Email')}</label>
@@ -709,7 +867,7 @@ function openChangePasswordModal(isAdd){
     <div class="field">
       <label>${tr('New password')}</label>
       <div class="field-pw-wrap">
-        <input id="fNewPw" type="password" placeholder="${tr('At least 6 characters')}">
+        <input id="fNewPw" type="password" placeholder="${tr('At least 6 characters')}" autocomplete="new-password">
         <button type="button" class="pw-toggle" data-pwtoggle="fNewPw">${ICON_EYE}</button>
       </div>
     </div>
@@ -726,27 +884,30 @@ function openChangePasswordModal(isAdd){
     });
   });
   m.querySelector('#btnSavePw').addEventListener('click', async ()=>{
-    const pw = m.querySelector('#fNewPw').value;
-    if(pw.length < 6){ showToast(tr('Password should be at least 6 characters')); return; }
-    if(!isAdd){
-      // Changing an EXISTING password needs the person to re-prove who they are first
-      // (Firebase requires a recent sign-in for this, which the current-password field above
-      // would drive) — that reauthentication flow isn't wired up yet.
-      m.remove();
-      showToast(tr("Changing your password isn't connected yet"));
-      return;
-    }
+    const newPw = m.querySelector('#fNewPw').value;
+    if(newPw.length < 6){ showToast(tr('Password should be at least 6 characters')); return; }
     const cloud = window.LifyarCloud;
     if(!cloud || !profile){ showToast(tr('Cloud backup is unavailable right now')); return; }
     const btn = m.querySelector('#btnSavePw');
     btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Connecting…')}`;
-    const result = await cloud.addPasswordToAccount(profile.email, pw);
+    let result;
+    if(isAdd){
+      result = await cloud.addPasswordToAccount(profile.email, newPw);
+    } else {
+      const oldPw = m.querySelector('#fCurrentPw').value;
+      if(!oldPw){
+        btn.disabled = false; btn.textContent = tr('Update password');
+        showToast(tr('Enter your current password'));
+        return;
+      }
+      result = await cloud.changePassword(profile.email, oldPw, newPw);
+    }
     if(!result.ok){
-      btn.disabled = false; btn.textContent = tr('Add password');
+      btn.disabled = false; btn.textContent = isAdd ? tr('Add password') : tr('Update password');
       showToast(cloudErrorMessage(result.code));
       return;
     }
     m.remove();
-    showToast(tr('Password added — you can now log in with email too'));
+    showToast(isAdd ? tr('Password added — you can now log in with email too') : tr('Password updated'));
   });
 }

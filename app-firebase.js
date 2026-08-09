@@ -23,10 +23,12 @@ import {
   getAuth, onAuthStateChanged, signInAnonymously, signOut,
   GoogleAuthProvider, signInWithPopup, linkWithPopup, signInWithCredential,
   EmailAuthProvider, linkWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  sendEmailVerification, reload,
+  sendEmailVerification, reload, getAdditionalUserInfo, updateProfile,
+  reauthenticateWithCredential, reauthenticateWithPopup, updatePassword, deleteUser,
+  sendPasswordResetEmail,
 } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import {
-  getFirestore, doc, getDoc, setDoc, serverTimestamp,
+  getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
 // Public by design — not a secret. See the chat where this was set up: the actual access control
@@ -131,12 +133,18 @@ function scheduleSync(getStateFn, getLastModifiedFn) {
 async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   try {
+    let result;
     if (currentUser && currentUser.isAnonymous) {
-      await linkWithPopup(currentUser, provider);
+      result = await linkWithPopup(currentUser, provider);
     } else {
-      await signInWithPopup(auth, provider);
+      result = await signInWithPopup(auth, provider);
     }
-    return { ok: true };
+    // Lets the caller know whether to ask for a name (matching email signup, which requires one)
+    // — Google only supplies its own profile name, and only for a genuinely brand-new account;
+    // an EXISTING account's chosen name should never be silently replaced by it (see the name-
+    // preservation note on completeCloudSignIn in app-onboarding.js).
+    const info = getAdditionalUserInfo(result);
+    return { ok: true, isNewUser: !!(info && info.isNewUser) };
   } catch (e) {
     if (e.code === 'auth/credential-already-in-use') {
       // This Google account already has a real Lifyar account from before — switch to it
@@ -275,6 +283,70 @@ async function checkEmailVerified() {
   }
 }
 
+// Sets the Firebase user's own displayName (not just our local state.profile.name) so the chosen
+// name is available from Firebase itself on any device/session, even before our own Firestore
+// state doc has synced. Used right after signup (email or a brand-new Google account) and by the
+// "Name" action in Manage Account. Best-effort — callers don't need to block on this succeeding,
+// since state.profile.name (synced via the normal state doc) is the actual source of truth.
+async function setDisplayName(name) {
+  if (!currentUser) return { ok: false, code: 'no-user' };
+  try {
+    await updateProfile(currentUser, { displayName: name });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: e.code, error: e.message };
+  }
+}
+
+// Requires re-proving the current password first — Firebase itself enforces this for
+// updatePassword() on anything but a very recent sign-in (throws auth/requires-recent-login
+// otherwise), so this does it up front rather than reacting to that error after the fact.
+async function changePassword(email, oldPassword, newPassword) {
+  if (!currentUser) return { ok: false, code: 'no-user' };
+  try {
+    const cred = EmailAuthProvider.credential(email, oldPassword);
+    await reauthenticateWithCredential(currentUser, cred);
+    await updatePassword(currentUser, newPassword);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: e.code, error: e.message };
+  }
+}
+
+async function sendPasswordReset(email) {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: e.code, error: e.message };
+  }
+}
+
+// Deletes the account for real. `reauth` is { type: 'password', email, password } or
+// { type: 'google' } — matching whichever provider this account actually uses, since Firebase
+// requires re-proving identity for this regardless of provider (same requires-recent-login rule
+// as changePassword above, just via a different credential type). Removes the Firestore backup
+// doc first so nothing orphaned is left behind under a uid nobody can ever sign into again, then
+// deletes the Firebase Auth user itself — which fires onAuthStateChanged with null, and the
+// existing listener above takes it from there (signs back in anonymously automatically).
+async function deleteAccount(reauth) {
+  if (!currentUser) return { ok: false, code: 'no-user' };
+  try {
+    if (reauth.type === 'password') {
+      const cred = EmailAuthProvider.credential(reauth.email, reauth.password);
+      await reauthenticateWithCredential(currentUser, cred);
+    } else if (reauth.type === 'google') {
+      const provider = new GoogleAuthProvider();
+      await reauthenticateWithPopup(currentUser, provider);
+    }
+    try { await deleteDoc(userDocRef(currentUser.uid)); } catch (e) { /* best effort */ }
+    await deleteUser(currentUser);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, code: e.code, error: e.message };
+  }
+}
+
 window.LifyarCloud = {
   ready,
   getUser: () => currentUser,
@@ -285,6 +357,10 @@ window.LifyarCloud = {
   signUpWithEmail,
   logInWithEmail,
   addPasswordToAccount,
+  changePassword,
+  sendPasswordReset,
+  deleteAccount,
+  setDisplayName,
   sendVerificationEmail,
   checkEmailVerified,
   signOutCloud,

@@ -66,7 +66,12 @@ function obResetState(){
 // only really needed if a caller's own step could have drifted by the time this resolves.
 async function completeCloudSignIn(name, email, wasOnboarding, resumeStep){
   const pulled = await reconcileWithCloud();
-  state.profile = { name, email };
+  // If we just pulled real cloud data that already has a name on file, keep that — a fresh
+  // Google display name (or a guessed email-prefix fallback) passed in as `name` shouldn't
+  // silently overwrite a name the person already chose, e.g. when connecting a Google account to
+  // an existing email/password account, or logging into an existing account from a new device.
+  const finalName = (pulled && state.profile && state.profile.name) ? state.profile.name : name;
+  state.profile = { name: finalName, email };
   state.session.loggedIn = true;
   saveState();
   if(wasOnboarding){
@@ -77,7 +82,7 @@ async function completeCloudSignIn(name, email, wasOnboarding, resumeStep){
     }
   }
   renderMain();
-  showToast(pulled ? tr('Restored your data from the cloud') : trWelcome(name));
+  showToast(pulled ? tr('Restored your data from the cloud') : trWelcome(finalName));
 }
 
 function enterOnboarding(){

@@ -54,7 +54,7 @@ function renderSettings(main){
     <div class="settings-group">
       <div class="settings-group-title">${tr('Danger zone')}</div>
       <div class="settings-btn-row">
-        <button class="settings-btn danger-text" id="resetBtn">${tr('Reset everything')}</button>
+        <button class="settings-btn danger-text" style="text-align:center;font-weight:500;" id="resetBtn">${tr('Reset everything')}</button>
       </div>
     </div>
 

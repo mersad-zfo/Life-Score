@@ -227,12 +227,12 @@ async function saveState(){
   }
 }
 
-function showToast(msg){
+function showToast(msg, durationMs){
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(t._timer);
-  t._timer = setTimeout(()=> t.classList.remove('show'), 1800);
+  t._timer = setTimeout(()=> t.classList.remove('show'), durationMs || 1800);
 }
 
 function reorderMasterByVisibleOrder(masterArray, visibleIdsInNewOrder){
