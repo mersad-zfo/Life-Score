@@ -1141,7 +1141,7 @@
   }
   .divider-row::before, .divider-row::after{ content:""; flex:1; height:1px; background:var(--line); }
   .modal-close-x{
-    position:absolute; right:16px; top:16px; width:30px; height:30px; border-radius:50%;
+    position:absolute; right:16px; top:2px; width:30px; height:30px; border-radius:50%;
     background:var(--bg); border:1px solid var(--line); color:var(--ink-soft);
     display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;
   }

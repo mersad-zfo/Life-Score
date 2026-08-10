@@ -30,6 +30,7 @@ function cloudErrorMessage(code){
     'auth/network-request-failed': tr('No internet connection — try again'),
     'auth/requires-recent-login': tr('Please re-enter your password to confirm — this needs a fresh sign-in'),
     'auth/too-many-requests': tr('Too many attempts — try again in a bit'),
+    'auth/provider-already-linked': tr('A password is already set for this account'),
   };
   return (code && map[code]) || tr('Something went wrong — try again');
 }
@@ -40,14 +41,23 @@ function getAccountProfile(){
   if(!(state.profile && state.session.loggedIn)) return null;
   const cloud = window.LifyarCloud;
   const user = cloud ? cloud.getUser() : null;
-  const providerId = (user && user.providerData && user.providerData[0] && user.providerData[0].providerId) || 'password';
-  const provider = providerId === 'google.com' ? 'google' : providerId === 'apple.com' ? 'apple' : 'password';
+  // An account can have BOTH google.com and password linked at once (e.g. after connecting a
+  // Google account to an existing email/password one, or adding a password to a Google-only
+  // one) — looking at providerData[0] alone breaks the moment that happens, since it only ever
+  // reflects whichever provider happened to be linked first. hasPassword checks the whole list.
+  const providerIds = (user && user.providerData && user.providerData.map(p => p.providerId)) || [];
+  const hasPassword = providerIds.includes('password');
+  const hasGoogle = providerIds.includes('google.com');
+  // "provider" below is just for the small badge/icon on the account card — prefer Google when
+  // both are present since it's the richer identity (real name/photo), not a meaningful claim
+  // about which one is "primary".
+  const provider = hasGoogle ? 'google' : providerIds.includes('apple.com') ? 'apple' : 'password';
   // If cloud isn't available yet, don't nag about verification we can't actually check.
   const verified = user ? !!user.emailVerified : true;
   return {
     name: state.profile.name,
     email: state.profile.email || (user && user.email) || '',
-    verified, provider
+    verified, provider, hasPassword
   };
 }
 
@@ -97,14 +107,21 @@ function getPendingVerificationEmail(){
 // continue" button passes silent=false so a too-early click gets clear feedback.
 // Returns true if sign-in was actually completed just now.
 async function tryCompletePendingVerification(context, silent){
+  // If sign-in already completed — e.g. the background visibility-based check (below) beat a
+  // manual button click to it — there's nothing left to do. The caller (typically a modal's
+  // "I've verified" button) still needs a true/false answer so it knows to close itself instead
+  // of just sitting there looking stuck, which is why this returns true here rather than false.
+  if(state.profile && state.session.loggedIn) return true;
   const cloud = window.LifyarCloud;
   if(!cloud) return false;
   const user = cloud.getUser();
-  if(!user || user.isAnonymous || user.emailVerified) return false; // nothing pending
-  const result = await cloud.checkEmailVerified();
-  if(!result.verified){
-    if(!silent) showToast(tr("Not verified yet — check your inbox and tap the link."));
-    return false;
+  if(!user || user.isAnonymous) return false; // no pending signup to check at all
+  if(!user.emailVerified){
+    const result = await cloud.checkEmailVerified();
+    if(!result.verified){
+      if(!silent) showToast(tr("Not verified yet — check your inbox and tap the link."));
+      return false;
+    }
   }
   const pending = readPendingEmailVerify();
   const name = (pending && pending.name) || user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
@@ -120,7 +137,15 @@ async function tryCompletePendingVerification(context, silent){
 // fallbacks — visibility events aren't guaranteed on every platform.
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState === 'visible'){
-    tryCompletePendingVerification(onboardingActive ? 'onboarding' : 'settings', true);
+    tryCompletePendingVerification(onboardingActive ? 'onboarding' : 'settings', true).then(completed=>{
+      // This runs in the background, independent of whatever modal (if any) is currently open —
+      // if it just finished signing someone in while their "verify your email" screen was still
+      // showing, that screen is now stale and needs closing, or it just sits there looking like
+      // nothing happened even though sign-in already succeeded.
+      if(completed && currentAuthModal && currentAuthModal.isConnected){
+        currentAuthModal.remove();
+      }
+    });
   }
 });
 
@@ -291,8 +316,11 @@ function wireAccountCard(root, context){
 /* ============================================================
    AUTH MODAL — choose provider -> email entry -> sign up / log in / forgot password
 ============================================================ */
+let currentAuthModal = null;
+
 function openAuthModal(mode = 'choose'){
   const m = openAccountModal(authModalBody(mode));
+  currentAuthModal = m;
   wireAuthModal(m, mode);
   return m;
 }
@@ -496,7 +524,7 @@ function wireAuthModal(m, mode){
       }
       return;
     }
-    const user = cloud.getUser();
+    const user = result.user || cloud.getUser();
     if(result.isNewUser){
       // Brand-new account — same requirement as email signup: we need a name before completing
       // sign-in. Existing accounts keep whatever name they already have (see completeCloudSignIn
@@ -562,7 +590,7 @@ function wireAuthModal(m, mode){
         showToast(result.ambiguousProvider ? tr('Something went wrong. Try Google.') : cloudErrorMessage(result.code), 3500);
         return;
       }
-      const user = cloud.getUser();
+      const user = result.user || cloud.getUser();
       if(user && !user.emailVerified){
         stashPendingEmailVerify(name, email);
         await cloud.sendVerificationEmail();
@@ -611,7 +639,7 @@ function wireAuthModal(m, mode){
         showToast(result.ambiguousProvider ? tr('Something went wrong. Try Google.') : cloudErrorMessage(result.code), 3500);
         return;
       }
-      const user = cloud.getUser();
+      const user = result.user || cloud.getUser();
       if(user && !user.emailVerified){
         stashPendingEmailVerify((user && user.displayName) || email.split('@')[0], email);
         await cloud.sendVerificationEmail();
@@ -663,7 +691,7 @@ function wireAuthModal(m, mode){
         showToast(cloudErrorMessage(result.code));
         return;
       }
-      const user = cloud.getUser();
+      const user = result.user || cloud.getUser();
       const name = user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
       m.remove();
       completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
@@ -712,27 +740,26 @@ function wireAuthModal(m, mode){
 function openManageModal(){
   const profile = getAccountProfile();
   if(!profile) return;
-  const providerLabel = profile.provider === 'google' ? tr('Google') : profile.provider === 'apple' ? tr('Apple') : tr('Email & password');
   const html = `
     <button class="modal-close-x" type="button" data-close>✕</button>
     <h3>${tr('Manage account')}</h3>
     <p class="modal-sub">${escapeHtml(profile.email)}</p>
 
     <div class="settings-group">
-      <div class="settings-group-title">${tr('Profile')}</div>
-      <div class="settings-btn-row">
-        <button class="settings-btn" id="btnChangeName">${tr('Name')}: ${escapeHtml(profile.name)}</button>
+      <div class="settings-group-title">${tr('Name')}</div>
+      <div class="field" style="margin-bottom:8px;">
+        <input id="fAccountName" type="text" value="${escapeHtml(profile.name)}" placeholder="${tr('Your name')}" autocomplete="name">
       </div>
+      <button class="settings-btn" style="text-align:center;font-weight:500;" id="btnSaveName">${tr('Save')}</button>
     </div>
 
     <div class="settings-group">
-      <div class="settings-group-title">${tr('Sign-in method')}</div>
-      <div class="item-sub" style="margin-bottom:10px;">${tr('Signed in with')} ${providerLabel}.</div>
-      ${profile.provider === 'password' ? `
+      <div class="settings-group-title">${tr('Password')}</div>
+      ${profile.hasPassword ? `
       <div class="settings-btn-row">
         <button class="settings-btn" id="btnChangePw">${tr('Change password')}</button>
       </div>` : `
-      <div class="empty-state-mini">${tr('Password sign-in is not set up for this account. Add a password so you can also sign in without')} ${providerLabel}.</div>
+      <div class="empty-state-mini">${tr('Password sign-in is not set up for this account. Add a password so you can also sign in with email too.')}</div>
       <div class="settings-btn-row">
         <button class="settings-btn" id="btnAddPw">${tr('Add a password')}</button>
       </div>`}
@@ -748,30 +775,8 @@ function openManageModal(){
   `;
   const m = openAccountModal(html);
   m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
-  m.querySelector('#btnChangeName').addEventListener('click', ()=>{ m.remove(); openChangeNameModal(); });
-  const changePw = m.querySelector('#btnChangePw');
-  if(changePw) changePw.addEventListener('click', ()=>{ m.remove(); openChangePasswordModal(false); });
-  const addPw = m.querySelector('#btnAddPw');
-  if(addPw) addPw.addEventListener('click', ()=>{ m.remove(); openChangePasswordModal(true); });
-  m.querySelector('#btnDeleteAcct').addEventListener('click', ()=>{ m.remove(); openDeleteAccountModal(); });
-}
-
-function openChangeNameModal(){
-  const profile = getAccountProfile();
-  if(!profile) return;
-  const html = `
-    <button class="modal-close-x" type="button" data-close>✕</button>
-    <h3>${tr('Change name')}</h3>
-    <div class="field">
-      <label>${tr('Name')}</label>
-      <input id="fNewName" type="text" value="${escapeHtml(profile.name)}" placeholder="${tr('Your name')}" autocomplete="name">
-    </div>
-    <button class="btn-primary" type="button" id="btnSaveName" style="width:100%;">${tr('Save')}</button>
-  `;
-  const m = openAccountModal(html);
-  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
   m.querySelector('#btnSaveName').addEventListener('click', async ()=>{
-    const name = m.querySelector('#fNewName').value.trim();
+    const name = m.querySelector('#fAccountName').value.trim();
     if(!name){ showToast(tr('Enter your name')); return; }
     const btn = m.querySelector('#btnSaveName');
     btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Saving…')}`;
@@ -779,10 +784,15 @@ function openChangeNameModal(){
     saveState();
     const cloud = window.LifyarCloud;
     if(cloud) await cloud.setDisplayName(name); // best effort — state.profile.name (synced via the normal state doc) is the real source of truth
-    m.remove();
+    btn.disabled = false; btn.textContent = tr('Save');
     showToast(tr('Name updated'));
-    rerenderAccountView();
+    rerenderAccountView(); // updates the account card underneath; this modal stays open
   });
+  const changePw = m.querySelector('#btnChangePw');
+  if(changePw) changePw.addEventListener('click', ()=>{ m.remove(); openChangePasswordModal(false); });
+  const addPw = m.querySelector('#btnAddPw');
+  if(addPw) addPw.addEventListener('click', ()=>{ m.remove(); openChangePasswordModal(true); });
+  m.querySelector('#btnDeleteAcct').addEventListener('click', ()=>{ m.remove(); openDeleteAccountModal(); });
 }
 
 function openDeleteAccountModal(){

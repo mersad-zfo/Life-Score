@@ -308,8 +308,9 @@ const LANG_DICT = {
     // Manage account / change password modals
     'Sign-in method': 'روش ورود',
     'Email & password': 'ایمیل و رمز عبور',
-    'Password sign-in is not set up for this account. Add a password so you can also sign in without':
-      'ورود با رمز عبور برای این حساب تنظیم نشده. یک رمز عبور اضافه کنید تا بدون',
+    'Password sign-in is not set up for this account. Add a password so you can also sign in with email too.':
+      'ورود با رمز عبور برای این حساب تنظیم نشده. یک رمز عبور اضافه کنید تا بتوانید با ایمیل هم وارد شوید.',
+    'A password is already set for this account': 'رمز عبوری از قبل برای این حساب تنظیم شده',
     'Add a password': 'افزودن رمز عبور',
     'Change password': 'تغییر رمز عبور',
     'Permanently delete this account? This removes your cloud backup — routines, tasks, and scores stored on this device are not affected.':

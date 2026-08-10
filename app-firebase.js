@@ -144,7 +144,7 @@ async function signInWithGoogle() {
     // an EXISTING account's chosen name should never be silently replaced by it (see the name-
     // preservation note on completeCloudSignIn in app-onboarding.js).
     const info = getAdditionalUserInfo(result);
-    return { ok: true, isNewUser: !!(info && info.isNewUser) };
+    return { ok: true, isNewUser: !!(info && info.isNewUser), user: result.user };
   } catch (e) {
     if (e.code === 'auth/credential-already-in-use') {
       // This Google account already has a real Lifyar account from before — switch to it
@@ -179,8 +179,8 @@ async function signInWithGoogle() {
 async function linkGoogleWithPassword(email, password, credential) {
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
-    await linkWithCredential(result.user, credential);
-    return { ok: true };
+    const linkResult = await linkWithCredential(result.user, credential);
+    return { ok: true, user: linkResult.user };
   } catch (e) {
     return { ok: false, code: e.code, error: e.message };
   }
@@ -197,13 +197,20 @@ async function signOutCloud() {
 
 async function signUpWithEmail(email, password) {
   try {
+    let user;
     if (currentUser && currentUser.isAnonymous) {
       const cred = EmailAuthProvider.credential(email, password);
-      await linkWithCredential(currentUser, cred);
+      const result = await linkWithCredential(currentUser, cred);
+      user = result.user;
     } else {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      user = result.user;
     }
-    return { ok: true };
+    // Returning the user object straight from this operation, rather than making the caller read
+    // it back via getUser() afterward, sidesteps any chance of reading a stale cached value —
+    // getUser() reflects whatever the onAuthStateChanged listener last received, which fires
+    // asynchronously and isn't guaranteed to have already run by the time this returns.
+    return { ok: true, user };
   } catch (e) {
     if (e.code === 'auth/email-already-in-use') {
       // Same idea as the Google collision above — try signing into the existing account with
@@ -215,8 +222,8 @@ async function signUpWithEmail(email, password) {
       // possibilities rather than a flat "wrong password", which would be actively misleading in
       // the Google-only case.
       try {
-        await signInWithEmailAndPassword(auth, email, password);
-        return { ok: true, switchedAccount: true };
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        return { ok: true, switchedAccount: true, user: result.user };
       } catch (e2) {
         return { ok: false, code: e2.code, error: e2.message, ambiguousProvider: true };
       }
@@ -227,8 +234,8 @@ async function signUpWithEmail(email, password) {
 
 async function logInWithEmail(email, password) {
   try {
-    await signInWithEmailAndPassword(auth, email, password);
-    return { ok: true };
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    return { ok: true, user: result.user };
   } catch (e) {
     // Same ambiguity as above: a "credentials didn't match" family of errors can mean a wrong
     // password OR an account that has no password at all (Google-only) — Firebase won't say
