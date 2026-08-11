@@ -338,6 +338,9 @@ const LANG_DICT = {
     'An account with this email already exists. Enter its password to connect your Google account to it — after that, either one signs you in.':
       'حسابی با این ایمیل از قبل وجود دارد. رمز عبور آن را وارد کنید تا حساب گوگل شما به آن متصل شود — پس از آن، هر کدام برای ورود کافی است.',
     'Connect account': 'اتصال حساب',
+    'Local restore': 'بازگردانی محلی',
+    'Backup/Restore': 'پشتیبان‌گیری/بازگردانی',
+    'Save a copy of your data to a file, or restore from one.': 'یک نسخه از اطلاعات خود را در فایلی ذخیره کنید، یا از آن بازگردانی کنید.',
     'Connecting…': 'در حال اتصال…',
     'Verify your email': 'ایمیل خود را تأیید کنید',
     'Check your inbox to finish signing up.': 'برای تکمیل ثبت‌نام، صندوق ورودی خود را بررسی کنید.',

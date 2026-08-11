@@ -76,10 +76,26 @@ function userDocRef(uid) { return doc(db, 'users', uid); }
 // nothing to restore, so fall back to local data as-is. Anonymous and not-yet-verified users never
 // get this far — see the guard below — matching the "unverified = anonymous, doesn't get backed
 // up" policy: no point reading a doc that (by that same policy) was never written for them either.
+// Whether this account counts as verified for OUR purposes — not just Firebase's raw
+// emailVerified flag. A Google (or Apple) sign-in already proves real ownership of the email on
+// its own; real-world testing here has shown emailVerified can end up false on the user record
+// after linking a password credential to an account that was already Google-verified (Firebase
+// doesn't reliably carry the verified status over across that specific operation), which would
+// otherwise wrongly demote an already-trustworthy account back to "needs verification".
+function isAccountVerified(user) {
+  return !!(user && (user.emailVerified || (user.providerData || []).some(p => p.providerId === 'google.com')));
+}
+
 async function pullState() {
-  if (!currentUser || currentUser.isAnonymous || !currentUser.emailVerified) return null;
+  // Reads auth.currentUser directly (the SDK's own live property) rather than the currentUser
+  // variable above, which only updates once the onAuthStateChanged listener catches up — that
+  // lag was causing a real bug: calling this immediately after a fresh sign-in (as
+  // completeCloudSignIn does) could still see the previous/anonymous user for a moment and wrongly
+  // report "nothing to restore" for an account that actually has real cloud data.
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous || !isAccountVerified(user)) return null;
   try {
-    const snap = await getDoc(userDocRef(currentUser.uid));
+    const snap = await getDoc(userDocRef(user.uid));
     if (!snap.exists()) return null;
     const data = snap.data();
     return { state: data.state, lastModified: data.lastModified || 0 };
@@ -93,10 +109,12 @@ async function pushState(stateObj, lastModified) {
   // Deliberate policy, not just an optimization: anonymous sessions and not-yet-verified accounts
   // never get backed up. This is the single enforcement point for that — every sync path
   // (scheduleSync's debounced writes, manual "Back up now", reconcileWithCloud) funnels through
-  // here, so nothing needs to remember to check this elsewhere.
-  if (!currentUser || currentUser.isAnonymous || !currentUser.emailVerified) return false;
+  // here, so nothing needs to remember to check this elsewhere. Reads auth.currentUser directly —
+  // see the note in pullState above.
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous || !isAccountVerified(user)) return false;
   try {
-    await setDoc(userDocRef(currentUser.uid), {
+    await setDoc(userDocRef(user.uid), {
       state: stateObj,
       lastModified,
       updatedAt: serverTimestamp(),
@@ -370,6 +388,7 @@ window.LifyarCloud = {
   setDisplayName,
   sendVerificationEmail,
   checkEmailVerified,
+  isAccountVerified,
   signOutCloud,
   pullState,
   pushState,

@@ -106,10 +106,11 @@ function renderSettings(main){
   wireAccountCard(main, 'settings');
 }
 
-// Local-file backup/restore — the only backup mechanism actually wired up so far. The account
-// card's "Back up now" / "Restore from cloud" buttons call these for now; swap for real Firestore
-// pushState()/pullState() calls once that manual-trigger UX is designed (automatic sync via
-// scheduleSync()/reconcileWithCloud() already happens independently of these).
+// Local-file backup/restore. Deliberately local-file, not cloud — actual cloud backup/restore is
+// automatic (scheduleSync()/reconcileWithCloud()) and doesn't need a manual trigger; these are for
+// taking an explicit local snapshot or migrating between devices without relying on the cloud at
+// all. Reached via the "Backup/Restore" modal (settings) and "Local restore" (onboarding) — see
+// openBackupRestoreModal() / accountCardHtml() in app-account.js.
 function backupData(){
   try{
     const json = JSON.stringify(state, null, 2);

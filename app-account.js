@@ -10,6 +10,7 @@ const ICON_GOOGLE = `<svg viewBox="0 0 48 48" width="18" height="18"><path fill=
 const ICON_APPLE = `<svg viewBox="0 0 384 512" width="18" height="18" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 25.8 4.7 52.5 14.2 80.1 12.6 36.7 58.1 126.7 105.6 125.2 24.8-.6 42.3-17.6 74.6-17.6 31.3 0 47.5 17.6 75.1 17.6 47.9-.7 89-82.5 101-119.3-64.2-30.2-55.8-88.5-55.8-90.8zM256.4 89.6c26.9-32 24.5-61.2 23.7-71.6-23.8 1.4-51.4 16.4-67.2 34.9-17.4 19.8-27.7 44.4-25.5 71.9 25.9 2 49.4-11 69-35.2z"/></svg>`;
 const ICON_EYE = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const ICON_EYE_OFF = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>`;
+const ICON_CHECK = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 
 function initials(name){
   if(!name) return '?';
@@ -53,7 +54,7 @@ function getAccountProfile(){
   // about which one is "primary".
   const provider = hasGoogle ? 'google' : providerIds.includes('apple.com') ? 'apple' : 'password';
   // If cloud isn't available yet, don't nag about verification we can't actually check.
-  const verified = user ? !!user.emailVerified : true;
+  const verified = user ? cloud.isAccountVerified(user) : true;
   return {
     name: state.profile.name,
     email: state.profile.email || (user && user.email) || '',
@@ -96,7 +97,7 @@ function getPendingVerificationEmail(){
   if(state.profile && state.session.loggedIn) return null;
   const cloud = window.LifyarCloud;
   const user = cloud ? cloud.getUser() : null;
-  if(user && !user.isAnonymous && !user.emailVerified) return user.email;
+  if(user && !user.isAnonymous && cloud && !cloud.isAccountVerified(user)) return user.email;
   return null;
 }
 
@@ -116,9 +117,9 @@ async function tryCompletePendingVerification(context, silent){
   if(!cloud) return false;
   const user = cloud.getUser();
   if(!user || user.isAnonymous) return false; // no pending signup to check at all
-  if(!user.emailVerified){
+  if(!cloud.isAccountVerified(user)){
     const result = await cloud.checkEmailVerified();
-    if(!result.verified){
+    if(!result.verified && !cloud.isAccountVerified(cloud.getUser())){
       if(!silent) showToast(tr("Not verified yet — check your inbox and tap the link."));
       return false;
     }
@@ -235,10 +236,9 @@ function accountCardHtml(context){
 
         <div class="settings-btn-row">
           ${isOnboarding ? `
-            <button class="settings-btn" id="btnRestore-${context}">${tr('Restore from cloud')}</button>
+            <button class="settings-btn" id="btnRestore-${context}">${tr('Local restore')}</button>
           ` : `
-            <button class="settings-btn" id="btnBackup-${context}">${tr('Back up now')}</button>
-            <button class="settings-btn" id="btnRestore-${context}">${tr('Restore from cloud')}</button>
+            <button class="settings-btn" id="btnBackupRestore-${context}">${tr('Backup/Restore')}</button>
             <button class="settings-btn" id="btnManage-${context}">${tr('Manage account')}</button>
           `}
           <button class="settings-btn danger-text" id="btnSignOut-${context}">${tr('Sign out')}</button>
@@ -303,14 +303,30 @@ function wireAccountCard(root, context){
     rerender();
   });
 
-  const backupBtn = root.querySelector(`#btnBackup-${context}`);
-  if(backupBtn) backupBtn.addEventListener('click', ()=> backupData());
+  const backupRestoreBtn = root.querySelector(`#btnBackupRestore-${context}`);
+  if(backupRestoreBtn) backupRestoreBtn.addEventListener('click', ()=> openBackupRestoreModal());
 
   const restoreBtn = root.querySelector(`#btnRestore-${context}`);
   if(restoreBtn) restoreBtn.addEventListener('click', ()=> restoreData());
 
   const manageBtn = root.querySelector(`#btnManage-${context}`);
   if(manageBtn) manageBtn.addEventListener('click', ()=> openManageModal());
+}
+
+function openBackupRestoreModal(){
+  const html = `
+    <button class="modal-close-x" type="button" data-close>✕</button>
+    <h3>${tr('Backup/Restore')}</h3>
+    <p class="modal-sub">${tr('Save a copy of your data to a file, or restore from one.')}</p>
+    <div class="settings-btn-row">
+      <button class="settings-btn" id="btnBackupInModal">${tr('Back up now')}</button>
+      <button class="settings-btn" id="btnRestoreInModal">${tr('Restore')}</button>
+    </div>
+  `;
+  const m = openAccountModal(html);
+  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
+  m.querySelector('#btnBackupInModal').addEventListener('click', ()=> backupData());
+  m.querySelector('#btnRestoreInModal').addEventListener('click', ()=> restoreData());
 }
 
 /* ============================================================
@@ -591,7 +607,7 @@ function wireAuthModal(m, mode){
         return;
       }
       const user = result.user || cloud.getUser();
-      if(user && !user.emailVerified){
+      if(user && !cloud.isAccountVerified(user)){
         stashPendingEmailVerify(name, email);
         await cloud.sendVerificationEmail();
         m.querySelector('.modal-inner').innerHTML = authModalBody('verify-pending', { email });
@@ -640,7 +656,7 @@ function wireAuthModal(m, mode){
         return;
       }
       const user = result.user || cloud.getUser();
-      if(user && !user.emailVerified){
+      if(user && !cloud.isAccountVerified(user)){
         stashPendingEmailVerify((user && user.displayName) || email.split('@')[0], email);
         await cloud.sendVerificationEmail();
         m.querySelector('.modal-inner').innerHTML = authModalBody('verify-pending', { email });
@@ -737,20 +753,20 @@ function wireAuthModal(m, mode){
 /* ============================================================
    MANAGE ACCOUNT MODAL (settings-only, deeper account controls)
 ============================================================ */
-function openManageModal(){
+function manageModalHtml(){
   const profile = getAccountProfile();
-  if(!profile) return;
-  const html = `
+  if(!profile) return '';
+  return `
     <button class="modal-close-x" type="button" data-close>✕</button>
     <h3>${tr('Manage account')}</h3>
     <p class="modal-sub">${escapeHtml(profile.email)}</p>
 
     <div class="settings-group">
       <div class="settings-group-title">${tr('Name')}</div>
-      <div class="field" style="margin-bottom:8px;">
+      <div class="field-check-wrap">
         <input id="fAccountName" type="text" value="${escapeHtml(profile.name)}" placeholder="${tr('Your name')}" autocomplete="name">
+        <button type="button" class="field-check-btn" id="btnSaveName" aria-label="${tr('Save')}">${ICON_CHECK}</button>
       </div>
-      <button class="settings-btn" style="text-align:center;font-weight:500;" id="btnSaveName">${tr('Save')}</button>
     </div>
 
     <div class="settings-group">
@@ -759,10 +775,11 @@ function openManageModal(){
       <div class="settings-btn-row">
         <button class="settings-btn" id="btnChangePw">${tr('Change password')}</button>
       </div>` : `
-      <div class="empty-state-mini">${tr('Password sign-in is not set up for this account. Add a password so you can also sign in with email too.')}</div>
       <div class="settings-btn-row">
         <button class="settings-btn" id="btnAddPw">${tr('Add a password')}</button>
-      </div>`}
+      </div>
+      <div class="item-sub" style="margin-top:8px;">${tr('Password sign-in is not set up for this account. Add a password so you can also sign in with email too.')}</div>
+      `}
     </div>
 
     <div class="settings-group">
@@ -773,37 +790,59 @@ function openManageModal(){
       <div class="item-sub" style="margin-top:8px;">${tr('Your routines, tasks, and score stay on this device — only the account and cloud backup are removed.')}</div>
     </div>
   `;
-  const m = openAccountModal(html);
+}
+
+function wireManageModal(m){
   m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
-  m.querySelector('#btnSaveName').addEventListener('click', async ()=>{
-    const name = m.querySelector('#fAccountName').value.trim();
+
+  const nameInput = m.querySelector('#fAccountName');
+  const saveNameBtn = m.querySelector('#btnSaveName');
+  const saveName = async ()=>{
+    const name = nameInput.value.trim();
     if(!name){ showToast(tr('Enter your name')); return; }
-    const btn = m.querySelector('#btnSaveName');
-    btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Saving…')}`;
+    saveNameBtn.disabled = true;
     state.profile.name = name;
     saveState();
     const cloud = window.LifyarCloud;
     if(cloud) await cloud.setDisplayName(name); // best effort — state.profile.name (synced via the normal state doc) is the real source of truth
-    btn.disabled = false; btn.textContent = tr('Save');
+    saveNameBtn.disabled = false;
     showToast(tr('Name updated'));
     rerenderAccountView(); // updates the account card underneath; this modal stays open
-  });
+  };
+  saveNameBtn.addEventListener('click', saveName);
+  nameInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') saveName(); });
+
   const changePw = m.querySelector('#btnChangePw');
-  if(changePw) changePw.addEventListener('click', ()=>{ m.remove(); openChangePasswordModal(false); });
+  if(changePw) changePw.addEventListener('click', ()=> openChangePasswordModal(false, m));
   const addPw = m.querySelector('#btnAddPw');
-  if(addPw) addPw.addEventListener('click', ()=>{ m.remove(); openChangePasswordModal(true); });
-  m.querySelector('#btnDeleteAcct').addEventListener('click', ()=>{ m.remove(); openDeleteAccountModal(); });
+  if(addPw) addPw.addEventListener('click', ()=> openChangePasswordModal(true, m));
+  m.querySelector('#btnDeleteAcct').addEventListener('click', ()=> openDeleteAccountModal(m));
 }
 
-function openDeleteAccountModal(){
+function openManageModal(){
   const profile = getAccountProfile();
   if(!profile) return;
-  const isPassword = profile.provider === 'password';
+  const m = openAccountModal(manageModalHtml());
+  wireManageModal(m);
+}
+
+// Called after an action inside a nested modal (change/add password) changes something Manage
+// Account displays, so the still-open modal underneath doesn't sit there showing stale info
+// (e.g. still offering "Add a password" after one was just added).
+function refreshManageModal(parentModal){
+  if(!parentModal || !parentModal.isConnected) return;
+  parentModal.querySelector('.modal-inner').innerHTML = manageModalHtml();
+  wireManageModal(parentModal);
+}
+
+function openDeleteAccountModal(parentModal){
+  const profile = getAccountProfile();
+  if(!profile) return;
   const html = `
     <button class="modal-close-x" type="button" data-close>✕</button>
     <h3>${tr('Delete account')}</h3>
     <p class="modal-sub">${tr('Permanently delete this account? This removes your cloud backup — routines, tasks, and scores stored on this device are not affected.')}</p>
-    ${isPassword ? `
+    ${profile.hasPassword ? `
     <div class="field">
       <label>${tr('Password')}</label>
       <div class="field-pw-wrap">
@@ -831,7 +870,7 @@ function openDeleteAccountModal(){
     if(!cloud){ showToast(tr('Cloud backup is unavailable right now')); return; }
     const btn = m.querySelector('#btnConfirmDelete');
     let reauth;
-    if(isPassword){
+    if(profile.hasPassword){
       const pw = m.querySelector('#fDeletePw').value;
       if(!pw){ showToast(tr('Enter your password')); return; }
       reauth = { type: 'password', email: profile.email, password: pw };
@@ -851,12 +890,14 @@ function openDeleteAccountModal(){
     state.session.loggedIn = false;
     saveState();
     m.remove();
+    // The account is gone — nothing left for the Manage Account modal underneath to manage.
+    if(parentModal && parentModal.isConnected) parentModal.remove();
     showToast(tr('Account deleted'));
     rerenderAccountView();
   });
 }
 
-function openChangePasswordModal(isAdd){
+function openChangePasswordModal(isAdd, parentModal){
   const profile = getAccountProfile();
   const html = `
     <button class="modal-close-x" type="button" data-close>✕</button>
@@ -918,6 +959,7 @@ function openChangePasswordModal(isAdd){
       return;
     }
     m.remove();
+    refreshManageModal(parentModal);
     showToast(isAdd ? tr('Password added — you can now log in with email too') : tr('Password updated'));
   });
 }
