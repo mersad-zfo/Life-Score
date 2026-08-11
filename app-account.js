@@ -18,6 +18,16 @@ function initials(name){
   return parts || '?';
 }
 
+// Fallback used when a Google sign-up completes without a real name (the popover asking for one
+// got dismissed, or the app was closed before it was confirmed) — e.g. "sirvan.zero@gmail.com"
+// becomes "Sirvan": the part before the @, then further cut at the first "." if there is one.
+function deriveNameFromEmail(email){
+  if(!email) return tr('Account');
+  const local = (email.split('@')[0] || '').split('.')[0] || '';
+  if(!local) return tr('Account');
+  return local[0].toUpperCase() + local.slice(1);
+}
+
 // A small, deliberately short map for the handful of errors a person will actually hit —
 // everything else falls back to a generic message rather than surfacing raw Firebase text.
 function cloudErrorMessage(code){
@@ -483,13 +493,15 @@ function authModalBody(mode, ctx){
     `;
   }
   if(mode === 'google-name'){
+    const fallbackName = (ctx && ctx.fallbackName) || '';
     return `
       <button class="modal-close-x" type="button" data-close>✕</button>
       <h3>${tr('One more thing')}</h3>
       <p class="modal-sub">${tr("What's your name?")}</p>
       <div class="field">
         <label>${tr('Name')}</label>
-        <input id="fGoogleName" type="text" placeholder="${tr('Your name')}" autocomplete="name">
+        <input id="fGoogleName" type="text" value="${escapeHtml(fallbackName)}" placeholder="${tr('Your name')}" autocomplete="name">
+        <div class="field-err" id="errGoogleName">${tr('Enter your name')}</div>
       </div>
       <button class="btn-primary" type="button" id="btnGoogleNameNext" style="width:100%;">${tr('Continue')}</button>
     `;
@@ -541,16 +553,27 @@ function wireAuthModal(m, mode){
       return;
     }
     const user = result.user || cloud.getUser();
-    if(result.isNewUser){
-      // Brand-new account — same requirement as email signup: we need a name before completing
-      // sign-in. Existing accounts keep whatever name they already have (see completeCloudSignIn
-      // in app-onboarding.js) — this step only appears for genuinely first-time sign-ups.
-      swapTo('google-name', {});
+    // Firebase's own isNewUser flag isn't reliable here — the very first Google sign-up almost
+    // always goes through linkWithPopup (upgrading the existing anonymous session), so Firebase
+    // sees an already-existing user being linked, not a brand-new one, even though this is
+    // obviously a first-time signup from the app's perspective. Instead: reconcile with the cloud
+    // right now and check whether a name actually came back — that's the real signal for "does
+    // this account already have one," regardless of what isNewUser claims.
+    const pulled = await reconcileWithCloud();
+    const existingName = (pulled && state.profile && state.profile.name) ? state.profile.name : null;
+    if(existingName){
+      m.remove();
+      await completeCloudSignIn(existingName, user.email || '', onboardingActive, onboardingActive ? obStep : undefined, pulled);
       return;
     }
-    const name = (state.profile && state.profile.name) || user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
-    m.remove();
-    completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
+    // No name on file anywhere — finish signing in right now with a safe default derived from
+    // their email, so the account is never left half-finished no matter what happens next
+    // (closing this popover, walking away, or closing the app outright before confirming
+    // anything below all land here the same way). The popover that follows just offers to
+    // override that default with their real name.
+    const fallbackName = deriveNameFromEmail(user.email);
+    await completeCloudSignIn(fallbackName, user.email || '', onboardingActive, onboardingActive ? obStep : undefined, pulled);
+    swapTo('google-name', { fallbackName });
   };
 
   if(mode === 'choose'){
@@ -735,17 +758,26 @@ function wireAuthModal(m, mode){
   }
 
   if(mode === 'google-name'){
+    // Sign-in already completed (with the email-derived fallback name) before this step ever
+    // shows — see runGoogleSignIn above — so this is purely an optional override, not a
+    // blocking "finish signing up" step. Confirming here just updates the name already on file.
     const nameInput = m.querySelector('#fGoogleName');
-    setTimeout(()=> nameInput.focus(), 100);
+    setTimeout(()=>{ nameInput.focus(); nameInput.select(); }, 100);
     m.querySelector('#btnGoogleNameNext').addEventListener('click', async ()=>{
       const name = nameInput.value.trim();
-      if(!name){ showToast(tr('Enter your name')); return; }
+      if(!name){
+        nameInput.closest('.field').classList.add('has-error');
+        m.querySelector('#errGoogleName').classList.add('show');
+        return;
+      }
       const btn = m.querySelector('#btnGoogleNameNext');
       btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Saving…')}`;
-      const user = cloud ? cloud.getUser() : null;
+      state.profile.name = name;
+      saveState();
       if(cloud) await cloud.setDisplayName(name); // best effort — state.profile.name is authoritative
       m.remove();
-      completeCloudSignIn(name, (user && user.email) || '', onboardingActive, onboardingActive ? obStep : undefined);
+      rerenderAccountView();
+      showToast(tr('Name updated'));
     });
   }
 }
