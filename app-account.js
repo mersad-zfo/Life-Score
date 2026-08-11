@@ -763,9 +763,12 @@ function manageModalHtml(){
 
     <div class="settings-group">
       <div class="settings-group-title">${tr('Name')}</div>
-      <div class="field-check-wrap">
-        <input id="fAccountName" type="text" value="${escapeHtml(profile.name)}" placeholder="${tr('Your name')}" autocomplete="name">
-        <button type="button" class="field-check-btn" id="btnSaveName" aria-label="${tr('Save')}">${ICON_CHECK}</button>
+      <div class="field">
+        <label>${tr('Name')}</label>
+        <div class="field-check-wrap">
+          <input id="fAccountName" type="text" value="${escapeHtml(profile.name)}" placeholder="${tr('Your name')}" autocomplete="name">
+          <button type="button" class="field-check-btn" id="btnSaveName" aria-label="${tr('Save')}" style="display:none;">${ICON_CHECK}</button>
+        </div>
       </div>
     </div>
 
@@ -806,11 +809,18 @@ function wireManageModal(m){
     const cloud = window.LifyarCloud;
     if(cloud) await cloud.setDisplayName(name); // best effort — state.profile.name (synced via the normal state doc) is the real source of truth
     saveNameBtn.disabled = false;
+    saveNameBtn.style.display = 'none';
     showToast(tr('Name updated'));
     rerenderAccountView(); // updates the account card underneath; this modal stays open
   };
   saveNameBtn.addEventListener('click', saveName);
   nameInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') saveName(); });
+  nameInput.addEventListener('focus', ()=>{ saveNameBtn.style.display = 'flex'; });
+  nameInput.addEventListener('blur', ()=>{
+    // Delay so a click on the checkmark itself (which blurs the input first) still registers
+    // before this hides the button out from under it.
+    setTimeout(()=>{ saveNameBtn.style.display = 'none'; }, 150);
+  });
 
   const changePw = m.querySelector('#btnChangePw');
   if(changePw) changePw.addEventListener('click', ()=> openChangePasswordModal(false, m));
