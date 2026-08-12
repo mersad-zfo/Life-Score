@@ -2,6 +2,16 @@
    Loaded first: everything else depends on these custom properties. */
 
 :root{
+    /* Tells the browser this page fully handles its own light/dark rendering — without this,
+       Android/Chrome's "Force dark for web contents" (on by default on some devices/OEM skins)
+       applies its own heuristic dark-inversion ON TOP of whatever the app already renders. That's
+       what was reported as "light mode is still dark", "dark mode is an even darker black", and
+       the streak ring staying dark regardless of theme — SVG elements like the ring are handled
+       especially unreliably by that heuristic. index.html's <meta name="color-scheme"> covers the
+       moment before this stylesheet loads; this (and the matching rule in body.dark-theme below)
+       is the real opt-out, and applyTheme() (app-state-core.js) pins the exact resolved theme at
+       runtime so native controls (e.g. the time-picker input) render correctly too. */
+    color-scheme: light;
     --bg: #FAFAF7;
     --paper: #FFFFFF;
     --ink: #1C1C1A;
@@ -27,6 +37,7 @@
     --halo-color-awesome: #7B3FE4;
   }
   body.dark-theme{
+    color-scheme: dark;
     --bg: #10140F;
     --paper: #1A211B;
     --ink: #F3F5F1;

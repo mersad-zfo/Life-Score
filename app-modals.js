@@ -121,24 +121,20 @@ function readDifficulty(m, idPrefix){
 }
 
 // ---------- Recurrence-specific fields (day grid + difficulty) ----------
-function routineRecurrenceFieldsHtml(idPrefix, recurrence, routine, diffLocked){
-  const diff = routine ? (routine.difficulty || 'normal') : 'normal';
-  const stepsHtml = stepsFieldHtml(idPrefix, routine ? routine.steps : null, diffLocked);
-  const diffPicker = buildDifficultyPicker(idPrefix, diff, diffLocked);
-  if(recurrence==='daily') return stepsHtml + diffPicker;
-  const sched = routine ? routine.schedule : [];
+// Only the day-grid (weekly/monthly day picker) is genuinely tied to which recurrence type is
+// selected — steps, time & details, and difficulty are all static fields placed elsewhere in the
+// modal (see openAddRoutineModal/openEditRoutineModal below) and don't need to be regenerated —
+// or lose their in-progress values — when the recurrence toggle changes.
+function dayGridFieldHtml(idPrefix, recurrence, schedule){
+  if(recurrence==='daily') return '';
   return `
     <div class="field">
       <label>${recurrence==='weekly' ? tr('Which day(s) of the week') : tr('Which day(s) of the month')}</label>
-      ${buildDayGrid(idPrefix, recurrence, sched)}
-    </div>
-    ${stepsHtml}
-    ${diffPicker}`;
+      ${buildDayGrid(idPrefix, recurrence, schedule||[])}
+    </div>`;
 }
-function wireRecurFields(m, idPrefix, diffLocked){
+function wireRecurFields(m, idPrefix){
   wireDayGrid(m, idPrefix);
-  if(!diffLocked) wireStepsToggle(m, idPrefix);
-  if(!diffLocked) wireDifficultyPicker(m, idPrefix);
 }
 
 // ---------- Recurrence seg-control (add modal — interactive) ----------
@@ -167,14 +163,14 @@ function buildRecurrencePickerLocked(idPrefix, current){
       <div class="lock-note" style="margin-top:4px;">${tr("Repeat type can't be changed after creation")}</div>
     </div>`;
 }
-function wireRecurrencePicker(m, idPrefix, diffLocked){
+function wireRecurrencePicker(m, idPrefix){
   m.querySelectorAll(`#${idPrefix}Recurrence button`).forEach(btn=>{
     btn.addEventListener('click', ()=>{
       m.querySelectorAll(`#${idPrefix}Recurrence button`).forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       const rec = btn.dataset.rec;
-      m.querySelector(`#${idPrefix}RecurFields`).innerHTML = routineRecurrenceFieldsHtml(idPrefix, rec, null, diffLocked);
-      wireRecurFields(m, idPrefix, diffLocked);
+      m.querySelector(`#${idPrefix}RecurFields`).innerHTML = dayGridFieldHtml(idPrefix, rec, null);
+      wireRecurFields(m, idPrefix);
     });
   });
 }
@@ -194,26 +190,31 @@ function readRecurrence(m, idPrefix){
 function timeDetailsFieldsHtml(prefix, timeVal, descVal, descPlaceholder){
   const hasExisting = !!(timeVal || descVal);
   return `
-    <a class="add-details-link" id="${prefix}AddDetailsLink">${hasExisting ? tr('- Hide time & details') : tr('+ Add time & details')}</a>
-    <div class="time-details-row" id="${prefix}DetailsField" style="${hasExisting?'':'display:none;'}">
-      <div class="field time-field">
-        <label>${tr('Time')}</label>
-        <input id="${prefix}Time" type="time" value="${escapeHtml(timeVal||'')}" />
-      </div>
-      <div class="field desc-field">
-        <label>${tr('Description (optional)')}</label>
-        <textarea id="${prefix}Desc" rows="2" placeholder="${descPlaceholder||tr('Add extra detail')}">${escapeHtml(descVal||'')}</textarea>
+    <a class="add-details-link" id="${prefix}AddDetailsLink">
+      <span class="add-details-label">${hasExisting ? tr('- Hide time & details') : tr('+ Add time & details')}</span>
+    </a>
+    <div class="collapse-panel${hasExisting?' open':''}" id="${prefix}DetailsPanel">
+      <div class="time-details-row" id="${prefix}DetailsField">
+        <div class="field time-field">
+          <label>${tr('Time')}</label>
+          <input id="${prefix}Time" type="time" value="${escapeHtml(timeVal||'')}" />
+        </div>
+        <div class="field desc-field">
+          <label>${tr('Description (optional)')}</label>
+          <textarea id="${prefix}Desc" rows="2" placeholder="${descPlaceholder||tr('Add extra detail')}">${escapeHtml(descVal||'')}</textarea>
+        </div>
       </div>
     </div>
   `;
 }
 function wireTimeDetailsToggle(m, prefix){
   const link = m.querySelector(`#${prefix}AddDetailsLink`);
-  const field = m.querySelector(`#${prefix}DetailsField`);
+  const panel = m.querySelector(`#${prefix}DetailsPanel`);
+  const label = link.querySelector('.add-details-label');
   link.addEventListener('click', ()=>{
-    const opening = field.style.display === 'none';
-    field.style.display = opening ? 'flex' : 'none';
-    link.textContent = opening ? tr('- Hide time & details') : tr('+ Add time & details');
+    const opening = !panel.classList.contains('open');
+    panel.classList.toggle('open', opening);
+    label.textContent = opening ? tr('- Hide time & details') : tr('+ Add time & details');
   });
 }
 function readTimeDetails(m, prefix){
@@ -226,11 +227,11 @@ function readTimeDetails(m, prefix){
 // ---------- Shared "+ Add steps" row (checklist sub-items, split points evenly) ----------
 // Matches the owner-supplied "Add steps (isolated)" prototype: numbered rows, a circular ×
 // remove button per row, and a dashed "+ Add another step" button. Same collapsed-behind-a-link
-// pattern as "+ Add time & details" above. Sits directly above the Difficulty picker in both the
-// routine and task creator/edit modals (see routineRecurrenceFieldsHtml below and the task
-// modals). Existing steps keep their original `id` (read back via a data attribute) so live
-// completion state and historical log entries stay correctly linked across an edit; newly-added
-// rows get a fresh uid() only when the form is actually saved.
+// pattern as "+ Add time & details" above. Placed right after Name & emoji in all 4 routine/task
+// add/edit modals — see openAddRoutineModal/openEditRoutineModal/openAddTaskModal/
+// openEditTaskModal below. Existing steps keep their original `id` (read back via a data
+// attribute) so live completion state and historical log entries stay correctly linked across an
+// edit; newly-added rows get a fresh uid() only when the form is actually saved.
 function stepRowHtml(id, val, num, locked){
   return `<div class="step-row" data-step-row data-step-id="${id||''}">
     <span class="step-num">${num}.</span>
@@ -270,23 +271,28 @@ function stepsFieldHtml(prefix, existingSteps, locked, perStepLocked){
       </div>`;
   }
   return `
-    <a class="add-details-link" id="${prefix}AddStepsLink">${hasExisting ? tr('- Hide steps') : tr('+ Add steps')}</a>
-    <div class="steps-field" id="${prefix}StepsField" style="${hasExisting?'':'display:none;'}">
-      <div id="${prefix}StepsRows">${rowsHtml}</div>
-      <button type="button" class="step-add-btn" id="${prefix}AddStepRow">${tr('+ Add another step')}</button>
+    <a class="add-details-link" id="${prefix}AddStepsLink">
+      <span class="add-details-label">${hasExisting ? tr('- Hide steps') : tr('+ Add steps')}</span>
+    </a>
+    <div class="collapse-panel${hasExisting?' open':''}" id="${prefix}StepsPanel">
+      <div class="steps-field" id="${prefix}StepsField">
+        <div id="${prefix}StepsRows">${rowsHtml}</div>
+        <button type="button" class="step-add-btn" id="${prefix}AddStepRow">${tr('+ Add another step')}</button>
+      </div>
     </div>
   `;
 }
 function wireStepsToggle(m, prefix){
   const link = m.querySelector(`#${prefix}AddStepsLink`);
-  const field = m.querySelector(`#${prefix}StepsField`);
+  const panel = m.querySelector(`#${prefix}StepsPanel`);
   // No link when the section can't be collapsed at all (fully locked, or a permanently-locked
   // step is present — see stepsFieldHtml above) — the rows themselves still need wiring either way.
-  if(link && field){
+  if(link && panel){
+    const label = link.querySelector('.add-details-label');
     link.addEventListener('click', ()=>{
-      const opening = field.style.display === 'none';
-      field.style.display = opening ? 'block' : 'none';
-      link.textContent = opening ? tr('- Hide steps') : tr('+ Add steps');
+      const opening = !panel.classList.contains('open');
+      panel.classList.toggle('open', opening);
+      label.textContent = opening ? tr('- Hide steps') : tr('+ Add steps');
     });
   }
   wireStepRows(m, prefix);
@@ -348,17 +354,21 @@ function openAddRoutineModal(){
         <input id="hName" type="text" placeholder="${tr('e.g. Brush teeth')}" style="flex:1;" />
       </div>
     </div>
-    ${timeDetailsFieldsHtml('h', null, null)}
+    ${stepsFieldHtml('h', null)}
     ${buildRecurrencePicker('h', 'daily')}
-    <div id="hRecurFields">${routineRecurrenceFieldsHtml('h', 'daily', null, false)}</div>
+    <div id="hRecurFields">${dayGridFieldHtml('h', 'daily', null)}</div>
+    ${timeDetailsFieldsHtml('h', null, null)}
+    ${buildDifficultyPicker('h', 'normal', false)}
     <div class="modal-actions">
       <button class="btn-secondary" id="hCancel">${tr('Cancel')}</button>
       <button class="btn-primary" id="hSave">${tr('Add routine')}</button>
     </div>
   `);
-  wireRecurFields(m, 'h', false);
-  wireRecurrencePicker(m, 'h', false);
+  wireRecurFields(m, 'h');
+  wireRecurrencePicker(m, 'h');
   wireTimeDetailsToggle(m, 'h');
+  wireStepsToggle(m, 'h');
+  wireDifficultyPicker(m, 'h');
   let emojiTouched = false;
   limitToOneGrapheme(m.querySelector('#hEmoji'));
   m.querySelector('#hEmoji').addEventListener('input', ()=>{ emojiTouched = true; });
@@ -426,16 +436,19 @@ function openEditRoutineModal(id){
         <input id="ehName" type="text" value="${escapeHtml(h.name)}" style="flex:1;" />
       </div>
     </div>
-    ${timeDetailsFieldsHtml('eh', h.time, h.description)}
+    ${stepsFieldHtml('eh', h.steps, diffLocked)}
     ${buildRecurrencePickerLocked('eh', h.recurrence)}
-    <div id="ehRecurFields">${routineRecurrenceFieldsHtml('eh', h.recurrence, h, diffLocked)}</div>
+    <div id="ehRecurFields">${dayGridFieldHtml('eh', h.recurrence, h.schedule)}</div>
+    ${timeDetailsFieldsHtml('eh', h.time, h.description)}
+    ${buildDifficultyPicker('eh', h.difficulty||'normal', diffLocked)}
     <div class="modal-actions">
       <button class="btn-secondary" id="ehCancel">${tr('Cancel')}</button>
       <button class="btn-primary" id="ehSave">${tr('Save changes')}</button>
     </div>
   `);
-  wireRecurFields(m, 'eh', diffLocked);
+  wireRecurFields(m, 'eh');
   wireTimeDetailsToggle(m, 'eh');
+  if(!diffLocked){ wireStepsToggle(m, 'eh'); wireDifficultyPicker(m, 'eh'); }
   limitToOneGrapheme(m.querySelector('#ehEmoji'));
   m.querySelector('#ehCancel').addEventListener('click', ()=>m.remove());
   m.querySelector('#ehSave').addEventListener('click', ()=>{
@@ -493,12 +506,12 @@ function openAddTaskModal(){
         <input id="tName" type="text" placeholder="${tr('e.g. Call dentist')}" style="flex:1;" />
       </div>
     </div>
-    ${timeDetailsFieldsHtml('t', null, null, tr('Add extra detail, e.g. a phone number'))}
+    ${stepsFieldHtml('t', null)}
     <div class="field">
       <label>${trTaskDueDateFieldLabel()}</label>
       <input id="tDueDate" type="date" value="${todayStr()}" min="${todayStr()}" />
     </div>
-    ${stepsFieldHtml('t', null)}
+    ${timeDetailsFieldsHtml('t', null, null, tr('Add extra detail, e.g. a phone number'))}
     ${buildDifficultyPicker('t', 'normal', false)}
     <div class="modal-actions">
       <button class="btn-secondary" id="tCancel">${tr('Cancel')}</button>
@@ -552,13 +565,13 @@ function openEditTaskModal(id){
         <input id="etName" type="text" value="${escapeHtml(task.name)}" style="flex:1;" />
       </div>
     </div>
-    ${timeDetailsFieldsHtml('et', task.time, task.description, tr('Add extra detail, e.g. a phone number'))}
+    ${stepsFieldHtml('et', task.steps, false, (s)=>taskStepLockedPast(task, s.id))}
     <div class="field">
       <label>${trTaskDueDateFieldLabel()}</label>
       <input id="etDueDate" type="date" value="${task.dueDate}" min="${todayStr()}" ${diffLocked?'disabled':''} class="${diffLocked?'seg-locked':''}" />
       ${diffLocked ? `<div class="lock-note" style="margin-top:4px;">${tr('Locked after the first day')}</div>` : ''}
     </div>
-    ${stepsFieldHtml('et', task.steps, false, (s)=>taskStepLockedPast(task, s.id))}
+    ${timeDetailsFieldsHtml('et', task.time, task.description, tr('Add extra detail, e.g. a phone number'))}
     ${buildDifficultyPicker('et', task.difficulty || 'normal', diffLocked)}
     <div class="modal-actions">
       <button class="btn-secondary" id="etCancel">${tr('Cancel')}</button>

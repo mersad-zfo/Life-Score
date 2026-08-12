@@ -785,7 +785,23 @@
     transition: background .15s ease, transform .1s ease;
   }
   .add-details-link:active{
-    transform:scale(0.97);
+    transform:scale(0.94);
+  }
+  /* Smooth expand/collapse for the panels these pills reveal — "0fr → 1fr" grid-row animates the
+     panel's height fluidly no matter how much content is inside (a 2-field row vs. a growing list
+     of step rows), which a plain max-height guess can't do without either clipping tall content
+     or leaving a visible gap on short content. */
+  .collapse-panel{
+    display:grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .32s cubic-bezier(.4,0,.2,1);
+  }
+  .collapse-panel.open{
+    grid-template-rows: 1fr;
+  }
+  .collapse-panel > *{
+    overflow:hidden;
+    min-height:0;
   }
   .emoji-field-row{
     display:flex;
@@ -1033,9 +1049,7 @@
   }
   .color-theme-row{
     display:flex;
-    gap:16px;
-    margin-top:12px;
-    padding-left:2px;
+    gap:12px;
   }
   .color-swatch-btn{
     width:38px; height:38px;

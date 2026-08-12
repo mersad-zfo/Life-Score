@@ -16,10 +16,16 @@ function renderSettings(main){
         <button data-theme="light" class="${effectiveThemeIsDark?'':'active'}">${tr('Light')}</button>
         <button data-theme="dark" class="${effectiveThemeIsDark?'active':''}">${tr('Dark')}</button>
       </div>
-      <div class="color-theme-row">
-        <button data-color-theme="green" class="color-swatch-btn ${colorTheme==='green'?'active':''}" aria-label="${tr('Green')}"><span class="color-swatch" style="background:#2F6F5E;"></span></button>
-        <button data-color-theme="blue" class="color-swatch-btn ${colorTheme==='blue'?'active':''}" aria-label="${tr('Blue')}"><span class="color-swatch" style="background:#2F5F8F;"></span></button>
-        <button data-color-theme="pink" class="color-swatch-btn ${colorTheme==='pink'?'active':''}" aria-label="${tr('Pink')}"><span class="color-swatch" style="background:#A9436F;"></span></button>
+    </div>
+
+    <div class="settings-group">
+      <div class="toggle-row">
+        <div class="item-name">${tr('Theme')}</div>
+        <div class="color-theme-row">
+          <button data-color-theme="green" class="color-swatch-btn ${colorTheme==='green'?'active':''}" aria-label="${tr('Green')}"><span class="color-swatch" style="background:#2F6F5E;"></span></button>
+          <button data-color-theme="blue" class="color-swatch-btn ${colorTheme==='blue'?'active':''}" aria-label="${tr('Blue')}"><span class="color-swatch" style="background:#2F5F8F;"></span></button>
+          <button data-color-theme="pink" class="color-swatch-btn ${colorTheme==='pink'?'active':''}" aria-label="${tr('Pink')}"><span class="color-swatch" style="background:#A9436F;"></span></button>
+        </div>
       </div>
     </div>
 

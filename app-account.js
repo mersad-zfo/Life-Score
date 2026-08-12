@@ -514,6 +514,7 @@ function wireAuthModal(m, mode){
     wireAuthModal(m, next);
   };
 
+  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
   m.querySelectorAll('[data-back]').forEach(el => el.addEventListener('click', ()=> swapTo(el.dataset.back)));
   m.querySelectorAll('[data-mode]').forEach(el => el.addEventListener('click', ()=> swapTo(el.dataset.mode)));
   m.querySelectorAll('[data-pwtoggle]').forEach(btn=>{
@@ -826,6 +827,7 @@ function manageModalHtml(){
 }
 
 function wireManageModal(m){
+  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
 
   const nameInput = m.querySelector('#fAccountName');
   const saveNameBtn = m.querySelector('#btnSaveName');

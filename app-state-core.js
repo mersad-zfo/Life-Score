@@ -130,6 +130,7 @@ function applyTheme(){
   else if(t==='light') dark = false;
   else dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.body.classList.toggle('dark-theme', dark);
+  document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
   // Color theme (green/blue/pink) is a second, independent dimension layered on top of light/dark
   // — see base.css's body.color-blue / body.color-pink blocks. Green is the default and has no
   // class of its own (it's just the base variables), so clearing both classes covers it.
