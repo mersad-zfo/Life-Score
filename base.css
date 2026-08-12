@@ -51,6 +51,61 @@
     --ring-purple-dark: #6C2BD9;
     --halo-color-awesome: #C9A6FF;
   }
+
+  /* ---- Color themes (blue / pink) ----
+     Green is the default and needs no class of its own — it's simply what :root / .dark-theme
+     define above. These two only override the "brand accent" variables (accent + its soft tint,
+     the glass border tied to it, and the blob/ring/halo colors); neutral surface variables
+     (bg/paper/ink/line) and semantic ones (rust=danger, gold, the purple "awesome"-tier streak
+     ring) are shared across every color theme and stay untouched here. */
+  body.color-blue{
+    --accent: #2F5F8F;
+    --accent-soft: #E3EBF5;
+    --glass-border: rgba(47,95,143,0.28);
+    --blob1: #CFE0F2;
+    --blob2: #9FBEE0;
+    --blob3: #E3EBF5;
+    --blob4: #6F93C4;
+    --ring-light: #A9C4E0;
+    --ring-dark: #2F5F8F;
+    --halo-color: #2F5F8F;
+  }
+  body.dark-theme.color-blue{
+    --accent: #4FA3E8;
+    --accent-soft: rgba(79,163,232,0.16);
+    --glass-border: rgba(79,163,232,0.32);
+    --blob1: #1B2E44;
+    --blob2: #1F4566;
+    --blob3: #131C28;
+    --blob4: #1E3A57;
+    --ring-light: #4FA3E8;
+    --ring-dark: #1C4E8E;
+    --halo-color: #6BC4FF;
+  }
+  body.color-pink{
+    --accent: #A9436F;
+    --accent-soft: #F5E4EC;
+    --glass-border: rgba(169,67,111,0.28);
+    --blob1: #F2D6E3;
+    --blob2: #E0A0BF;
+    --blob3: #F5E4EC;
+    --blob4: #C46F98;
+    --ring-light: #E0A9C4;
+    --ring-dark: #A9436F;
+    --halo-color: #A9436F;
+  }
+  body.dark-theme.color-pink{
+    --accent: #E85C9E;
+    --accent-soft: rgba(232,92,158,0.16);
+    --glass-border: rgba(232,92,158,0.32);
+    --blob1: #3B1E2E;
+    --blob2: #53233F;
+    --blob3: #201418;
+    --blob4: #4A1B3A;
+    --ring-light: #E85C9E;
+    --ring-dark: #8E1C5A;
+    --halo-color: #FF6BC4;
+  }
   body, #app, .card, .modal, nav.tabs, .score-tile{
     transition: background-color .25s ease, color .25s ease, border-color .25s ease;
   }
@@ -66,6 +121,15 @@
     overflow:hidden;
     display:flex;
     justify-content:center;
+    /* No "hold to select text" anywhere in the app by default — this is a tap-driven interface,
+       not a document, and accidental text-selection/iOS long-press callouts on buttons, cards,
+       etc. read as a bug rather than a feature here. Editable fields opt back in below. */
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+  }
+  input, textarea{
+    -webkit-user-select:text; user-select:text;
+    -webkit-touch-callout:default;
   }
   #app{
     width:100%;

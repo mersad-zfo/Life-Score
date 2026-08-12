@@ -6,6 +6,7 @@ function renderSettings(main){
   // from before this change (or any other legacy value) — resolve it the same way applyTheme()
   // does, so the correct button still shows as active instead of neither being highlighted.
   const effectiveThemeIsDark = theme==='dark' || (theme!=='light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const colorTheme = state.settings.colorTheme || 'green';
   const sound = state.settings.sound;
   const lang = state.settings.language || 'en';
   let html = `
@@ -14,6 +15,11 @@ function renderSettings(main){
       <div class="seg-control">
         <button data-theme="light" class="${effectiveThemeIsDark?'':'active'}">${tr('Light')}</button>
         <button data-theme="dark" class="${effectiveThemeIsDark?'active':''}">${tr('Dark')}</button>
+      </div>
+      <div class="color-theme-row">
+        <button data-color-theme="green" class="color-swatch-btn ${colorTheme==='green'?'active':''}" aria-label="${tr('Green')}"><span class="color-swatch" style="background:#2F6F5E;"></span></button>
+        <button data-color-theme="blue" class="color-swatch-btn ${colorTheme==='blue'?'active':''}" aria-label="${tr('Blue')}"><span class="color-swatch" style="background:#2F5F8F;"></span></button>
+        <button data-color-theme="pink" class="color-swatch-btn ${colorTheme==='pink'?'active':''}" aria-label="${tr('Pink')}"><span class="color-swatch" style="background:#A9436F;"></span></button>
       </div>
     </div>
 
@@ -65,6 +71,14 @@ function renderSettings(main){
   main.querySelectorAll('[data-theme]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       state.settings.theme = btn.dataset.theme;
+      applyTheme();
+      saveState();
+      renderSettings(main);
+    });
+  });
+  main.querySelectorAll('[data-color-theme]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.settings.colorTheme = btn.dataset.colorTheme;
       applyTheme();
       saveState();
       renderSettings(main);

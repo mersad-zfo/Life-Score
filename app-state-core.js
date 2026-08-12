@@ -8,7 +8,7 @@
 // user — indistinguishable from a silent full reset. Everything user-visible is "Lifyar" now;
 // this internal key just quietly keeps its original name forever.
 const STORE_KEY = 'lifescore_state_v1';
-let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, nightOwlMode: false, onboardingComplete: false }, session: { loggedIn: false } };
+let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', colorTheme: 'green', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, nightOwlMode: false, onboardingComplete: false }, session: { loggedIn: false } };
 let currentTab = 'today';
 let previousTab = 'today';
 // Whether the Routines/Tasks tab's "missing X costs points" info card is expanded. Deliberately
@@ -99,6 +99,7 @@ function ensureStateShape(){
   if(!state.profile) state.profile = null;
   if(!state.settings) state.settings = { theme: 'system', sound: true, language: 'en' };
   if(state.settings.theme===undefined) state.settings.theme = 'system';
+  if(state.settings.colorTheme===undefined) state.settings.colorTheme = 'green';
   if(state.settings.sound===undefined) state.settings.sound = true;
   if(state.settings.language===undefined) state.settings.language = 'en';
   if(!state.settings.ratingStartDate) state.settings.ratingStartDate = todayStr();
@@ -129,6 +130,12 @@ function applyTheme(){
   else if(t==='light') dark = false;
   else dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   document.body.classList.toggle('dark-theme', dark);
+  // Color theme (green/blue/pink) is a second, independent dimension layered on top of light/dark
+  // — see base.css's body.color-blue / body.color-pink blocks. Green is the default and has no
+  // class of its own (it's just the base variables), so clearing both classes covers it.
+  const colorTheme = state.settings.colorTheme || 'green';
+  document.body.classList.toggle('color-blue', colorTheme==='blue');
+  document.body.classList.toggle('color-pink', colorTheme==='pink');
   // Keep the OS status bar / browser chrome color in sync with the active theme — otherwise it
   // stays stuck on index.html's hardcoded light value even while the app itself is dark.
   const themeColorMeta = document.querySelector('meta[name="theme-color"]');

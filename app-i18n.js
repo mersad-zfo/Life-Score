@@ -54,6 +54,7 @@ const LANG_DICT = {
     'Log back in': 'دوباره وارد شوید', 'Sign up / Log in': 'ثبت‌نام / ورود',
     'Appearance': 'ظاهر برنامه',
     'System': 'سیستم', 'Light': 'روشن', 'Dark': 'تیره',
+    'Green': 'سبز', 'Blue': 'آبی', 'Pink': 'صورتی',
     'Sound': 'صدا', 'Sound on completion': 'صدا هنگام تکمیل',
     'Sleep cycle': 'چرخه خواب',
     'Night owl mode': 'حالت شب زنده داری',
