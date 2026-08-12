@@ -51,10 +51,27 @@ function validatePrivateJWK(jwk){
   if(!jwk.y || typeof jwk.y !== 'string') throw new Error("Invalid JWK: missing or invalid 'y' coordinate");
   if(!jwk.d || typeof jwk.d !== 'string') throw new Error("Invalid JWK: missing or invalid 'd' (private key)");
 }
+// Only real browser push services should ever end up here — without this, anything that could
+// call /api/device (see authorizeDevice() below) could point `subscription.endpoint` at an
+// arbitrary HTTPS host, and the scheduled cron / sendPush() would then fetch() that host from
+// Cloudflare's network, VAPID-signed, twice a day. That's a free SSRF primitive using Lifyar's
+// own infrastructure. Checking "is this HTTPS" alone doesn't stop that — checking the host does.
+const ALLOWED_PUSH_HOSTS = [
+  'fcm.googleapis.com',
+  'android.googleapis.com', // older FCM-era host some Chromium builds still hand out
+  'updates.push.services.mozilla.com',
+  'web.push.apple.com',
+];
+function isAllowedPushHost(hostname){
+  if(ALLOWED_PUSH_HOSTS.includes(hostname)) return true;
+  if(/\.notify\.windows\.com$/.test(hostname)) return true; // WNS: wns2-<region>.notify.windows.com
+  return false;
+}
 function validateEndpoint(endpoint){
   let url;
   try{ url = new URL(endpoint); }catch{ throw new Error(`Invalid subscription endpoint: '${endpoint}' is not a valid URL`); }
   if(url.protocol !== 'https:') throw new Error(`Invalid subscription endpoint: push endpoints must use HTTPS, received '${url.protocol}'`);
+  if(!isAllowedPushHost(url.hostname)) throw new Error(`Invalid subscription endpoint: '${url.hostname}' is not a recognized push service`);
 }
 
 // Parses the browser's subscription.keys (p256dh + auth) into usable crypto material.
@@ -195,9 +212,158 @@ function localTimeParts(timezone) {
   };
 }
 
-function isAuthorized(request, env) {
-  const auth = request.headers.get("Authorization") || "";
-  return auth === `Bearer ${env.API_SECRET}`;
+// =====================================================================================
+// ---------- Auth ----------
+// =====================================================================================
+// PREVIOUSLY this file gated every route behind a single static bearer token
+// (`env.API_SECRET`) that was also shipped inside the client app (see the old
+// NOTIF_API_SECRET constant in app-notif-shared.js). That meant the "secret" was fully
+// readable by anyone who opened the app's JS in a browser or unzipped the PWA — it wasn't
+// actually secret, so it wasn't actually access control. Concretely, that let anyone: (1) call
+// /api/test-push to force-send a real push to every registered device, repeatedly, with no rate
+// limit; (2) register a device record with an attacker-chosen `subscription.endpoint`, turning
+// the scheduled cron into an SSRF primitive against arbitrary HTTPS hosts (see
+// validateEndpoint() above for the other half of that fix).
+//
+// Replaced with two credential types, used for different callers:
+//
+//   /api/device — accepts EITHER:
+//     "Bearer <firebase-id-token>": a real signed Firebase Auth token. Every real Lifyar
+//       install has one, even before sign-up — the app signs in anonymously on first launch
+//       (see app-firebase.js) — so this is checkable without requiring a real account. Verified
+//       here directly against Google's public keys (RS256), no library, no secret needed on our
+//       side to check it. Used when the call comes from the page, where a live Firebase session
+//       exists.
+//     "Device <deviceId>:<secret>": a random secret THIS Worker mints the first time a device
+//       authenticates with a real Firebase token, and the client caches locally (see
+//       notifMetaSet('deviceSecret', ...) in app-notif-shared.js). Used from the service
+//       worker's pushsubscriptionchange handler, which can run with no page open and therefore
+//       no way to get a fresh Firebase token. Only ever grants control over that ONE deviceId —
+//       never other devices, never test-push.
+//
+//   /api/test-push — unchanged in spirit: a static bearer secret, BUT now `env.ADMIN_SECRET`,
+//     a value that must never be added to any client-shipped file (app-notif-shared.js or
+//     otherwise). Call it yourself directly (curl, Cloudflare dashboard) — see BACKEND.md.
+//
+// Required env vars/secrets after this change: FIREBASE_PROJECT_ID (a plain var, e.g.
+// "lifyar-c13ce" — not secret, it's public in app-firebase.js's config too), ADMIN_SECRET (a new
+// `wrangler secret put ADMIN_SECRET`, pick a fresh random value), VAPID_PRIVATE_KEY (unchanged).
+// `API_SECRET` is no longer read anywhere in this file — delete it from Cloudflare once this is
+// deployed, and treat its old value as permanently compromised (it shipped in production JS).
+
+const DEVICE_ID_RE = /^[A-Za-z0-9_-]{4,128}$/;
+
+function mintDeviceSecret(){
+  return bufToB64u(crypto.getRandomValues(new Uint8Array(24)));
+}
+
+// Plain === on strings leaks timing info proportional to how many leading characters match.
+// Not the biggest risk here, but it costs nothing to compare in constant time instead.
+function timingSafeEqual(a, b){
+  if(typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for(let i=0;i<a.length;i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// ---------- Firebase ID token verification (RS256, Google's public JWKS, no library) ----------
+let jwksCache = null;
+let jwksCacheAt = 0;
+const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+const JWKS_TTL_MS = 60 * 60 * 1000;
+
+async function fetchJwks(){
+  const res = await fetch(JWKS_URL);
+  if(!res.ok) throw new Error('jwks_fetch_failed');
+  const data = await res.json();
+  jwksCache = data.keys || [];
+  jwksCacheAt = Date.now();
+  return jwksCache;
+}
+
+async function getJwk(kid){
+  if(!jwksCache || Date.now() - jwksCacheAt > JWKS_TTL_MS) await fetchJwks();
+  let jwk = (jwksCache || []).find(k => k.kid === kid);
+  if(!jwk){
+    // Not in our cache — could be a very recent key rotation. Force one fresh fetch before
+    // giving up, rather than waiting up to an hour for the next natural refresh.
+    await fetchJwks();
+    jwk = (jwksCache || []).find(k => k.kid === kid);
+  }
+  return jwk || null;
+}
+
+async function verifyFirebaseIdToken(idToken, env){
+  const parts = idToken.split('.');
+  if(parts.length !== 3) throw new Error('malformed_token');
+  const [headerB64, payloadB64, sigB64] = parts;
+
+  const header = JSON.parse(new TextDecoder().decode(b64uToBuf(headerB64)));
+  const payload = JSON.parse(new TextDecoder().decode(b64uToBuf(payloadB64)));
+  if(header.alg !== 'RS256') throw new Error('unexpected_alg');
+
+  const jwk = await getJwk(header.kid);
+  if(!jwk) throw new Error('unknown_kid');
+
+  const key = await crypto.subtle.importKey('jwk', jwk, { name:'RSASSA-PKCS1-v1_5', hash:'SHA-256' }, false, ['verify']);
+  const signedData = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64uToBuf(sigB64), signedData);
+  if(!valid) throw new Error('bad_signature');
+
+  const now = Math.floor(Date.now() / 1000);
+  if(typeof payload.exp !== 'number' || payload.exp < now) throw new Error('expired');
+  if(typeof payload.iat !== 'number' || payload.iat > now + 60) throw new Error('issued_in_future');
+  if(!env.FIREBASE_PROJECT_ID) throw new Error('worker_missing_FIREBASE_PROJECT_ID');
+  if(payload.aud !== env.FIREBASE_PROJECT_ID) throw new Error('bad_audience');
+  if(payload.iss !== `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`) throw new Error('bad_issuer');
+  if(!payload.sub || typeof payload.sub !== 'string') throw new Error('no_subject');
+
+  return payload.sub; // Firebase uid — works for anonymous accounts too.
+}
+
+// Resolves who's allowed to touch ONE specific deviceId. See the big comment above for the two
+// credential types. Never returns access to any device other than `bodyDeviceId`.
+async function authorizeDevice(request, env, bodyDeviceId){
+  const auth = request.headers.get('Authorization') || '';
+
+  if(auth.startsWith('Bearer ')){
+    try{
+      const uid = await verifyFirebaseIdToken(auth.slice(7), env);
+      return { ok: true, uid, via: 'firebase' };
+    }catch(e){
+      return { ok: false, reason: 'bad_firebase_token' };
+    }
+  }
+
+  if(auth.startsWith('Device ')){
+    const rest = auth.slice(7);
+    const sep = rest.indexOf(':');
+    if(sep === -1) return { ok: false, reason: 'malformed_device_credential' };
+    const deviceId = rest.slice(0, sep);
+    const secret = rest.slice(sep + 1);
+    if(deviceId !== bodyDeviceId) return { ok: false, reason: 'device_id_mismatch' };
+    const existingRaw = await env.LIFE_SCORE_KV.get(`device:${deviceId}`);
+    if(!existingRaw) return { ok: false, reason: 'unknown_device' };
+    const existing = JSON.parse(existingRaw);
+    if(!existing.deviceSecret || !timingSafeEqual(existing.deviceSecret, secret)) return { ok: false, reason: 'bad_device_secret' };
+    return { ok: true, uid: existing.ownerUid || null, via: 'device' };
+  }
+
+  return { ok: false, reason: 'missing_credential' };
+}
+
+// ---------- Rate limiting ----------
+// Best-effort — Workers KV isn't strongly consistent or atomic, so under heavy concurrent load
+// this can under-count slightly. That's an acceptable tradeoff for what this is guarding against
+// (casual/scripted abuse), not a hard security boundary on its own — the real boundary is the
+// auth model above.
+async function checkRateLimit(env, bucketKey, limit, windowSeconds){
+  const windowId = Math.floor(Date.now() / (windowSeconds * 1000));
+  const key = `rl:${bucketKey}:${windowId}`;
+  const current = parseInt((await env.LIFE_SCORE_KV.get(key)) || '0', 10);
+  if(current >= limit) return { allowed: false };
+  await env.LIFE_SCORE_KV.put(key, String(current + 1), { expirationTtl: windowSeconds * 2 });
+  return { allowed: true };
 }
 
 function json(data, status = 200) {
@@ -221,34 +387,70 @@ export default {
       });
     }
 
-    if (!isAuthorized(request, env)) {
-      return json({ error: "Unauthorized" }, 401);
-    }
-
     try {
       if (url.pathname === "/api/device" && request.method === "POST") {
-        const body = await request.json();
+        let body;
+        try { body = await request.json(); } catch (e) { return json({ error: "invalid_json" }, 400); }
         const { deviceId, subscription, platform, timezone, enabled, language } = body;
-        if (!deviceId || !timezone) {
-          return json({ error: "Missing deviceId or timezone" }, 400);
+
+        if (!deviceId || typeof deviceId !== "string" || !DEVICE_ID_RE.test(deviceId)) {
+          return json({ error: "invalid_device_id" }, 400);
         }
+        if (!timezone || typeof timezone !== "string") {
+          return json({ error: "invalid_timezone" }, 400);
+        }
+
+        const rl = await checkRateLimit(env, `device:${deviceId}`, 20, 60);
+        if (!rl.allowed) return json({ error: "rate_limited" }, 429);
+
+        const authResult = await authorizeDevice(request, env, deviceId);
+        if (!authResult.ok) return json({ error: "unauthorized" }, 401);
+
         const existingRaw = await env.LIFE_SCORE_KV.get(`device:${deviceId}`);
-        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        const existing = existingRaw ? JSON.parse(existingRaw) : null;
+
+        // A Firebase-token request may only (re)claim a device that's brand new, or already
+        // owned by that same uid — stops account A's real login from overwriting account B's
+        // device record. A Device-secret request already proves the right to touch this specific
+        // device regardless of uid (existing.ownerUid may be missing on records created before
+        // this fix shipped — those self-heal into ownership on their next authenticated call).
+        if (authResult.via === "firebase" && existing && existing.ownerUid && existing.ownerUid !== authResult.uid) {
+          return json({ error: "forbidden" }, 403);
+        }
+
+        if (subscription) {
+          try { validateEndpoint(subscription.endpoint); }
+          catch (e) { return json({ error: "invalid_endpoint", detail: String(e.message || e) }, 400); }
+        }
+
+        const deviceSecret = (existing && existing.deviceSecret) || mintDeviceSecret();
+
         const record = {
           id: deviceId,
-          subscription: subscription || existing.subscription,
-          platform: platform || existing.platform,
+          ownerUid: (existing && existing.ownerUid) || authResult.uid || null,
+          deviceSecret,
+          subscription: subscription || existing?.subscription,
+          platform: platform || existing?.platform,
           timezone,
-          language: language || existing.language || 'en',
-          enabled: enabled !== undefined ? enabled : (existing.enabled ?? true),
+          language: language || existing?.language || 'en',
+          enabled: enabled !== undefined ? enabled : (existing?.enabled ?? true),
           lastSeen: Date.now(),
           updatedAt: Date.now(),
         };
         await env.LIFE_SCORE_KV.put(`device:${deviceId}`, JSON.stringify(record));
-        return json({ ok: true });
+        // Always hand back the current secret — cheap, and keeps whichever context called us
+        // (page or service worker) holding a fresh copy in notifMetaSet('deviceSecret', ...).
+        return json({ ok: true, deviceSecret });
       }
 
       if (url.pathname === "/api/test-push" && request.method === "POST") {
+        const auth = request.headers.get("Authorization") || "";
+        if (!env.ADMIN_SECRET || auth !== `Bearer ${env.ADMIN_SECRET}`) {
+          return json({ error: "unauthorized" }, 401);
+        }
+        const rl = await checkRateLimit(env, "test-push:global", 10, 60);
+        if (!rl.allowed) return json({ error: "rate_limited" }, 429);
+
         const TEST_MESSAGES = {
           en: { title: "Lifyar", body: "Test notification — this worked!" },
           fa: { title: "Lifyar", body: "پیام آزمایشی — کار کرد!" },

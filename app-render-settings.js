@@ -19,13 +19,11 @@ function renderSettings(main){
     </div>
 
     <div class="settings-group">
-      <div class="toggle-row">
-        <div class="item-name">${tr('Theme')}</div>
-        <div class="color-theme-row">
-          <button data-color-theme="green" class="color-swatch-btn ${colorTheme==='green'?'active':''}" aria-label="${tr('Green')}"><span class="color-swatch" style="background:#2F6F5E;"></span></button>
-          <button data-color-theme="blue" class="color-swatch-btn ${colorTheme==='blue'?'active':''}" aria-label="${tr('Blue')}"><span class="color-swatch" style="background:#2F5F8F;"></span></button>
-          <button data-color-theme="pink" class="color-swatch-btn ${colorTheme==='pink'?'active':''}" aria-label="${tr('Pink')}"><span class="color-swatch" style="background:#A9436F;"></span></button>
-        </div>
+      <div class="item-name" style="margin-bottom:10px;">${tr('Theme')}</div>
+      <div class="seg-control">
+        <button data-color-theme="green" class="${colorTheme==='green'?'active':''}">${tr('Green')}</button>
+        <button data-color-theme="blue" class="${colorTheme==='blue'?'active':''}">${tr('Blue')}</button>
+        <button data-color-theme="pink" class="${colorTheme==='pink'?'active':''}">${tr('Pink')}</button>
       </div>
     </div>
 

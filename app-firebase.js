@@ -25,7 +25,7 @@ import {
   EmailAuthProvider, linkWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   sendEmailVerification, reload, getAdditionalUserInfo, updateProfile,
   reauthenticateWithCredential, reauthenticateWithPopup, updatePassword, deleteUser,
-  sendPasswordResetEmail,
+  sendPasswordResetEmail, getIdToken as fbGetIdToken,
 } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp,
@@ -354,6 +354,18 @@ async function sendPasswordReset(email) {
 // doc first so nothing orphaned is left behind under a uid nobody can ever sign into again, then
 // deletes the Firebase Auth user itself — which fires onAuthStateChanged with null, and the
 // existing listener above takes it from there (signs back in anonymously automatically).
+// Used by app-notif-shared.js to authenticate calls to the Cloudflare Worker (see the auth
+// rewrite in Worker/worker.js) — every real install has a current user by the time `ready`
+// resolves, anonymous or not, so this works even before someone signs up for real. Returns null
+// rather than throwing if Firebase genuinely has nobody signed in yet or the SDK call itself
+// fails (e.g. offline) — callers fall back to the cached per-device secret in that case.
+async function getIdToken() {
+  await ready;
+  if (!currentUser) return null;
+  try { return await fbGetIdToken(currentUser); }
+  catch (e) { console.error('getIdToken failed', e); return null; }
+}
+
 async function deleteAccount(reauth) {
   if (!currentUser) return { ok: false, code: 'no-user' };
   try {
@@ -389,6 +401,7 @@ window.LifyarCloud = {
   sendVerificationEmail,
   checkEmailVerified,
   isAccountVerified,
+  getIdToken,
   signOutCloud,
   pullState,
   pushState,
