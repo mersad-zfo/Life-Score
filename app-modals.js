@@ -1,18 +1,26 @@
 // ---------- Modals ----------
+// Every modal is wrapped in .modal-inner (a position:relative anchor for the close-X) and gets
+// its [data-close] elements wired for free — callers just need to include modalCloseXHtml() in
+// whatever they pass to openModal(). A function (not a static string) so tr() resolves at the
+// moment the modal is actually built, not at script-load time.
+function modalCloseXHtml(){
+  return `<button class="modal-close-x" type="button" data-close aria-label="${tr('Close')}">✕</button>`;
+}
 function openModal(html){
   const wrap = document.createElement('div');
   wrap.className = 'modal-backdrop';
-  wrap.innerHTML = `<div class="modal">${html}</div>`;
+  wrap.innerHTML = `<div class="modal"><div class="modal-inner">${html}</div></div>`;
   document.body.appendChild(wrap);
   wrap.addEventListener('click', (e)=>{ if(e.target===wrap) wrap.remove(); });
+  wrap.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> wrap.remove()));
   return wrap;
 }
 
 // ---------- Notifications popover ----------
-// Icon (🏆/❗/❕) + title + subtitle, at most 6 most-recent (excluding any hidden via the "x"),
-// plus a permanent "show more" row into the full Notifications page. The "x" only hides an item
-// from THIS list — see notifDbDismissFromPopover — it stays in history until it 30-day-prunes or
-// is trashed from the full page.
+// Icon (🏆/❗/❕) + title + subtitle, at most 6 most-recent, plus a permanent "show more" row into
+// the full Notifications page. No per-item dismiss here — the popover's single header close-X
+// (wired in openNotificationsModal below) is the only way to close it; an entry only actually
+// leaves history via the full page's trash icon (notifDbDeleteOne).
 async function notifPopoverListHtml(){
   let list = [];
   try{ list = await notifDbGetAll(); }catch(e){ /* IndexedDB unavailable */ }
@@ -24,9 +32,6 @@ async function notifPopoverListHtml(){
         <div class="notif-title">${escapeHtml(n.title)}</div>
         ${n.body ? `<div class="notif-body">${escapeHtml(n.body)}</div>` : ''}
       </div>
-      <button class="notif-dismiss" data-dismiss="${n.id}" aria-label="${tr('Delete')}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
     </div>
   `).join('') : `<div class="notif-empty">${tr('No notifications yet')}</div>`;
   return `
@@ -55,24 +60,8 @@ async function openNotificationsModal(){
   scrim.addEventListener('click', close);
   pop.querySelector('#notifPopClose').addEventListener('click', close);
 
-  async function rerenderBody(){
-    pop.querySelector('#notifPopBody').innerHTML = await notifPopoverListHtml();
-    wireBody();
-  }
-  function wireBody(){
-    pop.querySelectorAll('[data-dismiss]').forEach(btn=>{
-      btn.addEventListener('click', async (e)=>{
-        e.stopPropagation();
-        const id = parseInt(btn.dataset.dismiss);
-        try{ await notifDbDismissFromPopover(id); }catch(err){ /* IndexedDB unavailable */ }
-        refreshBellBadge();
-        rerenderBody();
-      });
-    });
-    const showMore = pop.querySelector('#notifShowMore');
-    if(showMore) showMore.addEventListener('click', ()=>{ close(); openNotificationsPage(); });
-  }
-  wireBody();
+  const showMore = pop.querySelector('#notifShowMore');
+  if(showMore) showMore.addEventListener('click', ()=>{ close(); openNotificationsPage(); });
 
   try{
     await notifDbMarkAllRead();
@@ -350,6 +339,7 @@ function readSteps(m, prefix){
 // ---------- Add Routine ----------
 function openAddRoutineModal(){
   const m = openModal(`
+    ${modalCloseXHtml()}
     <h3>${tr('New routine')}</h3>
     <div class="field">
       <label>${tr('Name & emoji')}</label>
@@ -427,6 +417,7 @@ function openEditRoutineModal(id){
   // returns true) — weekly/monthly used to lock it after the first day, daily never did.
   const diffLocked = !routineEditable(h);
   const m = openModal(`
+    ${modalCloseXHtml()}
     <h3>${tr('Edit routine')}</h3>
     <div class="field">
       <label>${tr('Name & emoji')}</label>
@@ -493,6 +484,7 @@ function openEditRoutineModal(id){
 // ---------- Add Task ----------
 function openAddTaskModal(){
   const m = openModal(`
+    ${modalCloseXHtml()}
     <h3>${tr('New task')}</h3>
     <div class="field">
       <label>${tr('Name & emoji')}</label>
@@ -551,6 +543,7 @@ function openEditTaskModal(id){
   if(!task) return;
   const diffLocked = !taskEditable(task);
   const m = openModal(`
+    ${modalCloseXHtml()}
     <h3>${tr('Edit task')}</h3>
     <div class="field">
       <label>${tr('Name & emoji')}</label>
@@ -612,6 +605,7 @@ function openEditTaskModal(id){
 // ---------- Reset ----------
 function openResetModal(){
   const m = openModal(`
+    ${modalCloseXHtml()}
     <h3>${tr('Reset everything?')}</h3>
     <div class="field" style="color:var(--ink-soft); font-size:14px; line-height:1.5;">
       ${tr("This permanently deletes all routines, tasks, and score history. This can't be undone.")}

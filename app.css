@@ -771,10 +771,21 @@
   }
   .add-details-link{
     font-size:13px;
+    font-weight:500;
     color:var(--accent);
-    text-decoration:underline;
+    text-decoration:none;
     margin-bottom:14px;
-    display:inline-block;
+    display:inline-flex;
+    align-items:center;
+    padding:8px 14px;
+    border-radius:999px;
+    background:var(--accent-soft);
+    border:1px solid transparent;
+    cursor:pointer;
+    transition: background .15s ease, transform .1s ease;
+  }
+  .add-details-link:active{
+    transform:scale(0.97);
   }
   .emoji-field-row{
     display:flex;
@@ -844,17 +855,11 @@
   .notif-title{ font-weight:600; font-size:14px; }
   .notif-body{ font-size:13px; color:var(--ink-soft); margin-top:2px; line-height:1.4; }
   .notif-time{ font-size:11px; color:var(--ink-soft); margin-top:4px; opacity:0.7; }
-  .notif-dismiss{
-    flex-shrink:0; width:26px; height:26px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    color:var(--ink-soft); margin-top:1px;
-  }
   .notif-trash{
     flex-shrink:0; width:26px; height:26px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
     color:var(--rust); margin-top:1px;
   }
-  .notif-dismiss:active{ background:var(--accent-soft); color:var(--accent); }
   .notif-trash:active{ background:var(--rust-soft); }
   .notif-show-more{
     text-align:center; padding:12px 4px 2px; font-size:13px; font-weight:600;
@@ -912,15 +917,20 @@
   .notif-popover .notif-show-more{ padding:10px 16px 16px; flex-shrink:0; }
 
   /* ---- Slide-down banner stack ---- */
+  /* top/height are set inline by positionBannerStack() (app-notif-triggers.js), pinned to the
+     live header's bottom edge — the header's real height varies by tab/state, so it can't be a
+     fixed CSS value. overflow:hidden is what clips a banner's slide-in above this line, which is
+     what makes it read as emerging from underneath the header rather than sliding in over it. */
   #notifBannerStack{
-    position:fixed; top:0; left:50%; transform:translateX(-50%);
+    position:fixed; left:50%; transform:translateX(-50%);
     width:100%; max-width:480px;
     z-index:65;
     pointer-events:none;
+    overflow:hidden;
   }
   .notif-banner{
     position:absolute;
-    top: calc(10px + env(safe-area-inset-top));
+    top:10px;
     left:16px; right:16px;
     background:var(--paper);
     border-radius:18px;

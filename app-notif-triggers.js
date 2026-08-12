@@ -195,6 +195,20 @@ function ensureBannerStackEl(){
   return stack;
 }
 
+// The header's real height varies (single-line wordmark vs. two-line title+date vs. the
+// Settings/Notifications back-button layout), so it's measured live rather than assumed — the
+// stack's own top/height are set to exactly the area under the header, and (paired with
+// overflow:hidden on #notifBannerStack) that's what makes a banner's slide-down animation read as
+// emerging from underneath the header rather than sliding in over the top of it. Recomputed every
+// time a banner is shown, not cached, since the header's content (and therefore height) can change
+// between one banner and the next.
+function positionBannerStack(stack){
+  const header = document.querySelector('header.top');
+  const top = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+  stack.style.top = top + 'px';
+  stack.style.height = `calc(100vh - ${top}px)`;
+}
+
 function layoutBannerStack(){
   notifBannerStack.forEach((b, i)=>{
     b.baseY = i*10;
@@ -207,16 +221,18 @@ function layoutBannerStack(){
   });
 }
 
-function removeBanner(entry, animateOutX){
+// exit: optional {x, y} override for the dismiss direction. Default (no exit passed, the
+// auto-timeout case) drifts up slightly with no horizontal movement, same as before.
+function removeBanner(entry, exit){
   const idx = notifBannerStack.indexOf(entry);
   if(idx===-1) return;
   clearTimeout(entry.timer);
   notifBannerStack.splice(idx, 1);
   entry.el.style.transition = 'transform .22s ease, opacity .22s ease';
   entry.el.style.opacity = '0';
-  entry.el.style.transform = (animateOutX!==undefined && animateOutX!==null)
-    ? `translate(${animateOutX}px, ${entry.baseY}px) scale(${entry.baseScale})`
-    : `translate(0px, ${entry.baseY - 40}px) scale(${entry.baseScale})`;
+  const x = (exit && exit.x!=null) ? exit.x : 0;
+  const y = (exit && exit.y!=null) ? exit.y : entry.baseY - 40;
+  entry.el.style.transform = `translate(${x}px, ${y}px) scale(${entry.baseScale})`;
   setTimeout(()=> entry.el.remove(), 220);
   layoutBannerStack();
 }
@@ -231,6 +247,7 @@ function dismissAllBanners(){
 
 function showNotifBanner({ category, title, body }){
   const stack = ensureBannerStackEl();
+  positionBannerStack(stack);
   const el = document.createElement('div');
   el.className = 'notif-banner';
   el.innerHTML = `
@@ -250,10 +267,13 @@ function showNotifBanner({ category, title, body }){
 
 function wireBannerGestures(entry){
   const el = entry.el;
-  let startX=0, startY=0, dx=0, moved=false;
-  el.style.touchAction = 'pan-y';
+  // touchAction 'pan-y' let vertical scroll gestures pass through the browser before this was
+  // wired for vertical swipe — now that swiping up is itself a dismiss gesture, block native
+  // vertical panning entirely so it doesn't fight the drag.
+  let startX=0, startY=0, dx=0, dy=0, moved=false;
+  el.style.touchAction = 'none';
   el.addEventListener('pointerdown', (e)=>{
-    entry.dragging = true; moved = false; dx = 0;
+    entry.dragging = true; moved = false; dx = 0; dy = 0;
     startX = e.clientX; startY = e.clientY;
     el.style.transition = 'none';
     try{ el.setPointerCapture(e.pointerId); }catch(err){ /* not needed for mouse in some browsers */ }
@@ -261,15 +281,21 @@ function wireBannerGestures(entry){
   el.addEventListener('pointermove', (e)=>{
     if(!entry.dragging) return;
     dx = e.clientX - startX;
-    if(Math.abs(dx) > 6 || Math.abs(e.clientY - startY) > 6) moved = true;
-    el.style.transform = `translate(${dx}px, ${entry.baseY}px) scale(${entry.baseScale})`;
+    dy = e.clientY - startY;
+    if(Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+    // Only follow the finger upward, not downward — dragging down isn't a supported gesture and
+    // would just look like the banner sinking back toward/into the header.
+    const followY = Math.min(dy, 0);
+    el.style.transform = `translate(${dx}px, ${entry.baseY + followY}px) scale(${entry.baseScale})`;
   });
   const finish = ()=>{
     if(!entry.dragging) return;
     entry.dragging = false;
     el.style.transition = 'transform .22s ease, opacity .22s ease';
     if(Math.abs(dx) > 70){
-      removeBanner(entry, dx>0 ? 400 : -400);
+      removeBanner(entry, { x: dx>0 ? 400 : -400, y: entry.baseY });
+    } else if(dy < -70){
+      removeBanner(entry, { x: 0, y: entry.baseY - 300 });
     } else if(!moved){
       dismissAllBanners();
       openNotificationsPage();

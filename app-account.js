@@ -73,7 +73,7 @@ function getAccountProfile(){
 }
 
 function openAccountModal(innerHtml){
-  return openModal(`<div class="modal-inner">${innerHtml}</div>`);
+  return openModal(innerHtml);
 }
 
 // Shared by every account-related action that needs to refresh the settings/onboarding view
@@ -334,7 +334,6 @@ function openBackupRestoreModal(){
     </div>
   `;
   const m = openAccountModal(html);
-  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
   m.querySelector('#btnBackupInModal').addEventListener('click', ()=> backupData());
   m.querySelector('#btnRestoreInModal').addEventListener('click', ()=> restoreData());
 }
@@ -515,7 +514,6 @@ function wireAuthModal(m, mode){
     wireAuthModal(m, next);
   };
 
-  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
   m.querySelectorAll('[data-back]').forEach(el => el.addEventListener('click', ()=> swapTo(el.dataset.back)));
   m.querySelectorAll('[data-mode]').forEach(el => el.addEventListener('click', ()=> swapTo(el.dataset.mode)));
   m.querySelectorAll('[data-pwtoggle]').forEach(btn=>{
@@ -828,7 +826,6 @@ function manageModalHtml(){
 }
 
 function wireManageModal(m){
-  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
 
   const nameInput = m.querySelector('#fAccountName');
   const saveNameBtn = m.querySelector('#btnSaveName');
@@ -898,7 +895,6 @@ function openDeleteAccountModal(parentModal){
     <button class="btn-primary" type="button" id="btnConfirmDelete" style="width:100%;background:var(--rust);border-color:var(--rust);">${tr('Permanently delete account')}</button>
   `;
   const m = openAccountModal(html);
-  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
   m.querySelectorAll('[data-pwtoggle]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const input = m.querySelector('#'+btn.dataset.pwtoggle);
@@ -967,7 +963,6 @@ function openChangePasswordModal(isAdd, parentModal){
     <button class="btn-primary" type="button" id="btnSavePw" style="width:100%;">${isAdd ? tr('Add password') : tr('Update password')}</button>
   `;
   const m = openAccountModal(html);
-  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
   m.querySelectorAll('[data-pwtoggle]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const input = m.querySelector('#'+btn.dataset.pwtoggle);

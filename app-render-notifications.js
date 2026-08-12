@@ -2,9 +2,9 @@
 // Not a bottom-nav tab — reached only via the bell popover's "Show more" row or by tapping a
 // slide-down banner, the same way Settings is reached only via the gear icon (see app-main.js).
 // Shows every stored notification (up to the 30-day retention window), unlike the popover's
-// 6-item cap. The difference from the popover: no "x" here — a trash icon with a confirm dialog
-// does a REAL delete (notifDbDeleteOne), vs. the popover's "x" which only hides an item from that
-// short list (notifDbDismissFromPopover).
+// 6-item cap. The difference from the popover: this page's trash icon (with a confirm dialog) does
+// a REAL delete (notifDbDeleteOne) per item — the popover itself has no per-item action at all
+// anymore, only its single header close-X.
 
 function openNotificationsPage(){
   if(currentTab!=='notifications'){
