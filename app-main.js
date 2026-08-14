@@ -1,4 +1,66 @@
 // ---------- Init ----------
+// ---------- Hardware back button (Android) / edge-swipe-back (Android & iOS) ----------
+// The app never used the History API before this — by default, pressing a phone's back button
+// (or swiping from the screen edge) while a modal or the Settings/Notifications page was open just
+// exited the app, since there was no browser history entry to go back to. The fix: push one history
+// entry every time something "back-able" opens, and make that entry's ONLY purpose be to get
+// consumed — either by a real hardware-back press, or by the layer's own close control (X, Cancel,
+// backdrop tap, "< Back") calling closeBackLayer() instead of closing itself directly. Both paths
+// converge on the single popstate handler below, which is the ONLY place that ever actually runs a
+// layer's close logic — this is what keeps the browser's real history stack and this JS-side stack
+// from ever drifting out of sync with each other, regardless of which path triggered the close.
+//
+// Scope (deliberate): every modal (openModal() in app-modals.js covers routine/task/reset and,
+// via openAccountModal, every account modal too — plus onboarding's own Skip Setup modal, which
+// calls openModal() directly), the bell notifications popover, the progression popover (including
+// its own internal month→week→day drill-down — each level is its own layer, so back steps through
+// them one at a time before closing the popover, same as tapping that level's own "< back"), the
+// Settings/Notifications full-page overlays (not modals — just `currentTab` states with their own
+// "< Back"), and onboarding's own step-by-step "< Back" (steps 1-5). It does NOT cover ordinary
+// bottom-nav tab switching (Today/Routines/Tasks/Score) — pressing back on a bare tab with none of
+// the above open still exits the app today, as before.
+const backLayerStack = [];
+// Set by closeBackLayers() right before it calls history.go(-n) — history.go coalesces a multi-step
+// jump into exactly ONE popstate event on arrival, so the popstate handler needs to know how many
+// layers that single event actually accounts for. Reset to 0 (meaning "exactly 1") the moment it's
+// consumed, so an ordinary hardware-back press — which never touches this — always closes just one.
+let pendingBackPops = 0;
+function pushBackLayer(onPop){
+  history.pushState({ lifyarLayer: true }, '', location.href);
+  backLayerStack.push(onPop);
+}
+// What every layer's own close control (X / Cancel / backdrop tap / "< Back") should call instead
+// of closing itself directly.
+function closeBackLayer(){
+  closeBackLayers(1);
+}
+// For the rare action that closes more than one layer in a single step (e.g. deleting the account
+// closes both the confirm modal and the Manage Account modal beneath it).
+function closeBackLayers(n){
+  if(n<=0 || !backLayerStack.length) return;
+  pendingBackPops = Math.min(n, backLayerStack.length);
+  history.go(-pendingBackPops);
+}
+window.addEventListener('popstate', ()=>{
+  const n = pendingBackPops || 1;
+  pendingBackPops = 0;
+  for(let i=0; i<n; i++){
+    const onPop = backLayerStack.pop();
+    if(onPop) onPop();
+  }
+});
+// For a full teardown (Reset Everything) — clears every pending layer at once. Whatever they'd
+// have restored to (e.g. a Settings-tab layer beneath the Reset modal) no longer applies once the
+// app has been torn down into onboarding, so this deliberately does NOT run each layer's own onPop
+// — the caller is expected to handle its own immediate cleanup (e.g. removing its modal) directly.
+function clearBackLayers(){
+  const n = backLayerStack.length;
+  if(!n) return;
+  backLayerStack.length = 0;
+  pendingBackPops = 0;
+  history.go(-n);
+}
+
 // ---------- Header greeting (Today tab) ----------
 // Five time-of-day buckets, each with 3 short (max 4-word) greetings to pick from at random.
 // Each entry is [plain, withName] — withName uses "{name}" as a placeholder and is only used when
@@ -63,7 +125,7 @@ function getHeaderGreeting(){
 
 const TAB_PAGE_TITLES = { routines: 'Your routines', tasks: 'Your tasks', score: 'Your score', settings: 'Settings', notifications: 'Notifications' };
 function headerBackAction(){
-  setTab(previousTab);
+  closeBackLayer();
 }
 function updateHeader(){
   const el = document.getElementById('headerInfo');
@@ -133,10 +195,12 @@ document.getElementById('gearBtn').addEventListener('click', ()=>{
       const leavingEl = document.getElementById(leavingPageId);
       if(leavingEl) leavingEl.scrollTop = 0;
     }
+    const returnTo = previousTab;
     currentTab = 'settings';
     document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.remove('active'));
     updateHeaderAnimated();
     renderMain();
+    pushBackLayer(()=> setTab(returnTo));
   }
 });
 document.getElementById('fab').addEventListener('click', ()=>{

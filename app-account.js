@@ -154,7 +154,7 @@ document.addEventListener('visibilitychange', ()=>{
       // showing, that screen is now stale and needs closing, or it just sits there looking like
       // nothing happened even though sign-in already succeeded.
       if(completed && currentAuthModal && currentAuthModal.isConnected){
-        currentAuthModal.remove();
+        closeBackLayer();
       }
     });
   }
@@ -514,7 +514,7 @@ function wireAuthModal(m, mode){
     wireAuthModal(m, next);
   };
 
-  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
+  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> closeBackLayer()));
   m.querySelectorAll('[data-back]').forEach(el => el.addEventListener('click', ()=> swapTo(el.dataset.back)));
   m.querySelectorAll('[data-mode]').forEach(el => el.addEventListener('click', ()=> swapTo(el.dataset.mode)));
   m.querySelectorAll('[data-pwtoggle]').forEach(btn=>{
@@ -561,7 +561,7 @@ function wireAuthModal(m, mode){
     const pulled = await reconcileWithCloud();
     const existingName = (pulled && state.profile && state.profile.name) ? state.profile.name : null;
     if(existingName){
-      m.remove();
+      closeBackLayer();
       await completeCloudSignIn(existingName, user.email || '', onboardingActive, onboardingActive ? obStep : undefined, pulled);
       return;
     }
@@ -636,7 +636,7 @@ function wireAuthModal(m, mode){
         wireAuthModal(m, 'verify-pending');
         return;
       }
-      m.remove();
+      closeBackLayer();
       completeCloudSignIn(name, email, onboardingActive, onboardingActive ? obStep : undefined);
     });
   }
@@ -685,7 +685,7 @@ function wireAuthModal(m, mode){
         wireAuthModal(m, 'verify-pending');
         return;
       }
-      m.remove();
+      closeBackLayer();
       const name = (user && user.displayName) || (state.profile && state.profile.name) || email.split('@')[0];
       completeCloudSignIn(name, email, onboardingActive, onboardingActive ? obStep : undefined);
     });
@@ -731,7 +731,7 @@ function wireAuthModal(m, mode){
       }
       const user = result.user || cloud.getUser();
       const name = user.displayName || (user.email ? user.email.split('@')[0] : '') || tr('Account');
-      m.remove();
+      closeBackLayer();
       completeCloudSignIn(name, user.email || '', onboardingActive, onboardingActive ? obStep : undefined);
     });
   }
@@ -741,7 +741,7 @@ function wireAuthModal(m, mode){
       const btn = m.querySelector('#btnCheckVerifiedModal');
       btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Checking…')}`;
       const completed = await tryCompletePendingVerification(onboardingActive ? 'onboarding' : 'settings', false);
-      if(completed){ m.remove(); return; }
+      if(completed){ closeBackLayer(); return; }
       btn.disabled = false; btn.textContent = tr("I've verified — continue");
     });
     m.querySelector('#btnResendModal').addEventListener('click', async ()=>{
@@ -774,7 +774,7 @@ function wireAuthModal(m, mode){
       state.profile.name = name;
       saveState();
       if(cloud) await cloud.setDisplayName(name); // best effort — state.profile.name is authoritative
-      m.remove();
+      closeBackLayer();
       rerenderAccountView();
       showToast(tr('Name updated'));
     });
@@ -827,7 +827,7 @@ function manageModalHtml(){
 }
 
 function wireManageModal(m){
-  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> m.remove()));
+  m.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> closeBackLayer()));
 
   const nameInput = m.querySelector('#fAccountName');
   const saveNameBtn = m.querySelector('#btnSaveName');
@@ -929,9 +929,10 @@ function openDeleteAccountModal(parentModal){
     state.profile = null;
     state.session.loggedIn = false;
     saveState();
-    m.remove();
-    // The account is gone — nothing left for the Manage Account modal underneath to manage.
-    if(parentModal && parentModal.isConnected) parentModal.remove();
+    // The account is gone — nothing left for the Manage Account modal underneath to manage. Both
+    // close together as one back-navigation (closeBackLayers, not two separate closeBackLayer()
+    // calls) since there's nothing to "go back to" in between them anymore.
+    closeBackLayers(2);
     showToast(tr('Account deleted'));
     rerenderAccountView();
   });
@@ -997,7 +998,7 @@ function openChangePasswordModal(isAdd, parentModal){
       showToast(cloudErrorMessage(result.code));
       return;
     }
-    m.remove();
+    closeBackLayer();
     refreshManageModal(parentModal);
     showToast(isAdd ? tr('Password added — you can now log in with email too') : tr('Password updated'));
   });

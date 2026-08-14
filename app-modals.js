@@ -11,8 +11,9 @@ function openModal(html){
   wrap.className = 'modal-backdrop';
   wrap.innerHTML = `<div class="modal"><div class="modal-inner">${html}</div></div>`;
   document.body.appendChild(wrap);
-  wrap.addEventListener('click', (e)=>{ if(e.target===wrap) wrap.remove(); });
-  wrap.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> wrap.remove()));
+  pushBackLayer(()=> wrap.remove());
+  wrap.addEventListener('click', (e)=>{ if(e.target===wrap) closeBackLayer(); });
+  wrap.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', ()=> closeBackLayer()));
   return wrap;
 }
 
@@ -56,12 +57,17 @@ async function openNotificationsModal(){
   document.body.appendChild(scrim);
   document.body.appendChild(pop);
 
-  const close = ()=>{ scrim.remove(); pop.remove(); };
-  scrim.addEventListener('click', close);
-  pop.querySelector('#notifPopClose').addEventListener('click', close);
+  // afterClose lets "Show more" chain straight into the Notifications page once this popover has
+  // actually finished closing — closeBackLayer() -> history.back() is async, so pushing the next
+  // page's own back-layer has to wait until popstate really fires (inside this onPop), rather than
+  // firing a pushState synchronously right after an in-flight back() and risking the two colliding.
+  let afterClose = null;
+  pushBackLayer(()=>{ scrim.remove(); pop.remove(); if(afterClose) afterClose(); });
+  scrim.addEventListener('click', ()=> closeBackLayer());
+  pop.querySelector('#notifPopClose').addEventListener('click', ()=> closeBackLayer());
 
   const showMore = pop.querySelector('#notifShowMore');
-  if(showMore) showMore.addEventListener('click', ()=>{ close(); openNotificationsPage(); });
+  if(showMore) showMore.addEventListener('click', ()=>{ afterClose = openNotificationsPage; closeBackLayer(); });
 
   try{
     await notifDbMarkAllRead();
@@ -375,7 +381,7 @@ function openAddRoutineModal(){
   m.querySelector('#hName').addEventListener('input', (e)=>{
     if(!emojiTouched) m.querySelector('#hEmoji').value = pickRoutineEmoji(e.target.value);
   });
-  m.querySelector('#hCancel').addEventListener('click', ()=>m.remove());
+  m.querySelector('#hCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#hSave').addEventListener('click', ()=>{
     const name = m.querySelector('#hName').value.trim();
     const emoji = m.querySelector('#hEmoji').value.trim() || ROUTINE_FALLBACK_EMOJI;
@@ -408,7 +414,7 @@ function openAddRoutineModal(){
       });
     }
     saveState();
-    m.remove();
+    closeBackLayer();
     renderMain();
     if(graceToday){
       notifSetCondition(`grace:${base.id}`, true, 'info',
@@ -450,7 +456,7 @@ function openEditRoutineModal(id){
   wireTimeDetailsToggle(m, 'eh');
   if(!diffLocked){ wireStepsToggle(m, 'eh'); wireDifficultyPicker(m, 'eh'); }
   limitToOneGrapheme(m.querySelector('#ehEmoji'));
-  m.querySelector('#ehCancel').addEventListener('click', ()=>m.remove());
+  m.querySelector('#ehCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#ehSave').addEventListener('click', ()=>{
     const name = m.querySelector('#ehName').value.trim();
     const emoji = m.querySelector('#ehEmoji').value.trim() || ROUTINE_FALLBACK_EMOJI;
@@ -486,7 +492,7 @@ function openEditRoutineModal(id){
     // else in the Historical Data Integrity design.
     if(!diffLocked) realignStepLogPointsForToday('routine', h);
     saveState();
-    m.remove();
+    closeBackLayer();
     renderMain();
     showToast(tr('Routine updated'));
     evaluateLiveDailyNotifications();
@@ -527,7 +533,7 @@ function openAddTaskModal(){
   m.querySelector('#tName').addEventListener('input', (e)=>{
     if(!emojiTouched) m.querySelector('#tEmoji').value = pickTaskEmoji(e.target.value);
   });
-  m.querySelector('#tCancel').addEventListener('click', ()=>m.remove());
+  m.querySelector('#tCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#tSave').addEventListener('click', ()=>{
     const name = m.querySelector('#tName').value.trim();
     const emoji = m.querySelector('#tEmoji').value.trim() || TASK_DEFAULT_EMOJI;
@@ -543,7 +549,7 @@ function openAddTaskModal(){
       decayRate: TASK_DECAY_RATE
     });
     saveState();
-    m.remove();
+    closeBackLayer();
     renderMain();
     evaluateLiveDailyNotifications();
   });
@@ -582,7 +588,7 @@ function openEditTaskModal(id){
   wireTimeDetailsToggle(m, 'et');
   wireStepsToggle(m, 'et');
   limitToOneGrapheme(m.querySelector('#etEmoji'));
-  m.querySelector('#etCancel').addEventListener('click', ()=>m.remove());
+  m.querySelector('#etCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#etSave').addEventListener('click', ()=>{
     const name = m.querySelector('#etName').value.trim();
     const emoji = m.querySelector('#etEmoji').value.trim() || TASK_DEFAULT_EMOJI;
@@ -607,7 +613,7 @@ function openEditTaskModal(id){
     // see app-steps.js realignStepLogPointsForToday().
     realignStepLogPointsForToday('task', task);
     saveState();
-    m.remove();
+    closeBackLayer();
     renderMain();
     showToast(tr('Task updated'));
     evaluateLiveDailyNotifications();
@@ -628,7 +634,7 @@ function openResetModal(){
       <button class="btn-primary btn-danger" id="rConfirm">${tr('Reset everything')}</button>
     </div>
   `);
-  m.querySelector('#rCancel').addEventListener('click', ()=>m.remove());
+  m.querySelector('#rCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#rConfirm').addEventListener('click', async ()=>{
     try{ await notifDbClearAll(); }catch(e){ console.error('Reset: notification inbox clear failed', e); }
 
@@ -668,6 +674,7 @@ function openResetModal(){
     if(window.LifyarCloud) window.LifyarCloud.signOutCloud();
     applyTheme();
     m.remove();
+    clearBackLayers();
     enterOnboarding();
     showToast(tr('Everything reset'));
     refreshBellBadge();

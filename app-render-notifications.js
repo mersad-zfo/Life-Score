@@ -8,11 +8,12 @@
 
 function openNotificationsPage(){
   if(currentTab!=='notifications'){
-    previousTab = currentTab;
+    const returnTo = previousTab = currentTab;
     currentTab = 'notifications';
     document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.remove('active'));
     updateHeader();
     renderMain();
+    pushBackLayer(()=> setTab(returnTo));
   }
 }
 

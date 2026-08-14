@@ -192,9 +192,9 @@ function openProgressionPopover(month){
   document.body.appendChild(scrim);
   document.body.appendChild(card);
 
-  const close = ()=>{ scrim.remove(); card.remove(); };
-  scrim.addEventListener('click', close);
-  card.querySelector('#progPopClose').addEventListener('click', close);
+  pushBackLayer(()=>{ scrim.remove(); card.remove(); });
+  scrim.addEventListener('click', ()=> closeBackLayer());
+  card.querySelector('#progPopClose').addEventListener('click', ()=> closeBackLayer());
 
   renderProgression(card.querySelector('#progPopBody'));
 }
@@ -224,6 +224,7 @@ function renderProgMonthView(container){
       progWeekRange = JSON.parse(el.dataset.progWeek);
       progView = 'week';
       renderProgression(container);
+      pushBackLayer(()=>{ progView='month'; renderProgression(container); });
     });
   });
 }
@@ -251,14 +252,13 @@ function renderProgWeekView(container){
     <div class="score-grid" style="margin-top:12px;">${tilesHtml}</div>
   `;
 
-  container.querySelector('#progBack').addEventListener('click', ()=>{
-    progView='month'; renderProgression(container);
-  });
+  container.querySelector('#progBack').addEventListener('click', ()=> closeBackLayer());
   container.querySelectorAll('[data-prog-day]').forEach(el=>{
     el.addEventListener('click', ()=>{
       progDay = el.dataset.progDay;
       progView = 'day';
       renderProgression(container);
+      pushBackLayer(()=>{ progView='week'; renderProgression(container); });
     });
   });
 }
@@ -339,9 +339,7 @@ function renderProgDayView(container){
     <div class="prog-day-list">${listHtml}</div>
   `;
 
-  container.querySelector('#progBack').addEventListener('click', ()=>{
-    progView='week'; renderProgression(container);
-  });
+  container.querySelector('#progBack').addEventListener('click', ()=> closeBackLayer());
 }
 
 // ---- Main dispatcher ----

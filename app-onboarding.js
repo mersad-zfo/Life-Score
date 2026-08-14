@@ -99,9 +99,7 @@ function enterOnboarding(){
 
 function initOnboarding(){
   onboardingActive = !state.settings.onboardingComplete;
-  document.getElementById('obBackBtn').addEventListener('click', ()=>{
-    if(obStep>1 && obStep<5){ obStep--; renderOnboarding(); }
-  });
+  document.getElementById('obBackBtn').addEventListener('click', ()=> closeBackLayer());
   document.getElementById('obWeekdayPopoverConfirm').addEventListener('click', ()=>{
     document.getElementById('obWeekdayPopoverScrim').style.display = 'none';
     const trigger = document.querySelector(`[data-weekday-trigger="${obActiveWeekdayPopoverId}"]`);
@@ -695,7 +693,7 @@ function obSkipSetup(){
       <button class="btn-primary btn-danger" id="obSkipConfirm">${tr('Skip setup')}</button>
     </div>
   `);
-  m.querySelector('#obSkipCancel').addEventListener('click', ()=>m.remove());
+  m.querySelector('#obSkipCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#obSkipConfirm').addEventListener('click', ()=>{
     obSelectedDaily = new Set();
     obSelectedWeekly = new Set();
@@ -707,7 +705,7 @@ function obSkipSetup(){
     obRowExtra = {};
     obWeeklyDays = {};
     obStep = 5;
-    m.remove();
+    closeBackLayer();
     renderOnboarding();
   });
 }
@@ -716,6 +714,7 @@ function obFinishOnboarding(){
   state.settings.onboardingComplete = true;
   onboardingActive = false;
   saveState();
+  clearBackLayers();
   document.getElementById('onboarding').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   setTab('today');
@@ -775,5 +774,6 @@ function renderOnboarding(){
     }
     obStep = Math.min(5, obStep+1);
     renderOnboarding();
+    pushBackLayer(()=>{ obStep = Math.max(1, obStep-1); renderOnboarding(); });
   });
 }

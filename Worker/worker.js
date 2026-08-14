@@ -455,6 +455,35 @@ export default {
           en: { title: "Lifyar", body: "Test notification — this worked!" },
           fa: { title: "Lifyar", body: "پیام آزمایشی — کار کرد!" },
         };
+
+        // Optional: { "deviceId": "..." } in the POST body targets just that one device instead
+        // of broadcasting to every registered device — the default (no body / no deviceId) still
+        // broadcasts, matching the original behavior, since that's occasionally genuinely useful
+        // (e.g. confirming the pipeline works at all after a config change with zero devices
+        // known good yet). Day-to-day testing should pass a deviceId to avoid pinging everyone
+        // who currently has notifications enabled, testers included.
+        let targetDeviceId = null;
+        try {
+          const b = await request.json();
+          if (b && typeof b.deviceId === "string") targetDeviceId = b.deviceId;
+        } catch (e) { /* empty/no body — fall through to broadcast mode */ }
+
+        if (targetDeviceId) {
+          const raw = await env.LIFE_SCORE_KV.get(`device:${targetDeviceId}`);
+          if (!raw) return json({ ok: true, sent: 0, errors: [{ deviceId: targetDeviceId, error: "not_found" }] });
+          const device = JSON.parse(raw);
+          if (!device.enabled || !device.subscription) {
+            return json({ ok: true, sent: 0, errors: [{ deviceId: targetDeviceId, error: "not_enabled" }] });
+          }
+          try {
+            const lang = device.language === 'fa' ? 'fa' : 'en';
+            await sendPush(device, TEST_MESSAGES[lang], env);
+            return json({ ok: true, sent: 1, errors: [] });
+          } catch (err) {
+            return json({ ok: true, sent: 0, errors: [{ deviceId: targetDeviceId, error: String(err) }] });
+          }
+        }
+
         const list = await env.LIFE_SCORE_KV.list({ prefix: "device:" });
         let sent = 0;
         const errors = [];
