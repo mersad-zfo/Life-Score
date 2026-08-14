@@ -1,4 +1,10 @@
 // ---------- Settings tab + Account flows ----------
+// Shared by both places the sleep-cycle picker appears (Settings and onboarding).
+function sleepCycleSubtitle(cycle){
+  if(cycle==='nightOwl') return tr('Your day ends at 6:00 AM');
+  if(cycle==='vampire') return tr('Your day ends at noon');
+  return tr('Your day ends at midnight');
+}
 function renderSettings(main){
   checkNotificationPermissionState().then(changed=>{ if(changed) renderSettings(main); });
   const theme = state.settings.theme;
@@ -7,6 +13,8 @@ function renderSettings(main){
   // does, so the correct button still shows as active instead of neither being highlighted.
   const effectiveThemeIsDark = theme==='dark' || (theme!=='light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const colorTheme = state.settings.colorTheme || 'green';
+  const sleepCycle = state.settings.sleepCycle || 'normal';
+  const sleepCycleLocked = sleepCycleChangeLocked();
   const sound = state.settings.sound;
   const lang = state.settings.language || 'en';
   let html = `
@@ -50,13 +58,14 @@ function renderSettings(main){
     </div>
 
     <div class="settings-group">
-      <div class="toggle-row">
-        <div>
-          <div class="item-name">${tr('Night owl mode')}</div>
-          <div class="item-sub">${tr('Day ends at 5:00am instead of midnight')}</div>
-        </div>
-        <div class="switch ${state.settings.nightOwlMode?'on':''}" id="nightOwlSwitch"><div class="knob"></div></div>
+      <div class="item-name" style="margin-bottom:10px;">${tr('Sleep cycle')}</div>
+      <div class="seg-control${sleepCycleLocked?' seg-locked':''}">
+        <button data-sleep-cycle="normal" class="${sleepCycle==='normal'?'active':''}">${tr('Normal')}</button>
+        <button data-sleep-cycle="nightOwl" class="${sleepCycle==='nightOwl'?'active':''}">${tr('Night owl')}</button>
+        <button data-sleep-cycle="vampire" class="${sleepCycle==='vampire'?'active':''}">${tr('Vampire')}</button>
       </div>
+      ${sleepCycleLocked ? `<div class="lock-note" style="margin-top:8px;">${tr("Can't change between midnight and noon")}</div>` : ''}
+      <div class="item-sub" style="margin-top:8px;">${sleepCycleSubtitle(sleepCycle)}</div>
     </div>
 
     ${accountCardHtml('settings')}
@@ -110,15 +119,17 @@ function renderSettings(main){
     saveState();
     renderSettings(main);
   });
-  document.getElementById('nightOwlSwitch').addEventListener('click', ()=>{
-    if(new Date().getHours() < 5){
-      showToast(tr("Can't change this between midnight and 5am"));
-      return;
-    }
-    state.settings.nightOwlMode = !state.settings.nightOwlMode;
-    applyRoutineCatchUp(); // re-evaluate against the new day boundary right away
-    saveState();
-    renderMain();
+  main.querySelectorAll('[data-sleep-cycle]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(sleepCycleChangeLocked()){
+        showToast(tr("Can't change between midnight and noon"));
+        return;
+      }
+      state.settings.sleepCycle = btn.dataset.sleepCycle;
+      applyRoutineCatchUp(); // re-evaluate against the new day boundary right away
+      saveState();
+      renderMain();
+    });
   });
   document.getElementById('resetBtn').addEventListener('click', ()=> openResetModal());
   wireAccountCard(main, 'settings');

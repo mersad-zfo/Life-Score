@@ -8,7 +8,7 @@
 // user — indistinguishable from a silent full reset. Everything user-visible is "Lifyar" now;
 // this internal key just quietly keeps its original name forever.
 const STORE_KEY = 'lifescore_state_v1';
-let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', colorTheme: 'green', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, nightOwlMode: false, onboardingComplete: false }, session: { loggedIn: false } };
+let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', colorTheme: 'green', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, sleepCycle: 'normal', onboardingComplete: false }, session: { loggedIn: false } };
 let currentTab = 'today';
 let previousTab = 'today';
 // Whether the Routines/Tasks tab's "missing X costs points" info card is expanded. Deliberately
@@ -106,7 +106,12 @@ function ensureStateShape(){
   if(state.settings.notificationsEnabled===undefined) state.settings.notificationsEnabled = false;
   if(state.settings.deviceId===undefined) state.settings.deviceId = null;
   if(state.settings.notifLastSync===undefined) state.settings.notifLastSync = null;
-  if(state.settings.nightOwlMode===undefined) state.settings.nightOwlMode = false;
+  if(state.settings.sleepCycle===undefined){
+    // Migrate the old boolean (Normal / Night Owl only) to the new 3-way setting — Vampire never
+    // existed before, so there's nothing to migrate it from.
+    state.settings.sleepCycle = state.settings.nightOwlMode ? 'nightOwl' : 'normal';
+  }
+  delete state.settings.nightOwlMode;
   if(state.settings.onboardingComplete===undefined) state.settings.onboardingComplete = true; // pre-existing install — never show onboarding retroactively
   // Category 2 "once per calendar day per condition" banner suppression — see app-notif-triggers.js.
   if(state.settings.notifBannerLedger===undefined) state.settings.notifBannerLedger = { date: todayStr(), keys: [] };
@@ -170,27 +175,41 @@ function playSparkle(){
   }catch(e){ /* audio unavailable, fail silently */ }
 }
 
-function nightOwlEffectiveDate(){
-  // Night Owl mode: day boundary is 5:00am instead of midnight. Between 12:00am-4:59am
-  // it's still counted as the previous calendar day for streaks/neglects/due dates.
+const SLEEP_CYCLE_END_HOUR = { normal: 0, nightOwl: 6, vampire: 12 };
+function sleepCycleEndHour(){
+  const cycle = (state.settings && state.settings.sleepCycle) || 'normal';
+  return SLEEP_CYCLE_END_HOUR[cycle] || 0;
+}
+// Locked between midnight and noon (real wall-clock time, not the shifted "effective" day below) —
+// changing which hour the day ends at mid-way through the day would retroactively rewrite what
+// "today" even means for whatever's already happened since midnight.
+function sleepCycleChangeLocked(){
+  return new Date().getHours() < 12;
+}
+function sleepCycleEffectiveDate(){
+  // Day boundary can be pushed later than midnight — Night Owl: 6am, Vampire: noon. Until that
+  // hour, it's still counted as the previous calendar day for streaks/neglects/due dates. Normal's
+  // end hour is 0 (midnight), which this never shifts for — there's no "day before midnight" case.
+  const endHour = sleepCycleEndHour();
   const now = new Date();
-  if(state.settings && state.settings.nightOwlMode && now.getHours() < 5){
+  if(endHour > 0 && now.getHours() < endHour){
     now.setDate(now.getDate()-1);
   }
   return now;
 }
 function hoursUntilDayEnd(){
+  const endHour = sleepCycleEndHour();
   const now = new Date();
   const h = now.getHours() + now.getMinutes()/60;
-  if(state.settings && state.settings.nightOwlMode){
-    return h < 5 ? (5 - h) : (29 - h); // day ends at 5am, possibly the next calendar day
+  if(endHour > 0){
+    return h < endHour ? (endHour - h) : (24 + endHour - h); // possibly the next calendar day
   }
-  return 24 - h; // day ends at midnight
+  return 24 - h; // Normal — day ends at midnight
 }
 function shouldGraceToday(){
   return hoursUntilDayEnd() <= 9; // created within the last 9 hours of the day — today doesn't count
 }
-function todayStr(d=nightOwlEffectiveDate()){
+function todayStr(d=sleepCycleEffectiveDate()){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function daysBetween(a,b){

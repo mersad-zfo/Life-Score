@@ -61,6 +61,30 @@ function clearBackLayers(){
   history.go(-n);
 }
 
+// ---------- Example-text placeholders: clear on focus, restore on blur ----------
+// A native <input>/<textarea> placeholder is only hidden by the browser once you actually type a
+// character — focusing an empty field does NOT hide it (that's the HTML spec's behavior, not a
+// bug), which reads as sluggish/broken for "e.g. ..." example text throughout the app. This makes
+// it behave the way people expect: gone the instant the field is focused, back if left empty.
+// Delegated on the document (focusin/focusout bubble, unlike focus/blur) so it covers every
+// current and future placeholder-bearing field without wiring each one individually. No need to
+// separately check the field is still empty on blur — the browser itself only ever displays
+// placeholder text on an empty field, restoring the attribute is a no-op if there's now a value.
+document.addEventListener('focusin', (e)=>{
+  const el = e.target;
+  if((el.tagName==='INPUT' || el.tagName==='TEXTAREA') && el.placeholder){
+    el.dataset.placeholderStash = el.placeholder;
+    el.placeholder = '';
+  }
+});
+document.addEventListener('focusout', (e)=>{
+  const el = e.target;
+  if(el.dataset && el.dataset.placeholderStash){
+    el.placeholder = el.dataset.placeholderStash;
+    delete el.dataset.placeholderStash;
+  }
+});
+
 // ---------- Header greeting (Today tab) ----------
 // Five time-of-day buckets, each with 3 short (max 4-word) greetings to pick from at random.
 // Each entry is [plain, withName] — withName uses "{name}" as a placeholder and is only used when
@@ -105,7 +129,7 @@ function greetingBucketForHour(h){
 // localStorage slot (not part of the main state blob) so it also survives a full app reload.
 const GREETING_PICK_KEY = 'lifyar_header_greeting_v1';
 function getHeaderGreeting(){
-  const day = todayStr(); // app's own day boundary (5am cutoff / night-owl aware), not raw calendar midnight
+  const day = todayStr(); // app's own day boundary (sleep-cycle aware — midnight/6am/noon), not raw calendar midnight
   const bucket = greetingBucketForHour(new Date().getHours());
   let pick = null;
   try{

@@ -422,7 +422,6 @@ function openAddRoutineModal(){
     }
     evaluateLiveDailyNotifications();
   });
-  setTimeout(()=>m.querySelector('#hName').focus(), 100);
 }
 
 // ---------- Edit Routine ----------
@@ -497,7 +496,6 @@ function openEditRoutineModal(id){
     showToast(tr('Routine updated'));
     evaluateLiveDailyNotifications();
   });
-  setTimeout(()=>m.querySelector('#ehName').focus(), 100);
 }
 
 // ---------- Add Task ----------
@@ -553,7 +551,6 @@ function openAddTaskModal(){
     renderMain();
     evaluateLiveDailyNotifications();
   });
-  setTimeout(()=>m.querySelector('#tName').focus(), 100);
 }
 
 // ---------- Edit Task ----------
@@ -618,7 +615,6 @@ function openEditTaskModal(id){
     showToast(tr('Task updated'));
     evaluateLiveDailyNotifications();
   });
-  setTimeout(()=>m.querySelector('#etName').focus(), 100);
 }
 
 // ---------- Reset ----------
@@ -660,8 +656,8 @@ function openResetModal(){
     state = {
       routines: [], tasks: [], log: [], profile: null,
       settings: {
-        theme: oldSettings.theme, sound: oldSettings.sound, language: oldSettings.language,
-        nightOwlMode: oldSettings.nightOwlMode,
+        theme: oldSettings.theme, colorTheme: oldSettings.colorTheme, sound: oldSettings.sound, language: oldSettings.language,
+        sleepCycle: oldSettings.sleepCycle,
         ratingStartDate: todayStr(),
         notificationsEnabled: false,
         onboardingComplete: false

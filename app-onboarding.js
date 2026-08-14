@@ -335,13 +335,13 @@ function obRenderStep2(content, footer){
     </div>
 
     <div class="settings-group">
-      <div class="toggle-row">
-        <div>
-          <div class="item-name">${tr('Night owl mode')}</div>
-          <div class="item-sub">${tr('Day ends at 5:00am instead of midnight')}</div>
-        </div>
-        <div class="switch ${state.settings.nightOwlMode?'on':''}" id="obNightOwlSwitch"><div class="knob"></div></div>
+      <div class="item-name" style="margin-bottom:10px;">${tr('Sleep cycle')}</div>
+      <div class="seg-control">
+        <button data-sleep-cycle="normal" class="${(state.settings.sleepCycle||'normal')==='normal'?'active':''}">${tr('Normal')}</button>
+        <button data-sleep-cycle="nightOwl" class="${state.settings.sleepCycle==='nightOwl'?'active':''}">${tr('Night owl')}</button>
+        <button data-sleep-cycle="vampire" class="${state.settings.sleepCycle==='vampire'?'active':''}">${tr('Vampire')}</button>
       </div>
+      <div class="item-sub" style="margin-top:8px;">${sleepCycleSubtitle(state.settings.sleepCycle||'normal')}</div>
     </div>
 
     <div class="ob-account-card">${accountCardHtml('onboarding')}</div>
@@ -354,11 +354,13 @@ function obRenderStep2(content, footer){
       renderOnboarding();
     });
   });
-  document.getElementById('obNightOwlSwitch').addEventListener('click', ()=>{
-    state.settings.nightOwlMode = !state.settings.nightOwlMode;
-    applyRoutineCatchUp();
-    saveState();
-    renderOnboarding();
+  content.querySelectorAll('[data-sleep-cycle]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.settings.sleepCycle = btn.dataset.sleepCycle;
+      applyRoutineCatchUp();
+      saveState();
+      renderOnboarding();
+    });
   });
   wireAccountCard(content, 'onboarding');
   footer.innerHTML = `
