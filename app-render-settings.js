@@ -19,6 +19,14 @@ function renderSettings(main){
   const lang = state.settings.language || 'en';
   let html = `
     <div class="settings-group">
+      <div class="item-name" style="margin-bottom:10px;">${tr('Language')}</div>
+      <div class="seg-control">
+        <button data-lang="en" class="${lang==='en'?'active':''}">${tr('English')}</button>
+        <button data-lang="fa" class="${lang==='fa'?'active':''}">فارسی</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
       <div class="item-name" style="margin-bottom:10px;">${tr('Appearance')}</div>
       <div class="seg-control">
         <button data-theme="light" class="${effectiveThemeIsDark?'':'active'}">${tr('Light')}</button>
@@ -36,11 +44,14 @@ function renderSettings(main){
     </div>
 
     <div class="settings-group">
-      <div class="item-name" style="margin-bottom:10px;">${tr('Language')}</div>
-      <div class="seg-control">
-        <button data-lang="en" class="${lang==='en'?'active':''}">${tr('English')}</button>
-        <button data-lang="fa" class="${lang==='fa'?'active':''}">فارسی</button>
+      <div class="item-name" style="margin-bottom:10px;">${tr('Sleep cycle')}</div>
+      <div class="seg-control${sleepCycleLocked?' seg-locked':''}">
+        <button data-sleep-cycle="normal" class="${sleepCycle==='normal'?'active':''}">${tr('Normal')}</button>
+        <button data-sleep-cycle="nightOwl" class="${sleepCycle==='nightOwl'?'active':''}">${tr('Night owl')}</button>
+        <button data-sleep-cycle="vampire" class="${sleepCycle==='vampire'?'active':''}">${tr('Vampire')}</button>
       </div>
+      ${sleepCycleLocked ? `<div class="lock-note" style="margin-top:8px;">${tr("Can't change between midnight and noon")}</div>` : ''}
+      <div class="item-sub" style="margin-top:8px;">${sleepCycleSubtitle(sleepCycle)}</div>
     </div>
 
     <div class="settings-group">
@@ -55,17 +66,6 @@ function renderSettings(main){
         <div class="item-name">${tr('Sound')}</div>
         <div class="switch ${sound?'on':''}" id="soundSwitch"><div class="knob"></div></div>
       </div>
-    </div>
-
-    <div class="settings-group">
-      <div class="item-name" style="margin-bottom:10px;">${tr('Sleep cycle')}</div>
-      <div class="seg-control${sleepCycleLocked?' seg-locked':''}">
-        <button data-sleep-cycle="normal" class="${sleepCycle==='normal'?'active':''}">${tr('Normal')}</button>
-        <button data-sleep-cycle="nightOwl" class="${sleepCycle==='nightOwl'?'active':''}">${tr('Night owl')}</button>
-        <button data-sleep-cycle="vampire" class="${sleepCycle==='vampire'?'active':''}">${tr('Vampire')}</button>
-      </div>
-      ${sleepCycleLocked ? `<div class="lock-note" style="margin-top:8px;">${tr("Can't change between midnight and noon")}</div>` : ''}
-      <div class="item-sub" style="margin-top:8px;">${sleepCycleSubtitle(sleepCycle)}</div>
     </div>
 
     ${accountCardHtml('settings')}
