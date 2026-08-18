@@ -68,7 +68,7 @@ const LANG_DICT = {
     // Rewards (this session)
     'Rewards': 'جایزه‌ها', 'New reward': 'جایزه جدید', 'Edit reward': 'ویرایش جایزه',
     'Add reward': 'افزودن جایزه', 'Remove reward': 'حذف جایزه', 'Remove this reward?': 'این جایزه حذف شود؟',
-    'Reward name': 'نام جایزه', 'e.g. Social media': 'مثلاً شبکه‌های اجتماعی',
+    'Reward name': 'نام جایزه', 'e.g. Using Phone': 'مثلاً موبایل‌بازی',
     'Points needed': 'امتیاز لازم',
     'Set a point target for today — reach it and this reward unlocks.': 'یک هدف امتیازی برای امروز تعیین کنید — با رسیدن به آن، این جایزه باز می‌شود.',
     'Give it a points target': 'یک هدف امتیازی برایش تعیین کنید',

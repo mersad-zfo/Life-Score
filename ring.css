@@ -39,12 +39,14 @@
     flex:0 0 auto; width:0; height:0; opacity:0; overflow:hidden; pointer-events:none;
     transition: width .32s cubic-bezier(.4,0,.2,1), opacity .22s ease;
   }
-  /* width+height are set inline by JS the instant the panel opens (see openRewardsPanel() in
-     app-rewards.js) — computed directly from hero-row's own width so both are correct from frame
+  /* height is set inline by JS the instant the panel opens (see openRewardsPanel() in
+     app-rewards.js) — computed directly from hero-row's own width so it's correct from frame
      one, never dependent on measuring the ring mid-animation. Height is deliberately not
      CSS-transitioned: the panel is still width:0/invisible at that instant, so an instant height
-     snap is imperceptible; the visible reveal is the width transition. */
-  .hero-row.rewards-open .reward-panel{ opacity:1; pointer-events:auto; }
+     snap is imperceptible; the visible reveal is the width transition. align-self:center makes it
+     center vertically against the ring (the row's tallest item) automatically — no manual
+     top-offset math needed for the "shorter, but centered, not just trimmed from the bottom" ask. */
+  .hero-row.rewards-open .reward-panel{ opacity:1; pointer-events:auto; align-self:center; }
   .reward-panel-card{
     width:100%; height:100%; box-sizing:border-box;
     background:var(--glass-fill); border:1px solid var(--glass-border); border-radius:16px;
@@ -70,7 +72,7 @@
     display:inline-flex; align-items:center; justify-content:center; min-width:16px; flex-shrink:0;
     background:var(--accent-soft); color:var(--accent);
   }
-  .reward-tag.locked{ background:var(--rust-soft); color:var(--rust); }
+  .reward-tag.locked{ background:var(--line); color:var(--ink); }
   .reward-tag.star{ background:none; padding:2px 0; font-size:12px; }
   .reward-panel-empty{ font-size:11px; color:var(--ink-soft); padding:10px 0; text-align:center; }
   .reward-add-btn{

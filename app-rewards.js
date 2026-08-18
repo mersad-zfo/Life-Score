@@ -45,7 +45,11 @@ function updateRewardBadge(){
   }
   checkRewardAchievements();
   const fracEl = document.getElementById('rewardBadgeFraction');
-  if(fracEl) fracEl.textContent = trRewardFraction(rewardsAchievedCount(), state.rewards.length);
+  if(fracEl){
+    const hasRewards = state.rewards.length>0;
+    fracEl.textContent = hasRewards ? trRewardFraction(rewardsAchievedCount(), state.rewards.length) : '';
+    fracEl.style.display = hasRewards ? '' : 'none';
+  }
   const titleEl = document.getElementById('rewardPanelTitle');
   if(titleEl) titleEl.textContent = tr('Rewards');
   const addLabelEl = document.getElementById('rewardAddLabel');
@@ -110,7 +114,7 @@ function renderRewardPanelList(){
 // Kept in sync with hero-row.rewards-open's CSS gap value in ring.css.
 const REWARD_ROW_GAP_PX = 10;
 const REWARD_ROW_RING_SHARE = 0.6; // ring gets 60% of the row, panel gets 40%
-const REWARD_PANEL_HEIGHT_FACTOR = 0.8; // panel is a bit shorter than the ring's own height
+const REWARD_PANEL_HEIGHT_FACTOR = 0.92; // 8% shorter than the ring's own height (4% off top, 4% off bottom — centered via align-self:center in CSS)
 
 function openRewardsPanel(){
   if(rewardsPanelOpen || !state.settings.rewardsEnabled) return;
@@ -159,16 +163,31 @@ document.getElementById('rewardAddBtn').addEventListener('click', ()=> openAddRe
 
 // ---------- Add / Edit Reward modals ----------
 function rewardModalFieldsHtml(name, pointsNeeded){
+  const val = pointsNeeded || 0;
   return `
     <div class="field">
       <label>${tr('Reward name')}</label>
-      <input id="rwName" type="text" value="${escapeHtml(name||'')}" placeholder="${tr('e.g. Social media')}" />
+      <input id="rwName" type="text" value="${escapeHtml(name||'')}" placeholder="${tr('e.g. Using Phone')}" />
     </div>
     <div class="field">
       <label>${tr('Points needed')}</label>
-      <input id="rwPoints" type="number" min="1" step="1" value="${pointsNeeded||''}" />
+      <div class="reward-slider-row">
+        <input id="rwPoints" type="range" min="0" max="990" step="10" value="${val}" class="reward-slider" />
+        <span class="reward-slider-value" id="rwPointsValue">${trNum(val)}</span>
+      </div>
     </div>
   `;
+}
+function wireRewardSlider(m){
+  const slider = m.querySelector('#rwPoints');
+  const valueEl = m.querySelector('#rwPointsValue');
+  const paint = ()=>{
+    const pct = (slider.value - slider.min) / (slider.max - slider.min) * 100;
+    slider.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--line) ${pct}%)`;
+    valueEl.textContent = trNum(slider.value);
+  };
+  slider.addEventListener('input', paint);
+  paint();
 }
 function readRewardFields(m){
   const name = m.querySelector('#rwName').value.trim();
@@ -186,6 +205,7 @@ function openAddRewardModal(){
       <button class="btn-primary" id="rwSave">${tr('Add reward')}</button>
     </div>
   `);
+  wireRewardSlider(m);
   m.querySelector('#rwCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#rwSave').addEventListener('click', ()=>{
     const {name, pointsNeeded} = readRewardFields(m);
@@ -211,6 +231,7 @@ function openEditRewardModal(id){
     </div>
     <button class="settings-btn danger-text" style="text-align:center; width:100%; margin-top:10px;" id="rwDelete">${tr('Remove reward')}</button>
   `);
+  wireRewardSlider(m);
   m.querySelector('#rwCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#rwSave').addEventListener('click', ()=>{
     const {name, pointsNeeded} = readRewardFields(m);
