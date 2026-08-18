@@ -154,6 +154,7 @@ function renderToday(listsEl, animateRing){
   const todayScore = getScores().daily;
 
   updateHomeHero(todayScore.received, todayScore.base, todayRating, tallyDone, tallyTotal, !!animateRing);
+  updateRewardBadge();
 
   const main = listsEl;
   let html = `<div class="section-label">${tr('Routines')}</div>`;

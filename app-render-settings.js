@@ -68,6 +68,13 @@ function renderSettings(main){
       </div>
     </div>
 
+    <div class="settings-group">
+      <div class="toggle-row">
+        <div class="item-name">${tr('Rewards')}</div>
+        <div class="switch ${state.settings.rewardsEnabled?'on':''}" id="rewardsSwitch"><div class="knob"></div></div>
+      </div>
+    </div>
+
     ${accountCardHtml('settings')}
 
     <div class="settings-group">
@@ -116,6 +123,11 @@ function renderSettings(main){
   });
   document.getElementById('soundSwitch').addEventListener('click', ()=>{
     state.settings.sound = !state.settings.sound;
+    saveState();
+    renderSettings(main);
+  });
+  document.getElementById('rewardsSwitch').addEventListener('click', ()=>{
+    state.settings.rewardsEnabled = !state.settings.rewardsEnabled;
     saveState();
     renderSettings(main);
   });

@@ -185,6 +185,7 @@ function updateHeaderAnimated(){
 }
 function setTab(tab){
   if(tab !== currentTab){
+    if(typeof closeRewardsPanelIfOpen==='function') closeRewardsPanelIfOpen();
     routinesPenaltyInfoOpen = false;
     tasksPenaltyInfoOpen = false;
     // Scroll each main tab page back to the top when leaving it, so returning to it later
@@ -210,6 +211,7 @@ document.getElementById('bellBtn').addEventListener('click', ()=>{
 });
 document.getElementById('gearBtn').addEventListener('click', ()=>{
   if(currentTab!=='settings'){
+    if(typeof closeRewardsPanelIfOpen==='function') closeRewardsPanelIfOpen();
     previousTab = currentTab;
     routinesPenaltyInfoOpen = false;
     tasksPenaltyInfoOpen = false;

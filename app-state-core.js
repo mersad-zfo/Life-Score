@@ -8,7 +8,7 @@
 // user — indistinguishable from a silent full reset. Everything user-visible is "Lifyar" now;
 // this internal key just quietly keeps its original name forever.
 const STORE_KEY = 'lifescore_state_v1';
-let state = { routines: [], tasks: [], log: [], profile: null, settings: { theme: 'system', colorTheme: 'green', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, sleepCycle: 'normal', onboardingComplete: false }, session: { loggedIn: false } };
+let state = { routines: [], tasks: [], log: [], rewards: [], profile: null, settings: { theme: 'system', colorTheme: 'green', sound: true, language: 'en', ratingStartDate: null, notificationsEnabled: false, deviceId: null, notifLastSync: null, sleepCycle: 'normal', onboardingComplete: false, rewardsEnabled: true }, session: { loggedIn: false } };
 let currentTab = 'today';
 let previousTab = 'today';
 // Whether the Routines/Tasks tab's "missing X costs points" info card is expanded. Deliberately
@@ -93,6 +93,13 @@ function ensureStateShape(){
   if(!state.routines) state.routines = [];
   if(!state.tasks) state.tasks = [];
   if(!state.log) state.log = [];
+  // Rewards (this session): user-defined daily point targets, e.g. "200 pts -> Gaming". Hard-
+  // deleted (no soft-delete/configHistory) — unlike Routines/Tasks, a reward never appears in any
+  // historical view (Progression, log entries), so there's no past-day recomputation to protect.
+  // Achieved-state is never persisted either — it's derived live each render from today's real
+  // received score vs. pointsNeeded, which is what makes the daily reset automatic (see
+  // app-rewards.js).
+  if(!state.rewards) state.rewards = [];
   if(state.log){
     state.log.forEach(l=>{ if(l.kind==='habit') l.kind = 'routine'; });
   }
@@ -113,6 +120,7 @@ function ensureStateShape(){
   }
   delete state.settings.nightOwlMode;
   if(state.settings.onboardingComplete===undefined) state.settings.onboardingComplete = true; // pre-existing install — never show onboarding retroactively
+  if(state.settings.rewardsEnabled===undefined) state.settings.rewardsEnabled = true;
   // Category 2 "once per calendar day per condition" banner suppression — see app-notif-triggers.js.
   if(state.settings.notifBannerLedger===undefined) state.settings.notifBannerLedger = { date: todayStr(), keys: [] };
   // Migrate pre-difficulty items: tag them 'normal' so the UI shows a sensible default.

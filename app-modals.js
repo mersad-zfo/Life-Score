@@ -658,6 +658,7 @@ function openResetModal(){
       settings: {
         theme: oldSettings.theme, colorTheme: oldSettings.colorTheme, sound: oldSettings.sound, language: oldSettings.language,
         sleepCycle: oldSettings.sleepCycle,
+        rewardsEnabled: oldSettings.rewardsEnabled,
         ratingStartDate: todayStr(),
         notificationsEnabled: false,
         onboardingComplete: false

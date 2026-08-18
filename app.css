@@ -1284,7 +1284,9 @@
   body.lang-fa .routine-task-note,
   body.lang-fa .name,
   body.lang-fa .ob-weekday-title,
-  body.lang-fa .chip {
+  body.lang-fa .chip,
+  body.lang-fa .reward-row-name,
+  body.lang-fa .reward-panel-empty {
     direction: rtl;
     unicode-bidi: plaintext;
     text-align: right;

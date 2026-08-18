@@ -65,6 +65,14 @@ const LANG_DICT = {
     "Added late, so today won't count — it starts fresh tomorrow.": 'دیر اضافه شد، پس امروز حساب نمی‌شود — از فردا از نو شروع می‌شود.',
     'Notifications': 'اعلان‌ها', 'Remind me if nothing is checked off': 'اگر چیزی انجام نشده یادآوری کن',
     'A nudge at noon if no routine or task has been done yet that day.': 'اگر تا ظهر هیچ روتین یا کاری انجام نشده باشد، یادآوری می‌شود.',
+    // Rewards (this session)
+    'Rewards': 'جایزه‌ها', 'New reward': 'جایزه جدید', 'Edit reward': 'ویرایش جایزه',
+    'Add reward': 'افزودن جایزه', 'Remove reward': 'حذف جایزه', 'Remove this reward?': 'این جایزه حذف شود؟',
+    'Reward name': 'نام جایزه', 'e.g. Movie night': 'مثلاً شب فیلم',
+    'Points needed': 'امتیاز لازم', 'e.g. 200': 'مثلاً ۲۰۰',
+    'Give it a points target': 'یک هدف امتیازی برایش تعیین کنید',
+    'Reward added': 'جایزه اضافه شد', 'Reward updated': 'جایزه به‌روزرسانی شد',
+    'No rewards yet': 'هنوز جایزه‌ای نیست',
     'No notifications yet': 'هنوز اعلانی وجود ندارد', 'Close': 'بستن',
     "Notifications aren't supported on this browser": 'این مرورگر از اعلان‌ها پشتیبانی نمی‌کند',
     'Notification permission was not granted': 'اجازه اعلان داده نشد',
@@ -437,6 +445,13 @@ function trAddedLabel(days){
 }
 function trDecaysPerDay(rate){
   return curLang()==='fa' ? `کاهش ${numFa(rate)}/روز` : `decays ${rate}/day`;
+}
+// Rewards badge fraction ("1/3") and the locked reward tag's point number — Farsi numerals in fa mode.
+function trRewardFraction(achieved, total){
+  return curLang()==='fa' ? `${numFa(achieved)}/${numFa(total)}` : `${achieved}/${total}`;
+}
+function trNum(n){
+  return curLang()==='fa' ? numFa(n) : String(n);
 }
 function trEarned(points){
   const sign = points>=0 ? '+' : '';

@@ -67,27 +67,47 @@
     <div class="page-track" id="pageTrack">
       <div class="page" id="pageToday">
         <div class="home-hero" id="homeHero">
-          <div class="ring-wrap">
-            <svg viewBox="0 0 230 230">
-              <defs>
-                <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="var(--ring-light)"/><stop offset="100%" stop-color="var(--ring-dark)"/>
-                </linearGradient>
-                <linearGradient id="ringGradAwesome" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="var(--ring-purple-light)"/><stop offset="100%" stop-color="var(--ring-purple-dark)"/>
-                </linearGradient>
-              </defs>
-              <g transform="rotate(-90 115 115)">
-                <circle class="ring-track" cx="115" cy="115" r="98"></circle>
-                <circle class="ring-progress" id="ringProgress" cx="115" cy="115" r="98"></circle>
-                <g class="comet-trail" id="cometTrail"></g>
-              </g>
-            </svg>
-            <div class="ring-center">
-              <div class="ring-mini-label" id="ringMiniLabel">Today's score</div>
-              <div class="score-hero-fraction" id="scoreFraction"><span class="sf-received" id="sfReceived">0</span><span class="sf-slash">/</span><span class="sf-base" id="sfBase">0</span></div>
-              <div class="rating-pill rating-none" id="ratingPill">No rating yet</div>
-              <div class="daily-tally" id="dailyTally"></div>
+          <div class="hero-row" id="heroRow">
+            <button class="reward-badge" id="rewardBadge" aria-label="Rewards" style="display:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M20 12v9H4v-9"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+              <span id="rewardBadgeFraction">0/0</span>
+            </button>
+            <div class="reward-panel" id="rewardPanel">
+              <div class="reward-panel-card">
+                <div class="reward-panel-head" id="rewardPanelClose">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"/></svg>
+                  <span id="rewardPanelTitle">Rewards</span>
+                  <span style="width:14px;"></span>
+                </div>
+                <div class="reward-panel-list" id="rewardPanelList"></div>
+                <button class="reward-add-btn" id="rewardAddBtn">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  <span id="rewardAddLabel">Add reward</span>
+                </button>
+              </div>
+            </div>
+            <div class="ring-wrap" id="ringWrap">
+              <svg viewBox="0 0 230 230">
+                <defs>
+                  <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="var(--ring-light)"/><stop offset="100%" stop-color="var(--ring-dark)"/>
+                  </linearGradient>
+                  <linearGradient id="ringGradAwesome" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="var(--ring-purple-light)"/><stop offset="100%" stop-color="var(--ring-purple-dark)"/>
+                  </linearGradient>
+                </defs>
+                <g transform="rotate(-90 115 115)">
+                  <circle class="ring-track" cx="115" cy="115" r="98"></circle>
+                  <circle class="ring-progress" id="ringProgress" cx="115" cy="115" r="98"></circle>
+                  <g class="comet-trail" id="cometTrail"></g>
+                </g>
+              </svg>
+              <div class="ring-center">
+                <div class="ring-mini-label" id="ringMiniLabel">Today's score</div>
+                <div class="score-hero-fraction" id="scoreFraction"><span class="sf-received" id="sfReceived">0</span><span class="sf-slash">/</span><span class="sf-base" id="sfBase">0</span></div>
+                <div class="rating-pill rating-none" id="ratingPill">No rating yet</div>
+                <div class="daily-tally" id="dailyTally"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -179,6 +199,7 @@
 <script src="app-render-settings.js"></script>
 <script src="app-render-notifications.js"></script>
 <script src="app-modals.js"></script>
+<script src="app-rewards.js"></script>
 <script src="app-account.js"></script>
 <script src="app-onboarding.js"></script>
 <script src="app-main.js"></script>
