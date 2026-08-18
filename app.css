@@ -612,6 +612,19 @@
     white-space:nowrap;
   }
   .toast.show{ opacity:1; }
+  .reward-toast{
+    position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-14px);
+    display:flex; align-items:center; gap:10px;
+    background:var(--glass-fill); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--glass-border); border-radius:16px; padding:10px 16px;
+    max-width:calc(100% - 40px); box-sizing:border-box;
+    z-index:1001; opacity:0; pointer-events:none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .reward-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .reward-toast-icon{ font-size:22px; flex-shrink:0; line-height:1; }
+  .reward-toast-title{ font-size:13.5px; font-weight:700; color:var(--accent); }
+  .reward-toast-sub{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
   .reset-zone{
     margin-top:30px;
     padding-top:18px;
@@ -1286,7 +1299,9 @@
   body.lang-fa .ob-weekday-title,
   body.lang-fa .chip,
   body.lang-fa .reward-row-name,
-  body.lang-fa .reward-panel-empty {
+  body.lang-fa .reward-panel-empty,
+  body.lang-fa .reward-toast-title,
+  body.lang-fa .reward-toast-sub {
     direction: rtl;
     unicode-bidi: plaintext;
     text-align: right;

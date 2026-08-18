@@ -14,10 +14,15 @@
      - Closed state must be pixel-identical to the old plain ring-wrap layout: reward-panel
        contributes zero width and gap is zero when closed, so hero-row's only real content is
        ring-wrap at its normal fixed width — centered exactly as before.
-     - Open state: reward-panel and ring-wrap are flex:4 1 0 / flex:6 1 0 siblings (40/60) — a
-       fixed split by flex-grow ratio, not computed from content, which is what "the list and the
-       ring never change size, regardless of how many rewards exist" actually means. Reward count
-       only ever changes how much of the panel's own fixed-height list scrolls, never the box. ---- */
+     - Open state (60/40 ring/panel split): widths are NOT flex-grow-driven. flex-basis and
+       flex-grow interpolate independently under a single "flex" transition, and their combined
+       effect on rendered width isn't guaranteed monotonic — that's what caused the ring to visibly
+       grow-then-shrink instead of just shrinking. Instead, app-rewards.js computes the exact target
+       pixel width/height for both boxes up front (from hero-row's own already-known width) and
+       sets them as plain inline width/height, so the CSS transition below is a straight,
+       guaranteed-monotonic px-to-px interpolation — same idea as the panel-height math, just
+       applied to width too. Reward count only ever changes how much of the panel's own
+       fixed-height list scrolls — never either box's size. ---- */
   .hero-row{ width:100%; position:relative; display:flex; align-items:flex-start; justify-content:center; gap:0; transition: gap .32s cubic-bezier(.4,0,.2,1); }
   .hero-row.rewards-open{ gap:10px; }
   .reward-badge{
@@ -31,15 +36,15 @@
   .reward-badge:active{ transform:scale(0.94); }
   .hero-row.rewards-open .reward-badge{ opacity:0; pointer-events:none; }
   .reward-panel{
-    flex:0 0 0; height:0; opacity:0; overflow:hidden; pointer-events:none;
-    transition: flex .32s cubic-bezier(.4,0,.2,1), opacity .22s ease;
+    flex:0 0 auto; width:0; height:0; opacity:0; overflow:hidden; pointer-events:none;
+    transition: width .32s cubic-bezier(.4,0,.2,1), opacity .22s ease;
   }
-  /* height is set inline by JS the instant the panel opens (see openRewardsPanel() in
-     app-rewards.js) — computed directly from hero-row's own width so it's correct from frame one,
-     never dependent on measuring the ring mid-animation. Deliberately not CSS-transitioned: the
-     panel is still width:0/invisible at that instant, so an instant height snap is imperceptible;
-     the visible reveal is the width (flex-grow) transition below. */
-  .hero-row.rewards-open .reward-panel{ flex:4 1 0; opacity:1; pointer-events:auto; }
+  /* width+height are set inline by JS the instant the panel opens (see openRewardsPanel() in
+     app-rewards.js) — computed directly from hero-row's own width so both are correct from frame
+     one, never dependent on measuring the ring mid-animation. Height is deliberately not
+     CSS-transitioned: the panel is still width:0/invisible at that instant, so an instant height
+     snap is imperceptible; the visible reveal is the width transition. */
+  .hero-row.rewards-open .reward-panel{ opacity:1; pointer-events:auto; }
   .reward-panel-card{
     width:100%; height:100%; box-sizing:border-box;
     background:var(--glass-fill); border:1px solid var(--glass-border); border-radius:16px;
@@ -50,20 +55,23 @@
     font-size:12px; color:var(--ink-soft); cursor:pointer; margin-bottom:6px; flex-shrink:0;
   }
   /* Fixed height, not max-height — the list box itself never resizes with reward count. Fewer
-     rewards leave empty space below the last row; more rewards scroll within this same box. */
-  .reward-panel-list{ flex:1 1 auto; min-height:0; overflow-y:auto; }
+     rewards leave empty space below the last row; more rewards scroll within this same box.
+     Scrollbar hidden across engines — this is a small glass panel, a scrollbar track looks noisy. */
+  .reward-panel-list{ flex:1 1 auto; min-height:0; overflow-y:auto; scrollbar-width:none; -ms-overflow-style:none; }
+  .reward-panel-list::-webkit-scrollbar{ width:0; height:0; }
   .reward-row{
     display:flex; align-items:center; gap:6px; padding:7px 0; border-top:1px solid var(--line);
   }
   .reward-row:first-child{ border-top:none; }
   .reward-row-name{ font-size:11.5px; color:var(--ink); flex:1; text-align:left; overflow-wrap:anywhere; }
+  .reward-row.achieved .reward-row-name{ color:var(--accent); font-weight:700; }
   .reward-tag{
     font-size:9.5px; font-weight:600; border-radius:8px; padding:2px 7px;
     display:inline-flex; align-items:center; justify-content:center; min-width:16px; flex-shrink:0;
     background:var(--accent-soft); color:var(--accent);
   }
   .reward-tag.locked{ background:var(--rust-soft); color:var(--rust); }
-  .reward-tag svg{ width:9px; height:9px; stroke:currentColor; stroke-width:3; }
+  .reward-tag.star{ background:none; padding:2px 0; font-size:12px; }
   .reward-panel-empty{ font-size:11px; color:var(--ink-soft); padding:10px 0; text-align:center; }
   .reward-add-btn{
     flex-shrink:0; margin-top:6px; width:100%; border:1px dashed var(--glass-border); border-radius:10px;
@@ -71,13 +79,10 @@
     display:flex; align-items:center; justify-content:center; gap:4px;
   }
   .reward-add-btn:active{ opacity:0.7; }
-  /* aspect-ratio keeps it a perfect circle at any computed width, closed (fixed 230px) or open
-     (flex:6 1 0 — 60% of the row, vs. the panel's 40%; see app-rewards.js for the matching height
-     math). Straight 50/50 read as the ring looking smaller than the panel next to it, even though
-     they were technically equal width — the ring's own empty padding around the circle made it
-     look lighter, so it gets the larger share now. */
-  .ring-wrap{ position:relative; flex:0 0 230px; width:auto; max-width:100%; aspect-ratio:1; transition: flex .32s cubic-bezier(.4,0,.2,1); }
-  .hero-row.rewards-open .ring-wrap{ flex:6 1 0; }
+  /* aspect-ratio is a safety net for very narrow screens where flex-shrink kicks in on the closed
+     230px default — width/height are otherwise set as an explicit matching pair (closed: CSS
+     230/230; open: JS-computed equal px, see app-rewards.js), so it stays a circle either way. */
+  .ring-wrap{ position:relative; flex:0 0 auto; width:230px; height:230px; max-width:100%; aspect-ratio:1; transition: width .32s cubic-bezier(.4,0,.2,1), height .32s cubic-bezier(.4,0,.2,1); }
   .ring-wrap svg{ width:100%; height:100%; overflow:visible; }
   .ring-track{ fill:none; stroke:var(--accent-soft); stroke-width:11; }
   .ring-progress{ fill:none; stroke:url(#ringGrad); stroke-width:11; stroke-linecap:round; }

@@ -31,7 +31,8 @@ function rewardsAchievedCount(){
 }
 
 // Called from renderToday() every Home render — keeps the badge fraction and (if open) the panel
-// list in sync with whatever just changed the day's received score.
+// list in sync with whatever just changed the day's received score, and fires the unlock
+// celebration the moment a reward first crosses its threshold today.
 function updateRewardBadge(){
   const badge = document.getElementById('rewardBadge');
   const heroRow = document.getElementById('heroRow');
@@ -42,6 +43,7 @@ function updateRewardBadge(){
     if(rewardsPanelOpen) closeRewardsPanelIfOpen();
     return;
   }
+  checkRewardAchievements();
   const fracEl = document.getElementById('rewardBadgeFraction');
   if(fracEl) fracEl.textContent = trRewardFraction(rewardsAchievedCount(), state.rewards.length);
   const titleEl = document.getElementById('rewardPanelTitle');
@@ -49,6 +51,37 @@ function updateRewardBadge(){
   const addLabelEl = document.getElementById('rewardAddLabel');
   if(addLabelEl) addLabelEl.textContent = tr('Add reward');
   if(rewardsPanelOpen) renderRewardPanelList();
+}
+
+// Tracks, per reward id, the date it was last confirmed achieved-and-celebrated — so the "Got a
+// reward!" toast fires exactly once per reward per day, the moment it crosses the line, not on
+// every render while it stays achieved. Not persisted (in-memory only): a reload re-derives
+// achieved-state fresh from today's score and simply won't re-celebrate an already-open session's
+// old news, which is the right call since there's nothing to protect here (see file header).
+let rewardsCelebratedToday = {};
+function checkRewardAchievements(){
+  const today = todayStr();
+  state.rewards.forEach(r=>{
+    const achieved = rewardAchievedToday(r);
+    if(achieved && rewardsCelebratedToday[r.id]!==today){
+      rewardsCelebratedToday[r.id] = today;
+      showRewardToast(tr('Got a reward!'), tr('{reward} is unlocked — nice work today.').replace('{reward}', r.name));
+    } else if(!achieved && rewardsCelebratedToday[r.id]===today){
+      // Score dropped back below the target (e.g. a task got unchecked) — allow a fresh
+      // celebration if they cross it again later today rather than staying silently "used up."
+      delete rewardsCelebratedToday[r.id];
+    }
+  });
+}
+
+function showRewardToast(title, subtitle){
+  const el = document.getElementById('rewardToast');
+  if(!el) return;
+  document.getElementById('rewardToastTitle').textContent = title;
+  document.getElementById('rewardToastSub').textContent = subtitle;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(()=> el.classList.remove('show'), 3400);
 }
 
 function renderRewardPanelList(){
@@ -61,10 +94,10 @@ function renderRewardPanelList(){
   listEl.innerHTML = state.rewards.map(r=>{
     const achieved = rewardAchievedToday(r);
     const tag = achieved
-      ? `<span class="reward-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6L9 17l-5-5"/></svg></span>`
+      ? `<span class="reward-tag star">🌟</span>`
       : `<span class="reward-tag locked">${trNum(r.pointsNeeded)}</span>`;
     return `
-      <div class="reward-row" data-reward-row="${r.id}">
+      <div class="reward-row${achieved?' achieved':''}" data-reward-row="${r.id}">
         <span class="reward-row-name">${escapeHtml(r.name)}</span>
         ${tag}
       </div>`;
@@ -74,39 +107,48 @@ function renderRewardPanelList(){
   });
 }
 
-// Kept in sync with hero-row.rewards-open's CSS gap value and flex ratios (6:4, i.e. 60/40) in
-// ring.css.
+// Kept in sync with hero-row.rewards-open's CSS gap value in ring.css.
 const REWARD_ROW_GAP_PX = 10;
-const REWARD_ROW_RING_SHARE = 0.6;
+const REWARD_ROW_RING_SHARE = 0.6; // ring gets 60% of the row, panel gets 40%
+const REWARD_PANEL_HEIGHT_FACTOR = 0.8; // panel is a bit shorter than the ring's own height
 
 function openRewardsPanel(){
   if(rewardsPanelOpen || !state.settings.rewardsEnabled) return;
   rewardsPanelOpen = true;
   const heroRow = document.getElementById('heroRow');
+  const ringWrap = document.getElementById('ringWrap');
   const panel = document.getElementById('rewardPanel');
-  // Panel height is set to match the ring's height (not the panel's own, narrower width) so the
-  // two boxes still line up top-to-bottom even though the ring is now the wider one — computed
-  // directly from hero-row's own (already-known, unanimated) width so it's correct from frame one,
-  // rather than measuring the ring mid-transition (which would catch it partway through its own
-  // animation and lock in the wrong number).
-  if(heroRow && panel){
+  // Both boxes' final pixel width/height are computed up front from hero-row's own
+  // (already-known, unanimated) width, then set as plain inline styles so the CSS width/height
+  // transitions in ring.css are a straight, guaranteed-monotonic px-to-px interpolation — the
+  // ring just shrinks-while-sliding-right in one motion, no grow-then-shrink hitch from
+  // flex-grow/flex-basis interpolating independently.
+  if(heroRow && ringWrap && panel){
     const available = heroRow.getBoundingClientRect().width - REWARD_ROW_GAP_PX;
-    const ringSide = available * REWARD_ROW_RING_SHARE;
-    panel.style.height = Math.max(0, ringSide) + 'px';
+    const ringSide = Math.max(0, available * REWARD_ROW_RING_SHARE);
+    const panelWidth = Math.max(0, available - ringSide);
+    ringWrap.style.width = ringSide + 'px';
+    ringWrap.style.height = ringSide + 'px';
+    panel.style.width = panelWidth + 'px';
+    panel.style.height = (ringSide * REWARD_PANEL_HEIGHT_FACTOR) + 'px';
   }
   heroRow.classList.add('rewards-open');
   renderRewardPanelList();
   pushBackLayer(()=>{
     rewardsPanelOpen = false;
     const heroRow = document.getElementById('heroRow');
+    const ringWrap = document.getElementById('ringWrap');
     const panel = document.getElementById('rewardPanel');
     if(heroRow) heroRow.classList.remove('rewards-open');
-    if(panel) panel.style.height = '';
+    if(ringWrap){ ringWrap.style.width = ''; ringWrap.style.height = ''; }
+    if(panel){ panel.style.width = ''; panel.style.height = ''; }
   });
 }
-// For callers that need to close it as a side effect (switching tabs, opening Settings) rather
-// than as the user's own back action — goes through the same back-layer stack either way, since
-// it really is the layer on top at that point; see app-main.js's setTab()/gearBtn wiring.
+// For callers that need to close it as a side effect (e.g. disabling the Rewards setting while
+// the panel happens to be open) rather than as the user's own back action — goes through the same
+// back-layer stack either way. Tab switches and opening Settings do NOT call this: the panel
+// deliberately stays open across tab changes, only a hardware-back/chevron tap or quitting the
+// app closes it (state is in-memory only, so it's naturally closed again on next launch).
 function closeRewardsPanelIfOpen(){
   if(rewardsPanelOpen) closeBackLayer();
 }
@@ -120,11 +162,11 @@ function rewardModalFieldsHtml(name, pointsNeeded){
   return `
     <div class="field">
       <label>${tr('Reward name')}</label>
-      <input id="rwName" type="text" value="${escapeHtml(name||'')}" placeholder="${tr('e.g. Movie night')}" />
+      <input id="rwName" type="text" value="${escapeHtml(name||'')}" placeholder="${tr('e.g. Social media')}" />
     </div>
     <div class="field">
       <label>${tr('Points needed')}</label>
-      <input id="rwPoints" type="number" min="1" step="1" value="${pointsNeeded||''}" placeholder="${tr('e.g. 200')}" />
+      <input id="rwPoints" type="number" min="1" step="1" value="${pointsNeeded||''}" />
     </div>
   `;
 }
@@ -137,6 +179,7 @@ function openAddRewardModal(){
   const m = openModal(`
     ${modalCloseXHtml()}
     <h3>${tr('New reward')}</h3>
+    <p class="modal-sub">${tr('Set a point target for today — reach it and this reward unlocks.')}</p>
     ${rewardModalFieldsHtml('', '')}
     <div class="modal-actions">
       <button class="btn-secondary" id="rwCancel">${tr('Cancel')}</button>
