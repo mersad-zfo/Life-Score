@@ -172,14 +172,28 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div class="reward-toast" id="rewardToast" role="status">
-  <span class="reward-toast-icon">🌟</span>
-  <div class="reward-toast-text">
-    <div class="reward-toast-title" id="rewardToastTitle"></div>
-    <div class="reward-toast-sub" id="rewardToastSub"></div>
+<div id="notifBannerStack"></div>
+<div class="notif-celebration" id="notifCelebrationOverlay">
+  <div class="nc-scrim" id="notifCelebrationScrim"></div>
+  <button class="nc-close" id="notifCelebrationClose" aria-label="Close">✕</button>
+  <div class="nc-panel">
+    <div class="nc-star-wrap">
+      <div class="nc-glow"></div>
+      <div class="nc-ray" style="--rot:0deg;"><i></i></div>
+      <div class="nc-ray" style="--rot:45deg;"><i></i></div>
+      <div class="nc-ray" style="--rot:90deg;"><i></i></div>
+      <div class="nc-ray" style="--rot:135deg;"><i></i></div>
+      <div class="nc-ray" style="--rot:180deg;"><i></i></div>
+      <div class="nc-ray" style="--rot:225deg;"><i></i></div>
+      <div class="nc-ray" style="--rot:270deg;"><i></i></div>
+      <div class="nc-ray" style="--rot:315deg;"><i></i></div>
+      <div class="nc-star-center"><div class="nc-star" id="notifCelebrationStar">🌟</div></div>
+    </div>
+    <h2 class="nc-title" id="notifCelebrationTitle"></h2>
+    <p class="nc-sub" id="notifCelebrationBody"></p>
+    <button class="nc-cta" id="notifCelebrationCta"></button>
   </div>
 </div>
-<div id="notifBannerStack"></div>
 <input type="file" id="restoreFileInput" accept="application/json" style="display:none;" />
 <div id="dragTrash">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>

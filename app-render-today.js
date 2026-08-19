@@ -267,7 +267,15 @@ function renderToday(listsEl, animateRing){
     });
   });
   main.querySelectorAll('[data-undo-task]').forEach(btn=>{
-    btn.addEventListener('click', ()=> uncompleteTask(btn.dataset.undoTask));
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.undoTask;
+      const task = state.tasks.find(x=>x.id===id);
+      // See the matching comment in app-render-tasks.js — a stepped task must undo via
+      // toggleAllTaskSteps() (unchecks only today's steps, leaves earlier-day locked ones), not
+      // plain uncompleteTask(), or today's auto-checked steps are left checked/counted forever.
+      if(task && taskHasSteps(task)){ toggleAllTaskSteps(id); return; }
+      uncompleteTask(id);
+    });
   });
   main.querySelectorAll('[data-complete-task-today]').forEach(btn=>{
     btn.addEventListener('click', ()=>{

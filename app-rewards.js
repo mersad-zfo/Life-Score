@@ -31,8 +31,15 @@ function rewardsAchievedCount(){
 }
 
 // Called from renderToday() every Home render — keeps the badge fraction and (if open) the panel
-// list in sync with whatever just changed the day's received score, and fires the unlock
-// celebration the moment a reward first crosses its threshold today.
+// list in sync with whatever just changed the day's received score. Deliberately does NOT call
+// evaluateRewardNotifications() here — it used to, as a "safety net," but that ran it a second
+// time in the same synchronous action as the evaluateLiveDailyNotifications() hook below (e.g.
+// completing a routine calls that hook, then renderMain()/renderToday() runs and called this).
+// notifSetCondition()'s existing-entry check is async (an IndexedDB read), so both calls could see
+// "nothing yet" before either had actually written, and both would insert — a duplicate bell
+// entry for the same unlock. One real trigger point per action, not "call it everywhere and let
+// it sort itself out": see the explicit calls in the Add/Edit/Delete reward handlers below for
+// the cases evaluateLiveDailyNotifications() doesn't already cover.
 function updateRewardBadge(){
   const badge = document.getElementById('rewardBadge');
   const heroRow = document.getElementById('heroRow');
@@ -43,7 +50,6 @@ function updateRewardBadge(){
     if(rewardsPanelOpen) closeRewardsPanelIfOpen();
     return;
   }
-  checkRewardAchievements();
   const fracEl = document.getElementById('rewardBadgeFraction');
   if(fracEl){
     const hasRewards = state.rewards.length>0;
@@ -57,35 +63,26 @@ function updateRewardBadge(){
   if(rewardsPanelOpen) renderRewardPanelList();
 }
 
-// Tracks, per reward id, the date it was last confirmed achieved-and-celebrated — so the "Got a
-// reward!" toast fires exactly once per reward per day, the moment it crosses the line, not on
-// every render while it stays achieved. Not persisted (in-memory only): a reload re-derives
-// achieved-state fresh from today's score and simply won't re-celebrate an already-open session's
-// old news, which is the right call since there's nothing to protect here (see file header).
-let rewardsCelebratedToday = {};
-function checkRewardAchievements(){
+// Category 2 (local, condition-triggered) notification for reward unlocks — routes through the
+// exact same engine as every other in-app notification (app-notif-triggers.js's
+// notifSetCondition()): once-per-key-per-day, lands in the bell popover/history with the
+// 'celebration' category's 🌟 icon, and — because 'celebration' is what triggers it — shows the
+// full-screen star-burst overlay instead of the small slide-down banner other categories get.
+// Keyed per reward per day (`reward:<id>:<date>`), so undo (score dropping back below the target)
+// removes the notification entry via the same isTrueNow===false branch everything else uses, and
+// crossing the target again later the same day is a fresh add, not a re-notify of a stale one.
+function evaluateRewardNotifications(){
+  if(!state.settings.rewardsEnabled) return;
   const today = todayStr();
   state.rewards.forEach(r=>{
-    const achieved = rewardAchievedToday(r);
-    if(achieved && rewardsCelebratedToday[r.id]!==today){
-      rewardsCelebratedToday[r.id] = today;
-      showRewardToast(tr('Got a reward!'), tr('{reward} is unlocked — nice work today.').replace('{reward}', r.name));
-    } else if(!achieved && rewardsCelebratedToday[r.id]===today){
-      // Score dropped back below the target (e.g. a task got unchecked) — allow a fresh
-      // celebration if they cross it again later today rather than staying silently "used up."
-      delete rewardsCelebratedToday[r.id];
-    }
+    notifSetCondition(`reward:${r.id}:${today}`, rewardAchievedToday(r), 'celebration',
+      ()=>({
+        title: tr('Got a reward!'),
+        body: trRewardUnlockedBody(r.name),
+        overlayBody: trRewardUnlockedOverlayBody(r.name)
+      }),
+      true);
   });
-}
-
-function showRewardToast(title, subtitle){
-  const el = document.getElementById('rewardToast');
-  if(!el) return;
-  document.getElementById('rewardToastTitle').textContent = title;
-  document.getElementById('rewardToastSub').textContent = subtitle;
-  el.classList.add('show');
-  clearTimeout(el._timer);
-  el._timer = setTimeout(()=> el.classList.remove('show'), 3400);
 }
 
 function renderRewardPanelList(){
@@ -215,6 +212,7 @@ function openAddRewardModal(){
     saveState();
     closeBackLayer();
     updateRewardBadge();
+    evaluateRewardNotifications();
     showToast(tr('Reward added'));
   });
 }
@@ -242,10 +240,16 @@ function openEditRewardModal(id){
     saveState();
     closeBackLayer();
     updateRewardBadge();
+    evaluateRewardNotifications();
     showToast(tr('Reward updated'));
   });
   m.querySelector('#rwDelete').addEventListener('click', ()=>{
     if(!confirm(tr('Remove this reward?'))) return;
+    // Clears today's notification entry if this reward happened to be achieved-and-celebrated
+    // already — otherwise it'd be orphaned in the bell forever, since evaluateRewardNotifications()
+    // only re-checks rewards still in state.rewards. Same pattern as
+    // clearRoutineCompletionNotifications() for a deleted routine.
+    notifSetCondition(`reward:${id}:${todayStr()}`, false, 'celebration', null, false);
     state.rewards = state.rewards.filter(x=>x.id!==id);
     saveState();
     closeBackLayer();

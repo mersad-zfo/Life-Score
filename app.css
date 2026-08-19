@@ -632,19 +632,6 @@
     white-space:nowrap;
   }
   .toast.show{ opacity:1; }
-  .reward-toast{
-    position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-14px);
-    display:flex; align-items:center; gap:10px;
-    background:var(--glass-fill); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-    border:1px solid var(--glass-border); border-radius:16px; padding:10px 16px;
-    max-width:calc(100% - 40px); box-sizing:border-box;
-    z-index:1001; opacity:0; pointer-events:none;
-    transition: opacity .25s ease, transform .25s ease;
-  }
-  .reward-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
-  .reward-toast-icon{ font-size:22px; flex-shrink:0; line-height:1; }
-  .reward-toast-title{ font-size:13.5px; font-weight:700; color:var(--accent); }
-  .reward-toast-sub{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
   .reset-zone{
     margin-top:30px;
     padding-top:18px;
@@ -996,6 +983,61 @@
   .notif-banner .nb-title{ font-weight:600; font-size:14px; }
   .notif-banner .nb-body{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; line-height:1.4; }
 
+  /* ---- Category 2 "celebration" notification: full-screen star-burst overlay ----
+     Only the 'celebration' category uses this instead of the small slide-down .notif-banner
+     (see showNotifBanner()'s branch in app-notif-triggers.js) — currently only reward unlocks
+     fire this category, but it's built generically since the category itself is generic. */
+  .notif-celebration{
+    position:fixed; inset:0; z-index:1002;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .notif-celebration.show{ opacity:1; pointer-events:auto; }
+  .nc-scrim{ position:absolute; inset:0; background:rgba(6,8,6,0.72); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); }
+  .nc-close{
+    position:absolute; top:calc(22px + env(safe-area-inset-top)); right:22px; width:36px; height:36px; border-radius:50%;
+    background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); color:#fff;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; z-index:2;
+  }
+  .nc-panel{
+    position:relative; z-index:1;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:0 32px; max-width:380px;
+  }
+  .nc-title{ font-weight:700; font-size:26px; color:#fff; margin:6px 0 6px; }
+  .nc-sub{ font-size:15px; color:rgba(255,255,255,0.78); line-height:1.5; margin-top:2px; }
+  .nc-sub b{ color:#fff; font-weight:600; }
+  .nc-cta{
+    margin-top:28px; background:#fff; color:#141814; border:none; padding:13px 30px; border-radius:14px;
+    font-size:14.5px; font-weight:600; font-family:inherit; cursor:pointer;
+  }
+  .nc-star-wrap{ position:relative; width:150px; height:150px; margin-bottom:6px; }
+  .nc-star-center{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  .nc-star{
+    font-size:88px; position:relative; z-index:2;
+    animation: ncPop .6s cubic-bezier(.34,1.56,.64,1);
+    filter: drop-shadow(0 0 26px rgba(255,214,110,0.75));
+  }
+  @keyframes ncPop{
+    0%{ transform:scale(0) rotate(-25deg); opacity:0; }
+    60%{ transform:scale(1.18) rotate(8deg); opacity:1; }
+    100%{ transform:scale(1) rotate(0deg); }
+  }
+  .nc-ray{ position:absolute; inset:0; margin:auto; width:6px; height:6px; animation: ncRay .9s ease-out forwards; }
+  .nc-ray i{ display:block; width:4px; height:46px; background:linear-gradient(#FFE7A6, transparent); border-radius:4px; margin:0 auto; }
+  @keyframes ncRay{
+    0%{ opacity:0; transform:scale(.2) rotate(var(--rot)); }
+    35%{ opacity:1; }
+    100%{ opacity:0; transform:scale(1.7) rotate(var(--rot)); }
+  }
+  .nc-glow{
+    position:absolute; inset:0; margin:auto; width:170px; height:170px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,214,110,0.35), transparent 70%);
+    animation: ncGlow 1.8s ease-in-out infinite;
+  }
+  @keyframes ncGlow{ 0%,100%{ opacity:.6; transform:scale(1);} 50%{ opacity:1; transform:scale(1.12);} }
+
   /* ---- Progression full-screen popover ---- */
   .prog-pop-scrim{
     position:fixed; inset:0;
@@ -1319,9 +1361,7 @@
   body.lang-fa .ob-weekday-title,
   body.lang-fa .chip,
   body.lang-fa .reward-row-name,
-  body.lang-fa .reward-panel-empty,
-  body.lang-fa .reward-toast-title,
-  body.lang-fa .reward-toast-sub {
+  body.lang-fa .reward-panel-empty {
     direction: rtl;
     unicode-bidi: plaintext;
     text-align: right;
@@ -1335,7 +1375,9 @@
   body.lang-fa .notif-empty,
   body.lang-fa .notif-show-more,
   body.lang-fa .welcome-wordmark,
-  body.lang-fa .empty-state .ob-sub {
+  body.lang-fa .empty-state .ob-sub,
+  body.lang-fa .nc-title,
+  body.lang-fa .nc-sub {
     direction: rtl;
     unicode-bidi: plaintext;
     text-align: center;

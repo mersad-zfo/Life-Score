@@ -105,7 +105,20 @@ function renderTasks(main){
   });
   openAll.forEach(task=> wireStepsUi(main, 'task', task));
   main.querySelectorAll('[data-undo-task]').forEach(btn=>{
-    btn.addEventListener('click', ()=> uncompleteTask(btn.dataset.undoTask));
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.undoTask;
+      const task = state.tasks.find(x=>x.id===id);
+      // A stepped task's completion may include steps auto-checked just now by the complete
+      // button above (dispatched to toggleAllTaskSteps) — plain uncompleteTask() only removes the
+      // task-level log entry and never touches those individual task_step entries, so undo would
+      // silently leave today's steps checked (and their points still counted) while the task
+      // itself went back to "not done". toggleAllTaskSteps() correctly unchecks every step done
+      // TODAY (leaving any earlier-day locked steps alone) and, via uncompleteTaskStep(), resets
+      // completedDate/awardedPoints once the last today-step comes off — same completion path,
+      // used in reverse.
+      if(task && taskHasSteps(task)){ toggleAllTaskSteps(id); return; }
+      uncompleteTask(id);
+    });
   });
   main.querySelectorAll('[data-del-task]').forEach(btn=>{
     btn.addEventListener('click', ()=>{

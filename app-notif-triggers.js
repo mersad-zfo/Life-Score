@@ -18,7 +18,7 @@
 //            fact (a missed occurrence, a week/month ending) — these never show a banner, so
 //            something that happened while the app was closed just quietly lands in history.
 
-const NOTIF_ICONS = { congrats: '🏆', warning: '❗', info: '❕' };
+const NOTIF_ICONS = { congrats: '🏆', warning: '❗', info: '❕', celebration: '🌟' };
 const NOTIF_BANNER_MS = 4500;
 
 // ---------- Banner ledger — once-per-calendar-day-per-key ----------
@@ -66,7 +66,12 @@ async function notifSetCondition(key, isTrueNow, category, buildMessage, banner)
   }
   // Deliberately outside the try/catch above — a bug here shouldn't look like a silent no-op.
   if(shouldBanner){
-    try{ showNotifBanner({ category, title: msg.title, body: msg.body }); }
+    // msg.overlayBody is optional — only 'celebration' buildMessage()s set it (a bold-HTML variant
+    // for the full-screen overlay; see trRewardUnlockedOverlayBody()/trMilestoneOverlayBody() in
+    // app-i18n.js). msg.body (plain text, what's actually stored in the DB above) is what every
+    // other category always uses, and what 'celebration' falls back to if a caller doesn't bother
+    // supplying an overlayBody.
+    try{ showNotifBanner({ category, title: msg.title, body: msg.body, overlayBody: msg.overlayBody }); }
     catch(e){ console.error('Category 2 notification (banner):', e); }
   }
 }
@@ -75,15 +80,19 @@ async function notifSetCondition(key, isTrueNow, category, buildMessage, banner)
 // Called directly from completeRoutine()/uncompleteRoutine() in app-consistency.js, which already
 // compute the before/after streak & neglect values needed to know whether either just happened.
 function evaluateRoutineCompletionNotifications(r, t, flags){
-  notifSetCondition(`ms:${r.id}:${t}`, !!flags.crossedStreakMilestone, 'congrats',
-    ()=>({ title: tr('New Milestone!'), body: trMilestoneNotifBody(streakEmoji(r), r.streak, r.name) }),
+  notifSetCondition(`ms:${r.id}:${t}`, !!flags.crossedStreakMilestone, 'celebration',
+    ()=>({
+      title: tr('New Milestone!'),
+      body: trMilestoneNotifBody(streakEmoji(r), r.streak, r.name),
+      overlayBody: trMilestoneOverlayBody(streakEmoji(r), r.streak, r.name)
+    }),
     true);
   notifSetCondition(`recover:${r.id}:${t}`, !!flags.recoveredFromNeglect, 'congrats',
     ()=>({ title: tr('You made it back!!'), body: trRecoveryNotifBody(r.name) }),
     true);
 }
 function clearRoutineCompletionNotifications(routineId, t){
-  notifSetCondition(`ms:${routineId}:${t}`, false, 'congrats', null, false);
+  notifSetCondition(`ms:${routineId}:${t}`, false, 'celebration', null, false);
   notifSetCondition(`recover:${routineId}:${t}`, false, 'congrats', null, false);
 }
 
@@ -126,6 +135,8 @@ function evaluateLiveDailyNotifications(){
   const allClear = somethingExists && dueRoutines.every(r=>routineDoneToday(r)) && openTasks.length===0;
   notifSetCondition(`allclear:${today}`, allClear, 'congrats',
     ()=>({ title: tr('All clear today'), body: trAllClearBody() }), true);
+
+  if(typeof evaluateRewardNotifications==='function') evaluateRewardNotifications();
 }
 
 // ---------- SILENT: neglect milestone ----------
@@ -245,7 +256,12 @@ function dismissAllBanners(){
   notifBannerStack = [];
 }
 
-function showNotifBanner({ category, title, body }){
+function showNotifBanner({ category, title, body, overlayBody }){
+  // 'celebration' gets the full-screen star-burst overlay instead of the small slide-down
+  // banner — visually a completely different presentation, but it's still governed by the exact
+  // same once-per-key-per-day gate in notifSetCondition() above; this function only decides HOW
+  // to show it once that gate has already said yes.
+  if(category==='celebration'){ showCelebrationOverlay({title, body: overlayBody || body}); return; }
   const stack = ensureBannerStackEl();
   positionBannerStack(stack);
   const el = document.createElement('div');
@@ -306,3 +322,35 @@ function wireBannerGestures(entry){
   el.addEventListener('pointerup', finish);
   el.addEventListener('pointercancel', finish);
 }
+
+// ---------- Category 2 "celebration": full-screen star-burst overlay ----------
+// A single persistent overlay (see index.html), reused for every celebration — restarts its own
+// animations each time rather than being torn down/recreated, same idea as the ring/badge
+// elsewhere in the app.
+function showCelebrationOverlay({title, body}){
+  const overlay = document.getElementById('notifCelebrationOverlay');
+  if(!overlay) return;
+  document.getElementById('notifCelebrationTitle').textContent = title;
+  // body is trusted HTML here (unlike everywhere else notification text is shown, which always
+  // uses textContent/escapeHtml) — it's the overlayBody built by trRewardUnlockedOverlayBody() /
+  // trMilestoneOverlayBody() in app-i18n.js, which already escapeHtml()s the one user-supplied
+  // piece (the reward/routine name) before wrapping it in a <b> the rest of that string is a fixed
+  // literal. Never pass raw/unescaped user input into this function.
+  document.getElementById('notifCelebrationBody').innerHTML = body;
+  document.getElementById('notifCelebrationCta').textContent = tr('Continue');
+  const star = overlay.querySelector('.nc-star');
+  const rays = overlay.querySelectorAll('.nc-ray');
+  star.style.animation = 'none';
+  rays.forEach(r=> r.style.animation = 'none');
+  void overlay.offsetWidth; // force reflow so the animation restarts even if already showing
+  star.style.animation = '';
+  rays.forEach(r=> r.style.animation = '');
+  overlay.classList.add('show');
+}
+function closeCelebrationOverlay(){
+  const overlay = document.getElementById('notifCelebrationOverlay');
+  if(overlay) overlay.classList.remove('show');
+}
+document.getElementById('notifCelebrationClose').addEventListener('click', closeCelebrationOverlay);
+document.getElementById('notifCelebrationCta').addEventListener('click', closeCelebrationOverlay);
+document.getElementById('notifCelebrationScrim').addEventListener('click', closeCelebrationOverlay);

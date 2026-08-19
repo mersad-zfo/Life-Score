@@ -74,7 +74,7 @@ const LANG_DICT = {
     'Give it a points target': 'یک هدف امتیازی برایش تعیین کنید',
     'Reward added': 'جایزه اضافه شد', 'Reward updated': 'جایزه به‌روزرسانی شد',
     'No rewards yet': 'هنوز جایزه‌ای نیست',
-    'Got a reward!': 'یک جایزه گرفتی!', '{reward} is unlocked — nice work today.': '{reward} باز شد — امروز خوب پیش رفتی.',
+    'Got a reward!': 'یک جایزه گرفتی!',
     'No notifications yet': 'هنوز اعلانی وجود ندارد', 'Close': 'بستن',
     "Notifications aren't supported on this browser": 'این مرورگر از اعلان‌ها پشتیبانی نمی‌کند',
     'Notification permission was not granted': 'اجازه اعلان داده نشد',
@@ -159,7 +159,7 @@ const LANG_DICT = {
     'Daily Rating limit.': 'محدودیت رتبه روزانه.',
     'Weekly Rating limit.': 'محدودیت رتبه هفتگی.',
     'Monthly Rating limit.': 'محدودیت رتبه ماهانه.',
-    'Show more': 'مشاهده بیشتر',
+    'Show history': 'مشاهده تاریخچه',
     'Delete this notification from your history?': 'این اعلان برای همیشه از تاریخچه حذف شود؟',
     'Delete': 'حذف',
     "This can't be undone.": 'این کار قابل بازگشت نیست.',
@@ -503,6 +503,18 @@ function trMilestoneNotifBody(emoji, streakCount, routineName){
   }
   return `Congratulations — you just reached the "${emoji}×${streakCount} Streak" milestone on "${routineName}"! This will be one of your safety-nets moving forward.`;
 }
+// Overlay-only phrasing for the full-screen celebration — same content as trMilestoneNotifBody()
+// above, just bold (HTML) instead of «air quotes»/"air quotes" around the streak label and
+// routine name, since the overlay can render that and a plain-text bell/history entry can't. Only
+// routineName is user input; it's escaped before going into its bold span. The streak-label span
+// is built from a fixed emoji + a plain number, never user input, so no escaping needed there.
+function trMilestoneOverlayBody(emoji, streakCount, routineName){
+  const safeName = escapeHtml(routineName);
+  if(curLang()==='fa'){
+    return `تبریک! به نقطه عطف <b>${emoji}×${numFa(streakCount)} رکورد</b> در <b>${safeName}</b> رسیدی! این از این به بعد یکی از تور ایمنی‌های تو خواهد بود.`;
+  }
+  return `Congratulations — you just reached the <b>${emoji}×${streakCount} Streak</b> milestone on <b>${safeName}</b>! This will be one of your safety-nets moving forward.`;
+}
 function trRecoveryNotifBody(routineName){
   if(curLang()==='fa'){
     return `با روتین «${routineName}» که قبلاً مورد غفلت واقع شده بود، دوباره به مسیر برگشتی! به‌خاطر پشتکارت بهت افتخار می‌کنم.`;
@@ -555,6 +567,21 @@ function trMonthlyNpCapBody(count){
 function trAllClearBody(){
   if(curLang()==='fa') return `همه روتین‌ها و کارهای امروز انجام شد. بقیه روز رو راحت باش — جاش رو داری.`;
   return `Every routine and task on today's list is checked off. Take the rest of the day easy — you've earned it.`;
+}
+function trRewardUnlockedBody(rewardName){
+  if(curLang()==='fa') return `«${rewardName}» باز شد — امروز خوب پیش رفتی.`;
+  return `"${rewardName}" is unlocked — nice work today.`;
+}
+// Overlay-only phrasing for the full-screen celebration (see showCelebrationOverlay() in
+// app-notif-triggers.js) — bold via HTML instead of quotes, since the overlay can render that and
+// a plain-text bell/history entry can't. Deliberately a different (shorter) sentence from
+// trRewardUnlockedBody() above, not just a reformatting of it — the overlay is a distinct,
+// punchier surface. rewardName is user input, so it's escaped before going into the bold span;
+// everything else in the returned string is a fixed literal, safe to treat as trusted HTML.
+function trRewardUnlockedOverlayBody(rewardName){
+  const safe = escapeHtml(rewardName);
+  if(curLang()==='fa') return `<b>${safe}</b> باز شد. کارت عالی بود.`;
+  return `<b>${safe}</b> is unlocked. Nice work.`;
 }
 function trWelcomeNotifBody(graceApplied){
   if(curLang()==='fa'){

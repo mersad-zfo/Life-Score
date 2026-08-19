@@ -72,7 +72,7 @@
     display:inline-flex; align-items:center; justify-content:center; min-width:16px; flex-shrink:0;
     background:var(--accent-soft); color:var(--accent);
   }
-  .reward-tag.locked{ background:var(--line); color:var(--ink); }
+  .reward-tag.locked{ background:var(--accent-soft); color:var(--accent); }
   .reward-tag.star{ background:none; padding:2px 0; font-size:12px; }
   .reward-panel-empty{ font-size:11px; color:var(--ink-soft); padding:10px 0; text-align:center; }
   .reward-add-btn{

@@ -1,5 +1,5 @@
 // ---------- Full Notifications page ----------
-// Not a bottom-nav tab — reached only via the bell popover's "Show more" row or by tapping a
+// Not a bottom-nav tab — reached only via the bell popover's "Show history" row or by tapping a
 // slide-down banner, the same way Settings is reached only via the gear icon (see app-main.js).
 // Shows every stored notification (up to the 30-day retention window), unlike the popover's
 // 6-item cap. The difference from the popover: this page's trash icon (with a confirm dialog) does

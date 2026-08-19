@@ -18,14 +18,18 @@ function openModal(html){
 }
 
 // ---------- Notifications popover ----------
-// Icon (🏆/❗/❕) + title + subtitle, at most 6 most-recent, plus a permanent "show more" row into
-// the full Notifications page. No per-item dismiss here — the popover's single header close-X
-// (wired in openNotificationsModal below) is the only way to close it; an entry only actually
-// leaves history via the full page's trash icon (notifDbDeleteOne).
+// Icon (🏆/❗/❕/🌟) + title + subtitle, at most 6 most-recent AND received within the last 36
+// hours, plus a permanent "Show history" row into the full Notifications page (which has no such
+// time cutoff — this is purely a popover-freshness rule, everything still lives in history).
+// No per-item dismiss here — the popover's single header close-X (wired in openNotificationsModal
+// below) is the only way to close it; an entry only actually leaves history via the full page's
+// trash icon (notifDbDeleteOne).
+const NOTIF_POPOVER_MAX_AGE_MS = 36*60*60*1000;
 async function notifPopoverListHtml(){
   let list = [];
   try{ list = await notifDbGetAll(); }catch(e){ /* IndexedDB unavailable */ }
-  const visible = list.filter(n=> !n.hiddenFromPopover).slice(0, 6);
+  const cutoff = Date.now() - NOTIF_POPOVER_MAX_AGE_MS;
+  const visible = list.filter(n=> !n.hiddenFromPopover && n.receivedAt>=cutoff).slice(0, 6);
   const itemsHtml = visible.length ? visible.map(n=>`
     <div class="notif-item" data-notif-id="${n.id}">
       <div class="notif-icon">${NOTIF_ICONS[n.category] || ''}</div>
@@ -37,7 +41,7 @@ async function notifPopoverListHtml(){
   `).join('') : `<div class="notif-empty">${tr('No notifications yet')}</div>`;
   return `
     <div class="notif-list">${itemsHtml}</div>
-    <div class="notif-show-more" id="notifShowMore">${tr('Show more')}</div>
+    <div class="notif-show-more" id="notifShowMore">${tr('Show history')}</div>
   `;
 }
 async function openNotificationsModal(){
