@@ -327,16 +327,35 @@ function wireBannerGestures(entry){
 // A single persistent overlay (see index.html), reused for every celebration — restarts its own
 // animations each time rather than being torn down/recreated, same idea as the ring/badge
 // elsewhere in the app.
+//
+// Queued (this session): if more than one condition goes true in the same action (e.g. crossing a
+// point total that unlocks two rewards at once), each calls showCelebrationOverlay() independently
+// — previously the later call just overwrote the earlier one's title/body before it had even been
+// read, so only the last celebration was ever actually seen. Now every call that arrives while one
+// is already showing queues instead, and the next queued one is presented only after the current
+// one is dismissed (title/body swapped in right after its close-fade finishes, not mid-fade or
+// stacked underneath it) — so N unlocks in one action means N celebrations, one after another,
+// until the queue is empty.
+let celebrationQueue = [];
+let celebrationShowing = false;
 function showCelebrationOverlay({title, body}){
+  celebrationQueue.push({title, body});
+  if(celebrationShowing) return;
+  presentNextCelebration();
+}
+function presentNextCelebration(){
+  const next = celebrationQueue.shift();
+  if(!next) return;
+  celebrationShowing = true;
   const overlay = document.getElementById('notifCelebrationOverlay');
   if(!overlay) return;
-  document.getElementById('notifCelebrationTitle').textContent = title;
+  document.getElementById('notifCelebrationTitle').textContent = next.title;
   // body is trusted HTML here (unlike everywhere else notification text is shown, which always
   // uses textContent/escapeHtml) — it's the overlayBody built by trRewardUnlockedOverlayBody() /
   // trMilestoneOverlayBody() in app-i18n.js, which already escapeHtml()s the one user-supplied
   // piece (the reward/routine name) before wrapping it in a <b> the rest of that string is a fixed
   // literal. Never pass raw/unescaped user input into this function.
-  document.getElementById('notifCelebrationBody').innerHTML = body;
+  document.getElementById('notifCelebrationBody').innerHTML = next.body;
   document.getElementById('notifCelebrationCta').textContent = tr('Continue');
   const star = overlay.querySelector('.nc-star');
   const rays = overlay.querySelectorAll('.nc-ray');
@@ -350,6 +369,14 @@ function showCelebrationOverlay({title, body}){
 function closeCelebrationOverlay(){
   const overlay = document.getElementById('notifCelebrationOverlay');
   if(overlay) overlay.classList.remove('show');
+  if(!celebrationShowing) return;
+  // Wait out .notif-celebration's own opacity transition (.25s, see app.css) before swapping in
+  // the next queued celebration (if any), so it's a clean close-then-open, not an instant content
+  // swap mid-fade.
+  setTimeout(()=>{
+    celebrationShowing = false;
+    if(celebrationQueue.length) presentNextCelebration();
+  }, 260);
 }
 document.getElementById('notifCelebrationClose').addEventListener('click', closeCelebrationOverlay);
 document.getElementById('notifCelebrationCta').addEventListener('click', closeCelebrationOverlay);

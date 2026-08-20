@@ -110,6 +110,8 @@ function updateRewardBadge(){
   if(manageBtnLabelEl) manageBtnLabelEl.textContent = tr('Manage Rewards');
   const rpManageTitleEl = document.getElementById('rpManageTitle');
   if(rpManageTitleEl) rpManageTitleEl.textContent = tr('Manage rewards');
+  const rpManageSubEl = document.getElementById('rpManageSub');
+  if(rpManageSubEl) rpManageSubEl.textContent = tr('Rewards are time-consuming or unproductive activities you unlock by earning points.');
   const rpActiveLabelEl = document.getElementById('rpActiveLabel');
   if(rpActiveLabelEl) rpActiveLabelEl.textContent = tr('Active rewards');
   const rpAddRewardLabelEl = document.getElementById('rpAddRewardLabel');
@@ -154,6 +156,10 @@ function evaluateRewardNotifications(){
 function renderRewardPanelList(){
   const listEl = document.getElementById('rewardPanelList');
   if(!listEl) return;
+  if(!state.rewards.length){
+    listEl.innerHTML = `<div class="reward-panel-empty">${tr('No rewards yet')}</div>`;
+    return;
+  }
   listEl.innerHTML = state.rewards.map(r=>{
     const achieved = rewardAchievedToday(r);
     const tag = achieved
@@ -310,6 +316,15 @@ function flipAnimate(el, mutate){
     el.style.transition = 'transform .45s cubic-bezier(.4,0,.2,1)';
     el.style.transform = 'none';
   });
+  // Hand control back to CSS once the flip settles, instead of leaving this inline override in
+  // place forever — matters for the popover especially, which gets flipped in and out of "sheet"
+  // shape across multiple opens and otherwise would silently stop its own CSS-declared show/hide
+  // pop-scale from ever running again after the first Manage Rewards morph.
+  setTimeout(()=>{
+    el.style.transition = '';
+    el.style.transformOrigin = '';
+    el.style.transform = '';
+  }, 480);
 }
 
 // Reparents the real #ringWrap out of hero-row and into #app itself so it can float above
@@ -328,7 +343,12 @@ function flyRingUp(){
     const headerRect = header.getBoundingClientRect();
     const appRect = app.getBoundingClientRect();
     const zoneTop = headerRect.bottom - appRect.top;
-    const zoneBottom = appRect.height * 0.4;
+    // The sheet's own top edge sits at 40% of #app's height (it's height:60% anchored to the
+    // bottom — see .rewards-popover.as-sheet in ring.css). zoneBottom used to land exactly there,
+    // leaving DAILY's label with no breathing room above the sheet — reserving 10px here (label's
+    // own text height plus a real gap) instead of letting the ring/label zone run flush to it.
+    const sheetTopPx = appRect.height * 0.4;
+    const zoneBottom = sheetTopPx - 10;
     const zoneHeight = zoneBottom - zoneTop;
     const ringSize = Math.max(160, Math.min(200, zoneHeight - 16));
     const ringTop = zoneTop + (zoneHeight - ringSize) / 2;
@@ -403,10 +423,13 @@ document.getElementById('rwScrim').addEventListener('click', ()=>{ if(rewardsPop
 
 document.getElementById('manageRewardsBtn').addEventListener('click', ()=>{
   rewardsPopoverSheetMode = true;
-  document.getElementById('rewardsPopover').classList.add('as-sheet');
-  document.getElementById('rwScrim').classList.add('as-sheet');
-  document.getElementById('rpListView').classList.add('hide');
-  document.getElementById('rpManageView').classList.remove('hide');
+  const popover = document.getElementById('rewardsPopover');
+  flipAnimate(popover, ()=>{
+    popover.classList.add('as-sheet');
+    document.getElementById('rwScrim').classList.add('as-sheet');
+    document.getElementById('rpListView').classList.add('hide');
+    document.getElementById('rpManageView').classList.remove('hide');
+  });
   flyRingUp();
 });
 document.getElementById('rpAddRewardBtn').addEventListener('click', ()=> openAddRewardModal());
@@ -489,6 +512,52 @@ function rwWireChipFlow(onChange){
   });
 }
 
+// ---------- Shared "Points needed" control (this session — reworked for clarity + direct typing)
+// Used by both the New Reward chip picker and the (otherwise untouched) Edit Reward modal. The
+// slider stays capped 0-990/step-10 (dragging it), but the number beside it is a real, independent
+// <input type="number"> — tapping it lets you type any value directly, with no upper cap and no
+// requirement to land on a multiple of 10; the slider just visually clamps to its own 0-990 range
+// to represent that (maxed-out) when the typed value exceeds it, without altering what actually
+// gets saved. ----------
+function rewardPointsFieldHtml(value){
+  const val = Math.max(0, value || 0);
+  const sliderVal = Math.max(0, Math.min(990, val));
+  return `
+    <div class="field">
+      <label>${tr('Points needed')}</label>
+      <div class="reward-slider-row">
+        <input id="rwPoints" type="range" min="0" max="990" step="10" value="${sliderVal}" class="reward-slider" />
+        <input id="rwPointsValue" type="number" inputmode="numeric" class="reward-slider-value-input" value="${val}" />
+      </div>
+    </div>`;
+}
+// Returns {getValue, setValue} — getValue() always reads from the number input (the source of
+// truth); setValue() (used by the chip picker's preset pre-fill) drives both controls from one call.
+function wireRewardPointsControl(root){
+  const slider = root.querySelector('#rwPoints');
+  const numInput = root.querySelector('#rwPointsValue');
+  const paint = (raw)=>{
+    const clamped = Math.max(0, Math.min(990, raw));
+    slider.value = clamped;
+    const pct = (clamped - slider.min) / (slider.max - slider.min) * 100;
+    slider.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--line) ${pct}%)`;
+  };
+  slider.addEventListener('input', ()=>{
+    const v = parseInt(slider.value, 10);
+    numInput.value = v;
+    paint(v);
+  });
+  numInput.addEventListener('input', ()=>{
+    const v = parseInt(numInput.value, 10);
+    if(!isNaN(v)) paint(v);
+  });
+  paint(parseInt(numInput.value, 10) || 0);
+  return {
+    getValue: ()=>{ const v = parseInt(numInput.value, 10); return isNaN(v) ? 0 : Math.max(0, v); },
+    setValue: (v)=>{ numInput.value = v; paint(v); }
+  };
+}
+
 function openAddRewardModal(){
   rwSelectedPreset = null;
   rwCustomChips = [];
@@ -496,39 +565,25 @@ function openAddRewardModal(){
   const m = openModal(`
     ${modalCloseXHtml()}
     <h3>${tr('New reward')}</h3>
-    <p class="modal-sub">${tr('Rewards are time-consuming or unproductive activities you unlock by earning points.')}</p>
+    <p class="modal-sub">${tr('Pick something that usually wastes your time or is a guilty pleasure.')}</p>
     <div class="section-label"><span>${tr('Choose a reward')}</span></div>
     ${rwChipFlowHtml()}
-    <div class="field">
-      <label>${tr('Points needed')}</label>
-      <div class="reward-slider-row">
-        <input id="rwPoints" type="range" min="0" max="990" step="10" value="0" class="reward-slider" />
-        <span class="reward-slider-value" id="rwPointsValue">0</span>
-      </div>
-    </div>
+    <div style="margin-top:18px;">${rewardPointsFieldHtml(0)}</div>
     <div class="modal-actions">
       <button class="btn-secondary" id="rwCancel">${tr('Cancel')}</button>
       <button class="btn-primary" id="rwSave">${tr('Add reward')}</button>
     </div>
   `);
-  const slider = m.querySelector('#rwPoints');
-  const valueEl = m.querySelector('#rwPointsValue');
-  const paintSlider = ()=>{
-    const pct = (slider.value - slider.min) / (slider.max - slider.min) * 100;
-    slider.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--line) ${pct}%)`;
-    valueEl.textContent = trNum(slider.value);
-  };
-  slider.addEventListener('input', paintSlider);
-  paintSlider();
+  const points = wireRewardPointsControl(m);
   function onChipChange(pointsToSet){
-    if(pointsToSet!=null){ slider.value = pointsToSet; paintSlider(); }
+    if(pointsToSet!=null) points.setValue(pointsToSet);
     m.querySelector('#rwChipFlow').outerHTML = rwChipFlowHtml();
     rwWireChipFlow(onChipChange);
   }
   rwWireChipFlow(onChipChange);
   m.querySelector('#rwCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#rwSave').addEventListener('click', ()=>{
-    const pointsNeeded = parseInt(slider.value, 10);
+    const pointsNeeded = points.getValue();
     let name = '', emoji = null, logoId = null;
     if(rwSelectedPreset){
       name = tr(rwSelectedPreset.nameKey);
@@ -552,36 +607,13 @@ function openAddRewardModal(){
 // ---------- Edit Reward modal (untouched this session — plain name + slider, no chips; a
 // reward's emoji/logo is preserved as-is across an edit, never touched here) ----------
 function rewardModalFieldsHtml(name, pointsNeeded){
-  const val = pointsNeeded || 0;
   return `
     <div class="field">
       <label>${tr('Reward name')}</label>
       <input id="rwName" type="text" value="${escapeHtml(name||'')}" placeholder="${tr('e.g. Using Phone')}" />
     </div>
-    <div class="field">
-      <label>${tr('Points needed')}</label>
-      <div class="reward-slider-row">
-        <input id="rwPoints" type="range" min="0" max="990" step="10" value="${val}" class="reward-slider" />
-        <span class="reward-slider-value" id="rwPointsValue">${trNum(val)}</span>
-      </div>
-    </div>
+    ${rewardPointsFieldHtml(pointsNeeded)}
   `;
-}
-function wireRewardSlider(m){
-  const slider = m.querySelector('#rwPoints');
-  const valueEl = m.querySelector('#rwPointsValue');
-  const paint = ()=>{
-    const pct = (slider.value - slider.min) / (slider.max - slider.min) * 100;
-    slider.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--line) ${pct}%)`;
-    valueEl.textContent = trNum(slider.value);
-  };
-  slider.addEventListener('input', paint);
-  paint();
-}
-function readRewardFields(m){
-  const name = m.querySelector('#rwName').value.trim();
-  const pointsNeeded = parseInt(m.querySelector('#rwPoints').value, 10);
-  return {name, pointsNeeded};
 }
 function openEditRewardModal(id){
   const reward = state.rewards.find(x=>x.id===id);
@@ -596,10 +628,11 @@ function openEditRewardModal(id){
     </div>
     <button class="settings-btn danger-text" style="text-align:center; width:100%; margin-top:10px;" id="rwDelete">${tr('Remove reward')}</button>
   `);
-  wireRewardSlider(m);
+  const points = wireRewardPointsControl(m);
   m.querySelector('#rwCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#rwSave').addEventListener('click', ()=>{
-    const {name, pointsNeeded} = readRewardFields(m);
+    const name = m.querySelector('#rwName').value.trim();
+    const pointsNeeded = points.getValue();
     if(!name){ showToast(tr('Give it a name')); return; }
     if(!pointsNeeded || pointsNeeded<1){ showToast(tr('Give it a points target')); return; }
     reward.name = name;

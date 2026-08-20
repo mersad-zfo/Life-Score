@@ -156,8 +156,13 @@
      into its final spot smoothly once the transform hand-off completes. ---- */
   .ring-wrap.ring-flying{
     position:absolute; z-index:950; margin:0;
-    transition: top .45s cubic-bezier(.4,0,.2,1), left .45s cubic-bezier(.4,0,.2,1),
-      margin-left .45s cubic-bezier(.4,0,.2,1), width .45s cubic-bezier(.4,0,.2,1), height .45s cubic-bezier(.4,0,.2,1);
+    /* No CSS transition on top/left/margin-left/width/height here (this session — it used to be
+       transitioned via CSS, running at the same time as the JS FLIP transform below and fighting
+       it: two animations independently driving overlapping geometry every frame. Desktop had
+       enough headroom to mask the jank; real phones didn't — it looked genuinely shaky.
+       flyRingUp()/flyRingHome() in app-rewards.js now set these as plain inline styles (an instant,
+       invisible jump) and the actual smooth motion is 100% the GPU-composited `transform` animation
+       from flipAnimate() — one animation, not two competing ones. */
   }
   /* "3/5 done today" is intentionally dropped while the ring is up here — DAILY (below) takes its
      place, and there isn't room for both at this size. */
@@ -187,9 +192,13 @@
     border:1px solid var(--glass-border); border-radius:20px; box-shadow:0 24px 60px -12px rgba(0,0,0,.35);
     display:flex; flex-direction:column; overflow:hidden; color:var(--ink);
     opacity:0; pointer-events:none;
-    transition:opacity .18s ease, top .45s cubic-bezier(.4,0,.2,1), left .45s cubic-bezier(.4,0,.2,1),
-      width .45s cubic-bezier(.4,0,.2,1), height .45s cubic-bezier(.4,0,.2,1), transform .45s cubic-bezier(.4,0,.2,1),
-      border-radius .45s cubic-bezier(.4,0,.2,1);
+    /* Only opacity (open/close fade) and border-radius (cheap, paint-only) are CSS-transitioned.
+       The List -> Manage Rewards shape morph (top/left/width/height changing to the bottom-sheet
+       layout) used to also be transitioned right here, competing with the JS FLIP transform that
+       does the same job — see the identical note on .ring-wrap.ring-flying above. Now it's driven
+       purely by that transform, wrapped around the .as-sheet class toggle in the manageRewardsBtn
+       handler in app-rewards.js. */
+    transition:opacity .18s ease, transform .18s ease, border-radius .45s cubic-bezier(.4,0,.2,1);
   }
   .rewards-popover.show{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
   .rewards-popover.as-sheet{ top:auto; left:0; bottom:0; width:100%; height:60%; transform:none; border-radius:22px 22px 0 0; }
@@ -198,6 +207,7 @@
   .rewards-popover-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 18px 12px; flex-shrink:0; }
   .rewards-popover-head-title{ display:flex; align-items:baseline; gap:8px; }
   .rewards-popover-head h3{ font-family:'Newsreader', serif; font-weight:500; font-size:19px; margin:0; }
+  .rewards-popover-sub{ font-size:13px; color:var(--ink-soft); line-height:1.5; padding:0 18px 10px; flex-shrink:0; }
   .rewards-popover-frac{ font-size:12.5px; color:var(--ink-soft); font-weight:500; }
   .rewards-popover-close{ width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); flex-shrink:0; border:none; background:none; cursor:pointer; font-size:14px; font-family:inherit; }
   .rewards-popover-close:active{ background:var(--accent-soft); color:var(--accent); }

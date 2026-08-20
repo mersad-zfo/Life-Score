@@ -80,6 +80,7 @@ const LANG_DICT = {
     'Active rewards': 'جایزه‌های فعال',
     'Choose a reward': 'یک جایزه انتخاب کن',
     'Rewards are time-consuming or unproductive activities you unlock by earning points.': 'جایزه‌ها فعالیت‌های وقت‌گیر یا غیرمولدی هستند که با کسب امتیاز بازشان می‌کنی.',
+    'Pick something that usually wastes your time or is a guilty pleasure.': 'یک چیزی انتخاب کن که معمولاً وقتت رو تلف می‌کنه یا یه لذت گناه‌آلوده.',
     'Pick a reward first': 'اول یک جایزه انتخاب کن',
     'DAILY': 'روزانه',
     // Preset reward chips (this session) — a fixed catalogue offered in the New Reward picker,

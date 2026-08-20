@@ -452,8 +452,8 @@ export default {
         if (!rl.allowed) return json({ error: "rate_limited" }, 429);
 
         const TEST_MESSAGES = {
-          en: { title: "Lifyar", body: "Test notification — this worked!" },
-          fa: { title: "Lifyar", body: "پیام آزمایشی — کار کرد!" },
+          en: { title: "Lifyar", body: "Test notification: it worked!" },
+          fa: { title: "Lifyar", body: "پیام آزمایشی: کار کرد!" },
         };
 
         // Optional: { "deviceId": "..." } in the POST body targets just that one device instead
