@@ -100,6 +100,11 @@ function ensureStateShape(){
   // received score vs. pointsNeeded, which is what makes the daily reset automatic (see
   // app-rewards.js).
   if(!state.rewards) state.rewards = [];
+  // This session: rewards gained an emoji/logo glyph (shown in the big Rewards popover + Manage
+  // Rewards list, never in the small mini panel — see app-rewards.js). Any reward that predates
+  // this (created via the old plain-text Add Reward modal) gets the same default a fresh custom
+  // reward gets today, so it never renders with a missing glyph.
+  state.rewards.forEach(r=>{ if(!r.emoji && !r.logoId) r.emoji = '🎁'; });
   if(state.log){
     state.log.forEach(l=>{ if(l.kind==='habit') l.kind = 'routine'; });
   }
@@ -258,7 +263,7 @@ async function saveState(){
     if(window.LifyarCloud) window.LifyarCloud.scheduleSync(()=>state, ()=>lastModified);
   }catch(e){
     console.error('Save failed', e);
-    showToast(tr('Could not save — try again'));
+    showToast(tr('Could not save. Try again.'));
   }
 }
 

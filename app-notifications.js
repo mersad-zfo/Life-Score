@@ -80,7 +80,7 @@ async function enablePushNotifications(silent){
     return true;
   }catch(e){
     console.error('enablePushNotifications failed', e);
-    if(!silent) showToast(tr('Could not enable notifications — try again'));
+    if(!silent) showToast(tr('Could not enable notifications. Try again.'));
     return false;
   }
 }

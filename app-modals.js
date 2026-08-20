@@ -422,7 +422,7 @@ function openAddRoutineModal(){
     renderMain();
     if(graceToday){
       notifSetCondition(`grace:${base.id}`, true, 'info',
-        ()=>({ title: tr('Grace period applied'), body: tr("Added late, so today won't count — it starts fresh tomorrow.") }), true);
+        ()=>({ title: tr('Grace period applied'), body: tr("Added late, so today won't count. It starts fresh tomorrow.") }), true);
     }
     evaluateLiveDailyNotifications();
   });

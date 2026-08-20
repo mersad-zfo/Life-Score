@@ -324,7 +324,7 @@ function obRenderStep2(content, footer){
   content.innerHTML = `
     <p class="ob-eyebrow">${tr('Step 1 of 3')}</p>
     <h1 class="ob-title">${tr('A couple quick preferences')}</h1>
-    <p class="ob-sub">${tr('All of this lives in Settings too — change any of it anytime.')}</p>
+    <p class="ob-sub">${tr('All of this lives in Settings too. Change any of it anytime.')}</p>
 
     <div class="settings-group">
       <div class="item-name" style="margin-bottom:10px;">${tr('Appearance')}</div>
@@ -387,13 +387,13 @@ function obRenderStep3(content, footer){
       ${obChipFlowHtml(OB_WEEKLY_ITEMS, obCustomWeekly, obSelectedWeekly, 'weekly')}
     </div>
 
-    <p class="routine-task-note">${tr('<b>Routines</b> repeat automatically. <b>Tasks</b> are one-time activities — unlike routines, tasks disappear after completion.')}</p>
+    <p class="routine-task-note">${tr('<b>Routines</b> repeat automatically. <b>Tasks</b> are one-time activities. Unlike routines, tasks disappear after completion.')}</p>
 
     <div class="ob-glass-panel">
       <div class="section-label"><span>${tr("One task you've been putting off?")}</span></div>
       <div class="task-inline">
         <input type="text" id="obTaskEmoji" value="${escapeHtml(obTask.emoji || TASK_DEFAULT_EMOJI)}">
-        <input type="text" id="obTaskName" placeholder="${tr('Optional — e.g. Renew car insurance')}" value="${escapeHtml(obTask.name)}">
+        <input type="text" id="obTaskName" placeholder="${tr('Optional, e.g. Renew car insurance')}" value="${escapeHtml(obTask.name)}">
       </div>
     </div>
   `;
@@ -634,7 +634,7 @@ function obRenderStep5(content, footer){
       <h1 class="ob-title">${state.profile && state.profile.name ? trAllSetWithName(state.profile.name) : tr("You're all set")}</h1>
       <p class="ob-sub">${tr('Your Lifyar is ready. Everything here can still be edited, renamed, or removed anytime.')}</p>
       <p class="done-summary">${summaryLine}</p>
-      <p class="done-notif-note">🔔 ${tr("<b>One more thing</b> — allow notifications if you'd like daily reminders to check your list.")}</p>
+      <p class="done-notif-note">🔔 ${tr("<b>One more thing</b>: allow notifications if you'd like daily reminders to check your list.")}</p>
     </div>
   `;
   footer.innerHTML = `<button class="btn-primary" id="obNextBtn">${tr('Enter Lifyar')}</button>`;

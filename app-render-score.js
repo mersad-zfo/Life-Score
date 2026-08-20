@@ -14,7 +14,7 @@ function tileRatingClass(rating){
 function scoreFractionHtml(received, base){
   const r = Math.max(0, Math.round(received));
   const b = Math.round(base);
-  if(b===0) return `<span class="sf-none">—</span>`;
+  if(b===0) return `<span class="sf-none">-</span>`;
   return `<span class="sf-received">${r}</span><span class="sf-slash">/</span><span class="sf-base">${b}</span>`;
 }
 

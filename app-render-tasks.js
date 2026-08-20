@@ -98,7 +98,7 @@ function renderTasks(main){
       const task = state.tasks.find(x=>x.id===id);
       if(task && taskHasSteps(task)){ toggleAllTaskSteps(id); return; }
       if(task && taskState(task)==='upcoming'){
-        if(!confirm(tr("This task isn't due yet — mark it as done early?"))) return;
+        if(!confirm(tr("This task isn't due yet. Mark it as done early?"))) return;
       }
       completeTask(id);
     });

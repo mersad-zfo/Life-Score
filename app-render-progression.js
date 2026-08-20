@@ -330,7 +330,7 @@ function renderProgDayView(container){
       </div>`;
   });
 
-  if(!listHtml) listHtml = `<div class="prog-day-empty" style="color:var(--ink-soft); text-align:center; padding:20px 0; font-size:14px;">—</div>`;
+  if(!listHtml) listHtml = `<div class="prog-day-empty" style="color:var(--ink-soft); text-align:center; padding:20px 0; font-size:14px;">-</div>`;
 
   const backLabel = progWeekRange ? progWeekRange.label : '';
   container.innerHTML = `

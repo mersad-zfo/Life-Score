@@ -38,12 +38,12 @@ function cloudErrorMessage(code){
     'auth/email-already-in-use': tr('An account with that email already exists'),
     'auth/weak-password': tr('Password should be at least 6 characters'),
     'auth/invalid-email': tr("That email doesn't look right"),
-    'auth/network-request-failed': tr('No internet connection — try again'),
-    'auth/requires-recent-login': tr('Please re-enter your password to confirm — this needs a fresh sign-in'),
-    'auth/too-many-requests': tr('Too many attempts — try again in a bit'),
+    'auth/network-request-failed': tr('No internet connection. Try again.'),
+    'auth/requires-recent-login': tr('Please re-enter your password to confirm. This needs a fresh sign-in'),
+    'auth/too-many-requests': tr('Too many attempts. Try again in a bit'),
     'auth/provider-already-linked': tr('A password is already set for this account'),
   };
-  return (code && map[code]) || tr('Something went wrong — try again');
+  return (code && map[code]) || tr('Something went wrong. Try again.');
 }
 
 // Live profile snapshot for rendering — never stored redundantly on `state`, always read fresh
@@ -130,7 +130,7 @@ async function tryCompletePendingVerification(context, silent){
   if(!cloud.isAccountVerified(user)){
     const result = await cloud.checkEmailVerified();
     if(!result.verified && !cloud.isAccountVerified(cloud.getUser())){
-      if(!silent) showToast(tr("Not verified yet — check your inbox and tap the link."));
+      if(!silent) showToast(tr("Not verified yet. Check your inbox and tap the link."));
       return false;
     }
   }
@@ -144,7 +144,7 @@ async function tryCompletePendingVerification(context, silent){
 
 // Best-effort auto-detection: if they switch back to this tab after checking their email,
 // silently check whether they've verified yet and finish signing them in if so. The manual
-// "I've verified — continue" button and the boot-time check in app-main.js are the reliable
+// "I've verified, continue" button and the boot-time check in app-main.js are the reliable
 // fallbacks — visibility events aren't guaranteed on every platform.
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState === 'visible'){
@@ -188,7 +188,7 @@ function accountCardHtml(context){
             <button type="button" id="btnResendPending-${context}">${tr('Resend')}</button>
           </div>
           <div class="settings-btn-row">
-            <button class="settings-btn" id="btnCheckVerified-${context}">${tr("I've verified — continue")}</button>
+            <button class="settings-btn" id="btnCheckVerified-${context}">${tr("I've verified, continue")}</button>
             <button class="settings-btn danger-text" id="btnCancelPending-${context}">${tr('Use a different email')}</button>
           </div>
         </div>
@@ -269,7 +269,7 @@ function wireAccountCard(root, context){
 
   const signOutBtn = root.querySelector(`#btnSignOut-${context}`);
   if(signOutBtn) signOutBtn.addEventListener('click', ()=>{
-    if(confirm(tr('Sign out? Your data stays saved on this device — you can log back in anytime.'))){
+    if(confirm(tr('Sign out? Your data stays saved on this device. You can log back in anytime.'))){
       state.session.loggedIn = false;
       saveState();
       if(window.LifyarCloud) window.LifyarCloud.signOutCloud();
@@ -359,7 +359,7 @@ function authModalBody(mode, ctx){
 
       <button class="btn-oauth" type="button" id="oauthGoogle">${ICON_GOOGLE} ${tr('Continue with Google')}</button>
       <div style="height:10px;"></div>
-      <button class="btn-oauth" type="button" id="oauthApple" disabled><span style="color:var(--ink);">${ICON_APPLE}</span> ${tr('Continue with Apple — coming soon')}</button>
+      <button class="btn-oauth" type="button" id="oauthApple" disabled><span style="color:var(--ink);">${ICON_APPLE}</span> ${tr('Continue with Apple (coming soon)')}</button>
 
       <div class="divider-row">${tr('or continue with email')}</div>
 
@@ -384,7 +384,7 @@ function authModalBody(mode, ctx){
     return `
       <button class="modal-close-x" type="button" data-close>✕</button>
       <h3>${tr('Create your account')}</h3>
-      <p class="modal-sub">${tr('This account backs up your routines, tasks, and score — nothing is shared publicly.')}</p>
+      <p class="modal-sub">${tr('This account backs up your routines, tasks, and score. Nothing is shared publicly.')}</p>
       <div class="field">
         <label>${tr('Name')}</label>
         <input id="fName" type="text" placeholder="${tr('Your name')}" autocomplete="name">
@@ -461,7 +461,7 @@ function authModalBody(mode, ctx){
     return `
       <button class="modal-close-x" type="button" data-close>✕</button>
       <h3>${tr('Connect your Google account')}</h3>
-      <p class="modal-sub">${tr('An account with this email already exists. Enter its password to connect your Google account to it — after that, either one signs you in.')}</p>
+      <p class="modal-sub">${tr('An account with this email already exists. Enter its password to connect your Google account to it. After that, either one signs you in.')}</p>
       <div class="field">
         <label>${tr('Email')}</label>
         <input id="fLinkEmail" type="email" placeholder="you@example.com" autocomplete="email" value="${escapeHtml(email)}">
@@ -483,7 +483,7 @@ function authModalBody(mode, ctx){
       <button class="modal-close-x" type="button" data-close>✕</button>
       <h3>${tr('Verify your email')}</h3>
       <p class="modal-sub">${tr('We sent a link to')} <strong>${escapeHtml(email)}</strong>. ${tr('Click it, then come back here to finish signing up.')}</p>
-      <button class="btn-primary" type="button" id="btnCheckVerifiedModal" style="width:100%;">${tr("I've verified — continue")}</button>
+      <button class="btn-primary" type="button" id="btnCheckVerifiedModal" style="width:100%;">${tr("I've verified, continue")}</button>
       <p class="form-footnote">
         <button class="link-btn" type="button" id="btnResendModal">${tr('Resend email')}</button>
         &nbsp;·&nbsp;
@@ -742,7 +742,7 @@ function wireAuthModal(m, mode){
       btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${tr('Checking…')}`;
       const completed = await tryCompletePendingVerification(onboardingActive ? 'onboarding' : 'settings', false);
       if(completed){ closeBackLayer(); return; }
-      btn.disabled = false; btn.textContent = tr("I've verified — continue");
+      btn.disabled = false; btn.textContent = tr("I've verified, continue");
     });
     m.querySelector('#btnResendModal').addEventListener('click', async ()=>{
       if(!cloud) return;
@@ -821,7 +821,7 @@ function manageModalHtml(){
       <div class="settings-btn-row">
         <button class="settings-btn danger-text" id="btnDeleteAcct">${tr('Delete account')}</button>
       </div>
-      <div class="item-sub" style="margin-top:8px;">${tr('Your routines, tasks, and score stay on this device — only the account and cloud backup are removed.')}</div>
+      <div class="item-sub" style="margin-top:8px;">${tr('Your routines, tasks, and score stay on this device. Only the account and cloud backup are removed.')}</div>
     </div>
   `;
 }
@@ -882,7 +882,7 @@ function openDeleteAccountModal(parentModal){
   const html = `
     <button class="modal-close-x" type="button" data-close>✕</button>
     <h3>${tr('Delete account')}</h3>
-    <p class="modal-sub">${tr('Permanently delete this account? This removes your cloud backup — routines, tasks, and scores stored on this device are not affected.')}</p>
+    <p class="modal-sub">${tr('Permanently delete this account? This removes your cloud backup. Routines, tasks, and scores stored on this device are not affected.')}</p>
     ${profile.hasPassword ? `
     <div class="field">
       <label>${tr('Password')}</label>
@@ -1000,6 +1000,6 @@ function openChangePasswordModal(isAdd, parentModal){
     }
     closeBackLayer();
     refreshManageModal(parentModal);
-    showToast(isAdd ? tr('Password added — you can now log in with email too') : tr('Password updated'));
+    showToast(isAdd ? tr('Password added. You can now log in with email too') : tr('Password updated'));
   });
 }

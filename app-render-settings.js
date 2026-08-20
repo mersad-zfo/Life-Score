@@ -166,7 +166,7 @@ function backupData(){
     URL.revokeObjectURL(url);
     showToast(tr('Saved to your Downloads folder with the name "lifyar-backup"'));
   }catch(e){
-    showToast(tr('Backup failed — try again'));
+    showToast(tr('Backup failed. Try again.'));
   }
 }
 

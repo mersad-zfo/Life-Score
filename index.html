@@ -63,6 +63,8 @@
     </div>
   </header>
 
+  <div class="ring-period-label-floating" id="ringPeriodLabel">DAILY</div>
+
   <div class="viewport" id="viewport">
     <div class="page-track" id="pageTrack">
       <div class="page" id="pageToday">
@@ -73,16 +75,18 @@
               <span id="rewardBadgeFraction">0/0</span>
             </button>
             <div class="reward-panel" id="rewardPanel">
-              <div class="reward-panel-card">
-                <div class="reward-panel-head" id="rewardPanelClose">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"/></svg>
+              <div class="reward-panel-card" id="rewardPanelCard">
+                <div class="reward-panel-head">
+                  <button class="reward-panel-back" id="rewardPanelClose" aria-label="Collapse">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"/></svg>
+                  </button>
                   <span id="rewardPanelTitle">Rewards</span>
                   <span style="width:14px;"></span>
                 </div>
                 <div class="reward-panel-list" id="rewardPanelList"></div>
-                <button class="reward-add-btn" id="rewardAddBtn">
+                <button class="reward-add-btn" id="rewardAddBtnFixed">
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                  <span id="rewardAddLabel">Add reward</span>
+                  <span id="rewardAddLabelFixed">Add reward</span>
                 </button>
               </div>
             </div>
@@ -143,6 +147,52 @@
       Score
     </button>
   </nav>
+
+  <!-- Rewards popover (this session) — the big reward list + its Manage Rewards sheet. Lives
+       inside #app (not body-root) specifically so its position:absolute geometry — including the
+       Manage Rewards sheet's full-width bottom sheet — resolves against #app's own bounds
+       (max-width:480px, see base.css) instead of the browser viewport, same as every real modal
+       (.modal-backdrop is full-viewport but centers a max-width:480px .modal inside itself — see
+       app.css). Its ring-fly animation reparents the real #ringWrap into #app too — see
+       app-rewards.js. -->
+  <div class="rw-scrim" id="rwScrim"></div>
+  <div class="rewards-popover" id="rewardsPopover">
+    <div class="rp-view" id="rpListView">
+      <div class="rewards-popover-head">
+        <div class="rewards-popover-head-title">
+          <h3>Rewards</h3>
+          <span class="rewards-popover-frac" id="rpListFrac"></span>
+        </div>
+        <button class="rewards-popover-close" id="rpListClose" aria-label="Close">✕</button>
+      </div>
+      <div class="rewards-popover-list" id="rpListRows"></div>
+      <div class="rewards-popover-footer">
+        <button class="manage-rewards-btn" id="manageRewardsBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <span id="manageRewardsBtnLabel">Manage Rewards</span>
+        </button>
+      </div>
+    </div>
+    <div class="rp-view hide" id="rpManageView">
+      <div class="rewards-popover-head">
+        <div class="rewards-popover-head-title">
+          <h3 id="rpManageTitle">Manage rewards</h3>
+        </div>
+        <button class="rewards-popover-close" id="rpManageClose" aria-label="Close">✕</button>
+      </div>
+      <div class="rewards-popover-list">
+        <div class="rp-section-label" id="rpActiveLabel">Active rewards</div>
+        <div id="rpManageRows"></div>
+        <button class="rp-add-row" id="rpAddRewardBtn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          <span id="rpAddRewardLabel">Add reward</span>
+        </button>
+      </div>
+      <div class="rewards-popover-footer">
+        <button class="btn-primary" id="rpDoneBtn">Done</button>
+      </div>
+    </div>
+  </div>
 </div>
 <div id="onboarding" style="display:none;">
   <div class="bg-clip">
@@ -194,6 +244,7 @@
     <button class="nc-cta" id="notifCelebrationCta"></button>
   </div>
 </div>
+
 <input type="file" id="restoreFileInput" accept="application/json" style="display:none;" />
 <div id="dragTrash">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>

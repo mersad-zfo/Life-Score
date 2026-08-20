@@ -62,7 +62,7 @@ const LANG_DICT = {
     'Your day ends at 6:00 AM': 'روز شما ساعت ۶ صبح تمام می‌شود',
     'Your day ends at noon': 'روز شما در ظهر تمام می‌شود',
     'Grace period applied': 'دوره مهلت اعمال شد',
-    "Added late, so today won't count — it starts fresh tomorrow.": 'دیر اضافه شد، پس امروز حساب نمی‌شود — از فردا از نو شروع می‌شود.',
+    "Added late, so today won't count. It starts fresh tomorrow.": 'دیر اضافه شد، پس امروز حساب نمی‌شود. از فردا از نو شروع می‌شود.',
     'Notifications': 'اعلان‌ها', 'Remind me if nothing is checked off': 'اگر چیزی انجام نشده یادآوری کن',
     'A nudge at noon if no routine or task has been done yet that day.': 'اگر تا ظهر هیچ روتین یا کاری انجام نشده باشد، یادآوری می‌شود.',
     // Rewards (this session)
@@ -70,16 +70,28 @@ const LANG_DICT = {
     'Add reward': 'افزودن جایزه', 'Remove reward': 'حذف جایزه', 'Remove this reward?': 'این جایزه حذف شود؟',
     'Reward name': 'نام جایزه', 'e.g. Using Phone': 'مثلاً موبایل‌بازی',
     'Points needed': 'امتیاز لازم',
-    'Set a point target for today — reach it and this reward unlocks.': 'یک هدف امتیازی برای امروز تعیین کنید — با رسیدن به آن، این جایزه باز می‌شود.',
+    'Set a point target for today. Reach it and this reward unlocks.': 'یک هدف امتیازی برای امروز تعیین کنید. با رسیدن به آن، این جایزه باز می‌شود.',
     'Give it a points target': 'یک هدف امتیازی برایش تعیین کنید',
     'Reward added': 'جایزه اضافه شد', 'Reward updated': 'جایزه به‌روزرسانی شد',
     'No rewards yet': 'هنوز جایزه‌ای نیست',
     'Got a reward!': 'یک جایزه گرفتی!',
+    // Rewards popover / Manage Rewards (this session)
+    'Manage rewards': 'مدیریت جایزه‌ها', 'Manage Rewards': 'مدیریت جایزه‌ها',
+    'Active rewards': 'جایزه‌های فعال',
+    'Choose a reward': 'یک جایزه انتخاب کن',
+    'Rewards are time-consuming or unproductive activities you unlock by earning points.': 'جایزه‌ها فعالیت‌های وقت‌گیر یا غیرمولدی هستند که با کسب امتیاز بازشان می‌کنی.',
+    'Pick a reward first': 'اول یک جایزه انتخاب کن',
+    'DAILY': 'روزانه',
+    // Preset reward chips (this session) — a fixed catalogue offered in the New Reward picker,
+    // same one-select-from-a-list pattern as onboarding's routine/task chips (see app-onboarding.js).
+    'Gaming': 'بازی', 'Youtube': 'یوتیوب', 'Instagram': 'اینستاگرام', 'Tiktok': 'تیک‌تاک',
+    'Reading news': 'خواندن اخبار', 'Tv Shows': 'سریال دیدن', 'Napping': 'چرت زدن',
+    'Texting': 'پیام دادن', 'Reading': 'کتاب خواندن', 'Smoking': 'سیگار کشیدن', 'Adult content': 'محتوای بزرگسال',
     'No notifications yet': 'هنوز اعلانی وجود ندارد', 'Close': 'بستن',
     "Notifications aren't supported on this browser": 'این مرورگر از اعلان‌ها پشتیبانی نمی‌کند',
     'Notification permission was not granted': 'اجازه اعلان داده نشد',
     'Notifications enabled': 'اعلان‌ها فعال شد', 'Notifications turned off': 'اعلان‌ها خاموش شد',
-    'Could not enable notifications — try again': 'فعال‌سازی اعلان‌ها ممکن نشد — دوباره تلاش کنید',
+    'Could not enable notifications. Try again.': 'فعال‌سازی اعلان‌ها ممکن نشد. دوباره تلاش کنید',
     'Language': 'زبان', 'English': 'English', 'Farsi': 'فارسی',
     'Danger zone': 'منطقه خطر',
     'Reset everything': 'بازنشانی همه‌چیز', 'Delete account': 'حذف حساب',
@@ -125,12 +137,12 @@ const LANG_DICT = {
     'Reset everything?': 'همه‌چیز بازنشانی شود؟',
     "This permanently deletes all routines, tasks, and score history. This can't be undone.": 'این کار همه روتین‌ها، کارها و تاریخچه امتیاز را برای همیشه حذف می‌کند. این عمل قابل بازگشت نیست.',
     'Name': 'نام', 'Your name': 'نام شما', 'Email': 'ایمیل', 'Save': 'ذخیره', 'Log in': 'ورود',
-    "This just creates a local profile on this device for now — no account is created on a server, and nothing is verified. It's here so your name can be used in the app, and so it's ready for real accounts in a future version.":
-      'این فقط یک پروفایل محلی روی همین دستگاه می‌سازد — هیچ حسابی روی سرور ساخته نمی‌شود و چیزی تأیید نمی‌شود. این بخش برای این است که نام شما در برنامه استفاده شود و برای حساب‌های واقعی در نسخه‌های آینده آماده باشد.',
+    "This just creates a local profile on this device for now. No account is created on a server, and nothing is verified. It's here so your name can be used in the app, and so it's ready for real accounts in a future version.":
+      'این فقط یک پروفایل محلی روی همین دستگاه می‌سازد. هیچ حسابی روی سرور ساخته نمی‌شود و چیزی تأیید نمی‌شود. این بخش برای این است که نام شما در برنامه استفاده شود و برای حساب‌های واقعی در نسخه‌های آینده آماده باشد.',
     // Toasts
     "That email doesn't look right": 'این ایمیل درست به نظر نمی‌رسد',
     'Enter a name': 'یک نام وارد کنید',
-    'Backup failed — try again': 'پشتیبان‌گیری ناموفق بود — دوباره تلاش کنید',
+    'Backup failed. Try again.': 'پشتیبان‌گیری ناموفق بود. دوباره تلاش کنید',
     "That file doesn't look like a Lifyar backup": 'این فایل شبیه پشتیبان Lifyar نیست',
     'Could not read that file': 'این فایل خوانده نشد',
     'Data restored': 'اطلاعات بازگردانی شد',
@@ -142,16 +154,16 @@ const LANG_DICT = {
     'Task updated': 'کار به‌روزرسانی شد',
     'Everything reset': 'همه‌چیز بازنشانی شد',
     "Can't change between midnight and noon": 'این گزینه را نمی‌توان بین نیمه‌شب و ظهر تغییر داد',
-    'Could not save — try again': 'ذخیره نشد — دوباره تلاش کنید',
+    'Could not save. Try again.': 'ذخیره نشد. دوباره تلاش کنید',
     'Something went wrong loading your data': 'مشکلی در بارگذاری اطلاعات شما پیش آمد',
     // Confirm dialogs
     'Remove this routine? It will disappear from your active lists, but its past history stays exactly as it was.': 'این روتین حذف شود؟ از فهرست‌های فعال شما حذف می‌شود، اما تاریخچه گذشته آن دقیقاً همان‌طور که بوده باقی می‌ماند.',
     'Remove this task without earning or losing points for it?': 'این کار بدون کسب یا از دست دادن امتیاز حذف شود؟',
-    "This task isn't due yet — mark it as done early?": 'موعد این کار هنوز نرسیده — می‌خواهید زودتر آن را انجام‌شده علامت بزنید؟',
-    'Log out? Your profile stays saved on this device — you can log back in anytime. Your routines, tasks, and scores are unaffected either way.':
-      'از حساب خارج شوید؟ پروفایل شما روی این دستگاه ذخیره می‌ماند — هر وقت بخواهید می‌توانید دوباره وارد شوید. روتین‌ها، کارها و امتیازهای شما در هر صورت تغییری نمی‌کنند.',
-    'Permanently delete this profile (name and email) from this device? Your routines, tasks, and scores are not affected — only the account itself is removed.':
-      'این پروفایل (نام و ایمیل) برای همیشه از این دستگاه حذف شود؟ روتین‌ها، کارها و امتیازهای شما تغییری نمی‌کنند — فقط خود حساب حذف می‌شود.',
+    "This task isn't due yet. Mark it as done early?": 'موعد این کار هنوز نرسیده. می‌خواهید زودتر آن را انجام‌شده علامت بزنید؟',
+    'Log out? Your profile stays saved on this device. You can log back in anytime. Your routines, tasks, and scores are unaffected either way.':
+      'از حساب خارج شوید؟ پروفایل شما روی این دستگاه ذخیره می‌ماند. هر وقت بخواهید می‌توانید دوباره وارد شوید. روتین‌ها، کارها و امتیازهای شما در هر صورت تغییری نمی‌کنند.',
+    'Permanently delete this profile (name and email) from this device? Your routines, tasks, and scores are not affected. Only the account itself is removed.':
+      'این پروفایل (نام و ایمیل) برای همیشه از این دستگاه حذف شود؟ روتین‌ها، کارها و امتیازهای شما تغییری نمی‌کنند. فقط خود حساب حذف می‌شود.',
     // Category 2 notifications
     'New Milestone!': 'نقطه عطف جدید!',
     'You made it back!!': 'برگشتی!!',
@@ -171,7 +183,7 @@ const LANG_DICT = {
     'Step 2 of 3': 'مرحله ۲ از ۳',
     'Step 3 of 3': 'مرحله ۳ از ۳',
     'A couple quick preferences': 'چند تنظیم سریع',
-    'All of this lives in Settings too — change any of it anytime.': 'همه این‌ها در تنظیمات هم هست — هر زمان می‌توانید تغییرشان دهید.',
+    'All of this lives in Settings too. Change any of it anytime.': 'همه این‌ها در تنظیمات هم هست. هر زمان می‌توانید تغییرشان دهید.',
     'Log in to restore your data to this device.': 'برای بازگرداندن اطلاعاتتان به این دستگاه وارد شوید.',
     'Skip setup': 'رد شدن از راه‌اندازی',
     'Skip setup?': 'از راه‌اندازی صرف‌نظر شود؟',
@@ -181,15 +193,15 @@ const LANG_DICT = {
     "Pick the activities that are already part of your life, plus anything you'd like to make part of it.": 'فعالیت‌هایی که همین الان بخشی از زندگیتان هستند را انتخاب کنید، به‌علاوه هر چیزی که دوست دارید بخشی از آن شود.',
     '+ Add yours': '+ مورد خودتان را اضافه کنید',
     'Type your own…': 'مورد خودتان را بنویسید…',
-    'Routines repeat automatically. Tasks are one-time activities — unlike routines, tasks disappear after completion.': 'روتین‌ها به‌طور خودکار تکرار می‌شوند. کارها فعالیت‌های یک‌بار مصرف هستند — برخلاف روتین‌ها، کارها بعد از انجام شدن ناپدید می‌شوند.',
-    '<b>Routines</b> repeat automatically. <b>Tasks</b> are one-time activities — unlike routines, tasks disappear after completion.': '<b>روتین‌ها</b> به‌طور خودکار تکرار می‌شوند. <b>کارها</b> فعالیت‌های یک‌بار مصرف هستند — برخلاف روتین‌ها، کارها بعد از انجام شدن ناپدید می‌شوند.',
+    'Routines repeat automatically. Tasks are one-time activities. Unlike routines, tasks disappear after completion.': 'روتین‌ها به‌طور خودکار تکرار می‌شوند. کارها فعالیت‌های یک‌بار مصرف هستند. برخلاف روتین‌ها، کارها بعد از انجام شدن ناپدید می‌شوند.',
+    '<b>Routines</b> repeat automatically. <b>Tasks</b> are one-time activities. Unlike routines, tasks disappear after completion.': '<b>روتین‌ها</b> به‌طور خودکار تکرار می‌شوند. <b>کارها</b> فعالیت‌های یک‌بار مصرف هستند. برخلاف روتین‌ها، کارها بعد از انجام شدن ناپدید می‌شوند.',
     '<b>Try to have at least 4 Routines</b> in each day. For most people, having 4-6 routines is the sweet spot.': 'سعی کنید هر روز حداقل <b>۴ روتین</b> داشته باشید. برای بیشتر افراد، داشتن ۴ تا ۶ روتین نقطه ایده‌آل است.',
     'Pick due days for each weekly routine before continuing': 'قبل از ادامه، برای هر روتین هفتگی روزهای موعد را انتخاب کنید',
     'Due': 'موعد',
     'Confirm': 'تأیید',
     'Select days': 'انتخاب روزها',
     "One task you've been putting off?": 'کاری که مدام به تعویق انداخته‌اید؟',
-    'Optional — e.g. Renew car insurance': 'اختیاری — مثلاً تمدید بیمه ماشین',
+    'Optional, e.g. Renew car insurance': 'اختیاری، مثلاً تمدید بیمه ماشین',
     'How difficult is each activity for you?': 'هر فعالیت چقدر برایتان سخت است؟',
     "Choose how demanding each activity usually is for you. If you're unsure, leave everything at Normal.": 'انتخاب کنید هر فعالیت معمولاً چقدر برایتان طاقت‌فرساست. اگر مطمئن نیستید، همه را روی «متوسط» بگذارید.',
     'Task': 'کار',
@@ -200,8 +212,8 @@ const LANG_DICT = {
     'Your Lifyar is ready. Everything here can still be edited, renamed, or removed anytime.': 'Lifyar شما آماده است. همه این‌ها را می‌توانید هر زمان ویرایش، تغییر نام یا حذف کنید.',
     'Your data has been restored to this device.': 'اطلاعات شما به این دستگاه بازگردانده شد.',
     'Starting from a blank slate': 'شروع از صفحه‌ای خالی',
-    "One more thing — allow notifications if you'd like daily reminders to check your list.": 'یک نکته دیگر — اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
-    "<b>One more thing</b> — allow notifications if you'd like daily reminders to check your list.": '<b>یک نکته دیگر</b> — اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
+    "One more thing: allow notifications if you'd like daily reminders to check your list.": 'یک نکته دیگر: اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
+    "<b>One more thing</b>: allow notifications if you'd like daily reminders to check your list.": '<b>یک نکته دیگر</b>: اگر یادآوری‌های روزانه برای بررسی لیستتان می‌خواهید، اعلان‌ها را فعال کنید.',
     'Enter Lifyar': 'ورود به Lifyar',
     // Header greeting pool (Today tab, time-of-day based)
     'Morning': 'صبح بخیر',
@@ -259,8 +271,8 @@ const LANG_DICT = {
     'Sign up or log in': 'ثبت‌نام یا ورود',
     'Sign out': 'خروج از حساب',
     'Signed out': 'از حساب خارج شدید',
-    'Sign out? Your data stays saved on this device — you can log back in anytime.':
-      'از حساب خارج شوید؟ اطلاعات شما روی این دستگاه ذخیره می‌ماند — هر وقت خواستید می‌توانید دوباره وارد شوید.',
+    'Sign out? Your data stays saved on this device. You can log back in anytime.':
+      'از حساب خارج شوید؟ اطلاعات شما روی این دستگاه ذخیره می‌ماند. هر وقت خواستید می‌توانید دوباره وارد شوید.',
     'Create an account to back up your data and pick up right where you left off on any device.':
       'یک حساب بسازید تا اطلاعاتتان پشتیبان‌گیری شود و بتوانید از هر دستگاهی از همان‌جا ادامه دهید.',
     'Sign in to back up your data to the cloud, or restore it on another device.':
@@ -281,7 +293,7 @@ const LANG_DICT = {
     'Create an account to keep your data backed up and synced across devices.':
       'یک حساب بسازید تا اطلاعاتتان پشتیبان‌گیری و بین دستگاه‌ها همگام‌سازی شود.',
     'Continue with Google': 'ادامه با گوگل',
-    'Continue with Apple — coming soon': 'ادامه با اپل — به‌زودی',
+    'Continue with Apple (coming soon)': 'ادامه با اپل (به‌زودی)',
     'Apple sign-in is coming soon': 'ورود با اپل به‌زودی فعال می‌شود',
     'or continue with email': 'یا با ایمیل ادامه دهید',
     'Continue with email': 'ادامه با ایمیل',
@@ -290,8 +302,8 @@ const LANG_DICT = {
     'Next': 'بعدی',
     'Back to log in': 'بازگشت به ورود',
     'Create your account': 'ساخت حساب شما',
-    'This account backs up your routines, tasks, and score — nothing is shared publicly.':
-      'این حساب روتین‌ها، کارها و امتیاز شما را پشتیبان‌گیری می‌کند — چیزی به‌صورت عمومی به اشتراک گذاشته نمی‌شود.',
+    'This account backs up your routines, tasks, and score. Nothing is shared publicly.':
+      'این حساب روتین‌ها، کارها و امتیاز شما را پشتیبان‌گیری می‌کند. چیزی به‌صورت عمومی به اشتراک گذاشته نمی‌شود.',
     'At least 6 characters': 'حداقل ۶ نویسه',
     'Use 6+ characters with a mix of letters and numbers.': 'حداقل ۶ نویسه شامل ترکیبی از حروف و اعداد استفاده کنید.',
     'I agree to the Terms and Privacy Policy.': 'با شرایط استفاده و حریم خصوصی موافقم.',
@@ -326,11 +338,11 @@ const LANG_DICT = {
     'A password is already set for this account': 'رمز عبوری از قبل برای این حساب تنظیم شده',
     'Add a password': 'افزودن رمز عبور',
     'Change password': 'تغییر رمز عبور',
-    'Permanently delete this account? This removes your cloud backup — routines, tasks, and scores stored on this device are not affected.':
-      'این حساب برای همیشه حذف شود؟ پشتیبان ابری شما حذف می‌شود — روتین‌ها، کارها و امتیازهای ذخیره‌شده روی این دستگاه تغییری نمی‌کنند.',
+    'Permanently delete this account? This removes your cloud backup. Routines, tasks, and scores stored on this device are not affected.':
+      'این حساب برای همیشه حذف شود؟ پشتیبان ابری شما حذف می‌شود. روتین‌ها، کارها و امتیازهای ذخیره‌شده روی این دستگاه تغییری نمی‌کنند.',
     'Account deletion isn\'t connected yet': 'حذف حساب هنوز فعال نشده',
-    'Your routines, tasks, and score stay on this device — only the account and cloud backup are removed.':
-      'روتین‌ها، کارها و امتیاز شما روی این دستگاه می‌مانند — فقط حساب و پشتیبان ابری حذف می‌شوند.',
+    'Your routines, tasks, and score stay on this device. Only the account and cloud backup are removed.':
+      'روتین‌ها، کارها و امتیاز شما روی این دستگاه می‌مانند. فقط حساب و پشتیبان ابری حذف می‌شوند.',
     'Set a password so you can sign in without Google or Apple.': 'یک رمز عبور تنظیم کنید تا بتوانید بدون گوگل یا اپل وارد شوید.',
     'Enter your current password, then choose a new one.': 'رمز عبور فعلی خود را وارد کنید، سپس رمز جدیدی انتخاب کنید.',
     'Current password': 'رمز عبور فعلی',
@@ -344,12 +356,12 @@ const LANG_DICT = {
     'Incorrect email or password': 'ایمیل یا رمز عبور اشتباه است',
     'No account found with that email': 'حسابی با این ایمیل پیدا نشد',
     'Password should be at least 6 characters': 'رمز عبور باید حداقل ۶ نویسه باشد',
-    'No internet connection — try again': 'اتصال اینترنت برقرار نیست — دوباره تلاش کنید',
-    'Something went wrong — try again': 'مشکلی پیش آمد — دوباره تلاش کنید',
+    'No internet connection. Try again.': 'اتصال اینترنت برقرار نیست. دوباره تلاش کنید',
+    'Something went wrong. Try again.': 'مشکلی پیش آمد. دوباره تلاش کنید',
     'Enter your name': 'نام خود را وارد کنید',
     'Connect your Google account': 'اتصال حساب گوگل شما',
-    'An account with this email already exists. Enter its password to connect your Google account to it — after that, either one signs you in.':
-      'حسابی با این ایمیل از قبل وجود دارد. رمز عبور آن را وارد کنید تا حساب گوگل شما به آن متصل شود — پس از آن، هر کدام برای ورود کافی است.',
+    'An account with this email already exists. Enter its password to connect your Google account to it. After that, either one signs you in.':
+      'حسابی با این ایمیل از قبل وجود دارد. رمز عبور آن را وارد کنید تا حساب گوگل شما به آن متصل شود. پس از آن، هر کدام برای ورود کافی است.',
     'Connect account': 'اتصال حساب',
     'Local restore': 'بازگردانی محلی',
     'Backup/Restore': 'پشتیبان‌گیری/بازگردانی',
@@ -359,12 +371,12 @@ const LANG_DICT = {
     'Check your inbox to finish signing up.': 'برای تکمیل ثبت‌نام، صندوق ورودی خود را بررسی کنید.',
     "We sent a link to": 'لینکی برای شما ارسال شد به',
     'Click it, then come back here to finish signing up.': 'روی آن کلیک کنید، سپس برای تکمیل ثبت‌نام به اینجا برگردید.',
-    "I've verified — continue": 'تأیید کردم — ادامه',
+    "I've verified, continue": 'تأیید کردم، ادامه',
     'Resend email': 'ارسال دوباره ایمیل',
     'Use a different email': 'استفاده از ایمیل دیگر',
     'Checking…': 'در حال بررسی…',
     'Verification email sent': 'ایمیل تأیید ارسال شد',
-    "Not verified yet — check your inbox and tap the link.": 'هنوز تأیید نشده — صندوق ورودی خود را بررسی کرده و روی لینک ضربه بزنید.',
+    "Not verified yet. Check your inbox and tap the link.": 'هنوز تأیید نشده. صندوق ورودی خود را بررسی کرده و روی لینک ضربه بزنید.',
     'Try Google': 'امتحان با گوگل',
     'Something went wrong. Try Google.': 'مشکلی پیش آمد. گوگل را امتحان کنید.',
     'Something went wrong.': 'مشکلی پیش آمد.',
@@ -378,14 +390,14 @@ const LANG_DICT = {
     'Sending…': 'در حال ارسال…',
     'Enter your current password': 'رمز عبور فعلی خود را وارد کنید',
     "Re-authenticate with Google to confirm.": 'برای تأیید، دوباره با گوگل وارد شوید.',
-    'Please re-enter your password to confirm — this needs a fresh sign-in':
-      'برای تأیید، دوباره رمز عبور خود را وارد کنید — این کار به یک ورود تازه نیاز دارد',
-    'Too many attempts — try again in a bit': 'تلاش‌های زیاد — کمی بعد دوباره امتحان کنید',
+    'Please re-enter your password to confirm. This needs a fresh sign-in':
+      'برای تأیید، دوباره رمز عبور خود را وارد کنید. این کار به یک ورود تازه نیاز دارد',
+    'Too many attempts. Try again in a bit': 'تلاش‌های زیاد، کمی بعد دوباره امتحان کنید',
     'One more thing': 'یک نکته دیگر',
     "What's your name?": 'نام شما چیست؟',
     "That didn't match. If you originally signed up with Google, try Continue with Google instead.":
       'مطابقت نداشت. اگر ابتدا با گوگل ثبت‌نام کرده‌اید، به‌جای آن «ادامه با گوگل» را امتحان کنید.',
-    'Password added — you can now log in with email too': 'رمز عبور اضافه شد — اکنون می‌توانید با ایمیل هم وارد شوید',
+    'Password added. You can now log in with email too': 'رمز عبور اضافه شد. اکنون می‌توانید با ایمیل هم وارد شوید',
     'Enter your password': 'رمز عبور خود را وارد کنید',
   }
 };
@@ -501,7 +513,7 @@ function trMilestoneNotifBody(emoji, streakCount, routineName){
   if(curLang()==='fa'){
     return `تبریک! به نقطه عطف «${emoji}×${numFa(streakCount)} رکورد» در «${routineName}» رسیدی! این از این به بعد یکی از تور ایمنی‌های تو خواهد بود.`;
   }
-  return `Congratulations — you just reached the "${emoji}×${streakCount} Streak" milestone on "${routineName}"! This will be one of your safety-nets moving forward.`;
+  return `Congratulations, you just reached the "${emoji}×${streakCount} Streak" milestone on "${routineName}"! This will be one of your safety-nets moving forward.`;
 }
 // Overlay-only phrasing for the full-screen celebration — same content as trMilestoneNotifBody()
 // above, just bold (HTML) instead of «air quotes»/"air quotes" around the streak label and
@@ -513,7 +525,7 @@ function trMilestoneOverlayBody(emoji, streakCount, routineName){
   if(curLang()==='fa'){
     return `تبریک! به نقطه عطف <b>${emoji}×${numFa(streakCount)} رکورد</b> در <b>${safeName}</b> رسیدی! این از این به بعد یکی از تور ایمنی‌های تو خواهد بود.`;
   }
-  return `Congratulations — you just reached the <b>${emoji}×${streakCount} Streak</b> milestone on <b>${safeName}</b>! This will be one of your safety-nets moving forward.`;
+  return `Congratulations, you just reached the <b>${emoji}×${streakCount} Streak</b> milestone on <b>${safeName}</b>! This will be one of your safety-nets moving forward.`;
 }
 function trRecoveryNotifBody(routineName){
   if(curLang()==='fa'){
@@ -523,9 +535,9 @@ function trRecoveryNotifBody(routineName){
 }
 function trNeglectNotifBody(emoji, neglectCount, routineName){
   if(curLang()==='fa'){
-    return `به «${emoji}×${numFa(neglectCount)} غفلت» در «${routineName}» رسیدی. هیچ‌وقت برای برگشتن دیر نیست — برنامه کمکت می‌کنه سریع‌تر از چیزی که فکرش رو بکنی این عدد رو کم کنی!`;
+    return `به «${emoji}×${numFa(neglectCount)} غفلت» در «${routineName}» رسیدی. هیچ‌وقت برای برگشتن دیر نیست. برنامه کمکت می‌کنه سریع‌تر از چیزی که فکرش رو بکنی این عدد رو کم کنی!`;
   }
-  return `You just reached "${emoji}×${neglectCount} neglect" on "${routineName}". It's never too late to get back on track — the app will help you shrink that counter faster than you think!`;
+  return `You just reached "${emoji}×${neglectCount} neglect" on "${routineName}". It's never too late to get back on track. The app will help you shrink that counter faster than you think!`;
 }
 // period: 'weekly' | 'monthly'. rating: 'NOT GOOD' | 'GOOD' | 'GREAT!' | 'AWESOME!!!'
 function trRatingNotifTitle(period, rating){
@@ -542,15 +554,15 @@ function trRatingNotifBody(period, rating){
   if(curLang()==='fa'){
     const pFa = period==='weekly' ? 'هفتگی' : 'ماهانه';
     const pFaNoun = period==='weekly' ? 'هفته' : 'ماه';
-    if(rating==='AWESOME!!!') return `رتبه ${pFa} شما «فوق‌العاده!!!» شد — یعنی از سقف انتظار هم فراتر رفتی. همینطور ادامه بده!`;
+    if(rating==='AWESOME!!!') return `رتبه ${pFa} شما «فوق‌العاده!!!» شد. یعنی از سقف انتظار هم فراتر رفتی. همینطور ادامه بده!`;
     if(rating==='GREAT!')     return `رتبه ${pFa} شما «عالی!» شد. کارت واقعاً خوب بود!`;
     if(rating==='GOOD')       return `رتبه این ${pFaNoun} شما «خوب» شد! بد نیست، و مطمئنم دفعه بعد پتانسیل رسیدن به رتبه‌های بالاتر رو داری.`;
-    return `رتبه این ${pFaNoun} شما «خوب نیست» شد. اشکالی نداره — مطمئنم با کمی تلاش، ${pFaNoun}‌های بعدی جبران می‌کنی و رتبه کلی‌ات رو نجات می‌دی.`;
+    return `رتبه این ${pFaNoun} شما «خوب نیست» شد. اشکالی نداره. مطمئنم با کمی تلاش، ${pFaNoun}‌های بعدی جبران می‌کنی و رتبه کلی‌ات رو نجات می‌دی.`;
   }
-  if(rating==='AWESOME!!!') return `Your ${pEn}ly rating was AWESOME!!! You blew right past the top of the scale — keep this up.`;
+  if(rating==='AWESOME!!!') return `Your ${pEn}ly rating was AWESOME!!! You blew right past the top of the scale. Keep this up.`;
   if(rating==='GREAT!')     return `Your ${pEn}ly rating was GREAT! That's some seriously solid work.`;
   if(rating==='GOOD')       return `Your rating for this ${pEn} was GOOD! That's pretty good, and I'm sure you have the potential to get higher ratings next time.`;
-  return `Your rating for this ${pEn} was NOT GOOD. That's ok — I'm sure with a bit of effort you'll make up for it in the upcoming ${pEn}s to save your overall rating!`;
+  return `Your rating for this ${pEn} was NOT GOOD. That's ok. I'm sure with a bit of effort you'll make up for it in the upcoming ${pEn}s to save your overall rating!`;
 }
 function trDailyNpCapBody(){
   if(curLang()==='fa') return `رتبه فعلی شما به «خوب» و «خوب نیست» محدود شده. برای باز شدن «عالی!» و «فوق‌العاده!!!» حداقل ۴ روتین در لیست روزانه‌تان داشته باشید.`;
@@ -565,12 +577,12 @@ function trMonthlyNpCapBody(count){
   return `This month, you had ${count} days with daily rating limit. Another day like that and your monthly rating will be limited too. Try to add more items to your daily list.`;
 }
 function trAllClearBody(){
-  if(curLang()==='fa') return `همه روتین‌ها و کارهای امروز انجام شد. بقیه روز رو راحت باش — جاش رو داری.`;
-  return `Every routine and task on today's list is checked off. Take the rest of the day easy — you've earned it.`;
+  if(curLang()==='fa') return `همه روتین‌ها و کارهای امروز انجام شد. بقیه روز رو راحت باش. جاش رو داری.`;
+  return `Every routine and task on today's list is checked off. Take the rest of the day easy. You've earned it.`;
 }
 function trRewardUnlockedBody(rewardName){
-  if(curLang()==='fa') return `«${rewardName}» باز شد — امروز خوب پیش رفتی.`;
-  return `"${rewardName}" is unlocked — nice work today.`;
+  if(curLang()==='fa') return `«${rewardName}» باز شد. امروز خوب پیش رفتی.`;
+  return `"${rewardName}" is unlocked. Nice work today.`;
 }
 // Overlay-only phrasing for the full-screen celebration (see showCelebrationOverlay() in
 // app-notif-triggers.js) — bold via HTML instead of quotes, since the overlay can render that and
@@ -586,11 +598,11 @@ function trRewardUnlockedOverlayBody(rewardName){
 function trWelcomeNotifBody(graceApplied){
   if(curLang()==='fa'){
     return graceApplied
-      ? `چون کمی دیر شروع کردی، امروز حساب نمی‌شه — از فردا امتیازگیری واقعی آغاز می‌شه.`
+      ? `چون کمی دیر شروع کردی، امروز حساب نمی‌شه. از فردا امتیازگیری واقعی آغاز می‌شه.`
       : `از همین امروز امتیازگیری شروع می‌شه. بریم که شروع کنیم!`;
   }
   return graceApplied
-    ? "You got started a bit late today, so it won't count — scoring starts fresh tomorrow."
+    ? "You got started a bit late today, so it won't count. Scoring starts fresh tomorrow."
     : "Your Lifyar starts counting today. Let's get going!";
 }
 // Updates the bits of static markup in index.html that live outside any render*() function

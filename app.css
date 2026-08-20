@@ -511,7 +511,13 @@
     position:fixed; inset:0;
     background:rgba(10,12,9,0.45);
     display:flex; align-items:flex-end; justify-content:center;
-    z-index:60;
+    /* Raised this session (was 60) so a modal opened from within the Rewards popover's Manage
+       Rewards sheet — editing/adding a reward — renders above it instead of getting trapped
+       underneath (that popover sits at z-index:900/901, its flown-up ring at 950/951 — see
+       ring.css). Every other modal in the app still opens above the popover too, which is fine:
+       modals are the top-of-stack surface generally, and this stays well under the toast/
+       celebration-overlay z-indices (998-1500) which are meant to outrank even a modal. */
+    z-index:970;
   }
   .modal{
     background:var(--glass-fill);
@@ -1361,7 +1367,10 @@
   body.lang-fa .ob-weekday-title,
   body.lang-fa .chip,
   body.lang-fa .reward-row-name,
-  body.lang-fa .reward-panel-empty {
+  body.lang-fa .reward-panel-empty,
+  body.lang-fa .rw-pop-name,
+  body.lang-fa .rp-manage-name,
+  body.lang-fa .rewards-popover-head h3 {
     direction: rtl;
     unicode-bidi: plaintext;
     text-align: right;
