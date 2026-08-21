@@ -184,6 +184,14 @@ function updateHeaderAnimated(){
   }, 120);
 }
 function setTab(tab){
+  if(typeof rewardsPopoverOpen!=='undefined' && rewardsPopoverOpen){
+    // Was missing: the Rewards popover (and its flown-up ring, in Manage Rewards) had no idea a
+    // tab switch was happening and just stayed floating on top of whatever page rendered next —
+    // close it first, then actually switch once that's genuinely finished (closeBackLayer() is
+    // async — see the doc comment on closeRewardsPopoverForNavigationThen in app-rewards.js).
+    closeRewardsPopoverForNavigationThen(()=> setTab(tab));
+    return;
+  }
   if(tab !== currentTab){
     routinesPenaltyInfoOpen = false;
     tasksPenaltyInfoOpen = false;
@@ -206,9 +214,13 @@ document.querySelectorAll('nav.tabs button').forEach(b=>{
   b.addEventListener('click', ()=> setTab(b.dataset.tab));
 });
 document.getElementById('bellBtn').addEventListener('click', ()=>{
+  if(typeof rewardsPopoverOpen!=='undefined' && rewardsPopoverOpen){
+    closeRewardsPopoverForNavigationThen(()=> openNotificationsModal());
+    return;
+  }
   openNotificationsModal();
 });
-document.getElementById('gearBtn').addEventListener('click', ()=>{
+function openSettingsFromGear(){
   if(currentTab!=='settings'){
     previousTab = currentTab;
     routinesPenaltyInfoOpen = false;
@@ -226,6 +238,14 @@ document.getElementById('gearBtn').addEventListener('click', ()=>{
     renderMain();
     pushBackLayer(()=> setTab(returnTo));
   }
+}
+document.getElementById('gearBtn').addEventListener('click', ()=>{
+  if(typeof rewardsPopoverOpen!=='undefined' && rewardsPopoverOpen){
+    // Same fix as setTab() above.
+    closeRewardsPopoverForNavigationThen(openSettingsFromGear);
+    return;
+  }
+  openSettingsFromGear();
 });
 document.getElementById('fab').addEventListener('click', ()=>{
   if(currentTab==='routines') openAddRoutineModal();

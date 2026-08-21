@@ -97,6 +97,11 @@ function completeRoutineStep(routineId, stepId){
     renderMain();
     if(navigator.vibrate) navigator.vibrate(10);
     showToast(`+${pts} · ${step.name}`);
+    // Was missing (this session's fix): a partial step still changes today's point total, which is
+    // exactly what reward thresholds (and the daily-cap/all-clear checks) key off — without this, a
+    // reward could be crossed by a step tick and never actually celebrate, only ever show its star
+    // the next time something else happened to re-render it.
+    evaluateLiveDailyNotifications();
   }
 }
 function uncompleteRoutineStep(routineId, stepId){
@@ -240,6 +245,8 @@ function completeTaskStep(taskId, stepId){
     renderMain();
     if(navigator.vibrate) navigator.vibrate(10);
     showToast(`+${pts} · ${step.name}`);
+    // Same fix as completeRoutineStep() above — a partial step still changes today's point total.
+    evaluateLiveDailyNotifications();
   }
 }
 function uncompleteTaskStep(taskId, stepId){

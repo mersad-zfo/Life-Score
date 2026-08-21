@@ -406,20 +406,54 @@ function doOpenRewardsPopover(){
   document.getElementById('rewardsPopover').classList.add('show');
   pushBackLayer(()=>{
     rewardsPopoverOpen = false;
-    if(rewardsPopoverSheetMode){ flyRingHome(); rewardsPopoverSheetMode = false; }
+    const wasSheet = rewardsPopoverSheetMode;
+    if(wasSheet){ flyRingHome(); rewardsPopoverSheetMode = false; }
     document.getElementById('rewardsPopover').classList.remove('show', 'as-sheet');
     document.getElementById('rwScrim').classList.remove('show', 'as-sheet');
     document.getElementById('rpManageView').classList.add('hide');
     document.getElementById('rpListView').classList.remove('hide');
     const heroRow = document.getElementById('heroRow');
     if(heroRow) heroRow.classList.remove('reward-popover-open');
-    openRewardsPanel();
+    const navigateAway = rewardsPopoverCloseIsNavigateAway;
+    rewardsPopoverCloseIsNavigateAway = false;
+    if(!navigateAway){
+      if(wasSheet){
+        // Let flyRingHome()'s own FLIP transform (~.45s) actually settle before the mini panel's
+        // own (separate, CSS width/height-transitioned) expand kicks in on the same #ringWrap —
+        // running both at once was visibly janky on real phones, two animations independently
+        // fighting over the same element's box within the same brief window.
+        setTimeout(()=> openRewardsPanel(), 460);
+      } else {
+        openRewardsPanel();
+      }
+    }
+    // Navigating away from Home entirely (tab switch / Settings / bell — see setTab()/gearBtn/
+    // bellBtn in app-main.js) while the popover was open: no mini panel to reopen once you're not
+    // on Home, and whatever navigation the user actually asked for was queued here rather than
+    // fired right after closeBackLayer() above, which is async — see the identical race this same
+    // pattern works around for pendingAfterRewardPanelClose.
+    if(pendingAfterPopoverClose){ const fn = pendingAfterPopoverClose; pendingAfterPopoverClose = null; fn(); }
   });
 }
 document.getElementById('rpListClose').addEventListener('click', ()=> closeBackLayer());
 document.getElementById('rpManageClose').addEventListener('click', ()=> closeBackLayer());
 document.getElementById('rpDoneBtn').addEventListener('click', ()=> closeBackLayer());
 document.getElementById('rwScrim').addEventListener('click', ()=>{ if(rewardsPopoverOpen) closeBackLayer(); });
+
+// Set right before closing the popover for a reason other than the user's own close action —
+// specifically, navigating away from Home while it's open. See doc comment above.
+let rewardsPopoverCloseIsNavigateAway = false;
+let pendingAfterPopoverClose = null;
+// Closes the popover first (if open) and defers `fn` until that close has genuinely finished —
+// used by setTab()/gearBtn/bellBtn in app-main.js so the popover (and its flown-up ring) can't be
+// left floating on top of whatever page you navigate to. If the popover isn't open, `fn` just runs
+// immediately.
+function closeRewardsPopoverForNavigationThen(fn){
+  if(!rewardsPopoverOpen){ fn(); return; }
+  rewardsPopoverCloseIsNavigateAway = true;
+  pendingAfterPopoverClose = fn;
+  closeBackLayer();
+}
 
 document.getElementById('manageRewardsBtn').addEventListener('click', ()=>{
   rewardsPopoverSheetMode = true;
