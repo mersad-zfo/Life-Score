@@ -81,6 +81,7 @@ const LANG_DICT = {
     'Choose a reward': 'یک جایزه انتخاب کن',
     'Rewards are time-consuming or unproductive activities you unlock by earning points.': 'جایزه‌ها فعالیت‌های وقت‌گیر یا غیرمولدی هستند که با کسب امتیاز بازشان می‌کنی.',
     'Pick something that usually wastes your time or is a guilty pleasure.': 'یک چیزی انتخاب کن که معمولاً وقتت رو تلف می‌کنه یا یه لذت گناه‌آلوده.',
+    'Maximum points': 'حداکثر امتیاز', 'MAX': 'حداکثر',
     'Pick a reward first': 'اول یک جایزه انتخاب کن',
     'DAILY': 'روزانه',
     // Preset reward chips (this session) — a fixed catalogue offered in the New Reward picker,
@@ -100,6 +101,8 @@ const LANG_DICT = {
     'Look for "lifyar-backup.json" in your Downloads folder': '«lifyar-backup.json» را در پوشه دانلودهای خود پیدا کنید',
     // Difficulty
     'Difficulty': 'سختی', 'Easy': 'آسان', 'Normal': 'متوسط', 'Hard': 'سخت',
+    // Difficulty — editable points (this session)
+    'pts': 'امتیاز', 'Give it a points value': 'یک مقدار امتیاز برایش تعیین کنید',
     // Ratings
     'NOT GOOD': 'خوب نیست', 'GOOD': 'خوب', 'GREAT!': 'عالی!', 'AWESOME!!!': 'فوق‌العاده!!!',
     'no rating yet': 'هنوز رتبه‌ای نیست', 'Edit routine': 'ویرایش روتین',

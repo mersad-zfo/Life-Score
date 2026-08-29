@@ -39,8 +39,13 @@ function renderRecurringRoutineCard(r){
   const done = routineDoneToday(r);
   const pointsPreview = done ? r.awardedPoints : routinePreviewReward(r);
   const names = weekdayShortNames();
+  // names[] is Saturday-first (to match the day-grid's display order — see buildDayGrid() in
+  // app-modals.js), but d here is the raw JS weekday integer (Sun=0..Sat=6). Indexing names[]
+  // with d directly was off by one day (a Monday routine showed "Due Days: Sun") — go through
+  // WEEK_DAY_ORDER.indexOf(d) to convert to the array's actual position, same as buildDayGrid()
+  // already does for the picker's own button labels.
   const scheduleText = r.recurrence==='weekly'
-    ? (r.schedule||[]).slice().sort((a,b)=>a-b).map(d=>names[d]).join(', ')
+    ? (r.schedule||[]).slice().sort((a,b)=>a-b).map(d=>names[WEEK_DAY_ORDER.indexOf(d)]).join(', ')
     : (r.schedule||[]).slice().sort((a,b)=>a-b).join(', ');
 
   const rState = routineState(r);

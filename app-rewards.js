@@ -1,4 +1,4 @@
-// ---------- Rewards (this session) ----------
+// ---------- Rewards (core: data, presets, notifications, mini panel, Add/Edit modals) ----------
 // User-defined daily point targets ("200 pts -> Gaming"). Daily-only for now — weekly/monthly
 // rewards are a planned future addition, not built yet (see BACKLOG.md).
 //
@@ -18,24 +18,45 @@
 // app-main.js's back-layer stack doc comment): opening pushes a layer, and the panel's own
 // back-chevron is the only in-UI close control (confirmed explicitly — no tap-elsewhere-to-close).
 //
-// This session added the big Rewards popover (tap the mini panel's list to open it) and its
-// Manage Rewards view, which the popover morphs INTO in place (not a second overlay stacked on
-// top) — see the "Rewards popover" section below. Editing a reward from Manage Rewards still
-// opens the plain, original Edit Reward modal (untouched, at the bottom of this file); only the
-// New Reward modal was overhauled, into a single-select preset/custom chip picker — same visual
-// pattern as onboarding's routine/task chips (see obChipFlowHtml/obWireChipFlow in
-// app-onboarding.js).
+// Split (this session) from app-rewards-popover.js, which holds the big Rewards popover (List view
+// + Manage Rewards, and the ring-fly animation) — that's the surface expected to keep growing
+// (weekly/monthly rewards), so it was pulled out on its own; this file holds everything that isn't
+// expected to grow much: reward data/derived state, presets/glyphs, notifications, the mini panel,
+// and the Add/Edit Reward modals (Edit stayed untouched when the New Reward modal was overhauled
+// into a single-select preset/custom chip picker — same visual pattern as onboarding's routine/task
+// chips, see obChipFlowHtml/obWireChipFlow in app-onboarding.js). Loaded right before
+// app-rewards-popover.js in index.html; the two freely call each other's globals, same as any two
+// plain scripts in this project — see that file's own header comment for how the split works.
 
 let rewardsPanelOpen = false;
 
 function todaysReceivedForRewards(){
   return Math.max(0, getDailyLogPoints(todayStr()));
 }
+// A reward can target either a fixed pointsNeeded, or "Maximum points" (r.maxPoints) — the total
+// possible BASE points from routines today, recomputed live via getDailyBasePoints() (app-
+// rating.js) rather than a number chosen once, since which routines are due varies day to day (a
+// Monday-heavy schedule vs. a light Sunday can genuinely be 300 one day, 350 the next). If nothing
+// is due at all today (max is 0), treat it as unachievable rather than trivially "achieved" by
+// doing nothing.
+function rewardTargetToday(r){
+  if(r.maxPoints) return getDailyBasePoints(todayStr());
+  return r.pointsNeeded;
+}
 function rewardAchievedToday(r){
-  return todaysReceivedForRewards() >= r.pointsNeeded;
+  const target = rewardTargetToday(r);
+  if(r.maxPoints && target<=0) return false;
+  return todaysReceivedForRewards() >= target;
 }
 function rewardsAchievedCount(){
   return state.rewards.filter(r=> rewardAchievedToday(r)).length;
+}
+// Shown wherever a reward's points target is displayed as a locked pill/label — "MAX" for a
+// Maximum-points reward instead of a number, since the actual number changes day to day (see
+// rewardTargetToday() above) and showing today's snapshot would misleadingly look like a fixed
+// target the user chose.
+function rewardPillLabel(r){
+  return r.maxPoints ? tr('MAX') : trNum(r.pointsNeeded);
 }
 
 // ---------- Preset rewards + glyphs (this session) ----------
@@ -150,9 +171,9 @@ function evaluateRewardNotifications(){
 // Reward emoji is intentionally never shown here (only in the big popover / Manage Rewards) — see
 // PHILOSOPHY.md-adjacent note in DECISIONS.md this session. Tapping anywhere in the list opens the
 // big Rewards popover (replacing the old per-row "tap to edit" — editing moved into Manage
-// Rewards). "+ Add reward" is its own fixed footer button below the list (#rewardAddBtnFixed,
-// static in index.html, wired once below) — always in the same place, opens the New Reward modal
-// directly.
+// Rewards; openRewardsPopover() lives in app-rewards-popover.js, see below). "+ Add reward" is its
+// own fixed footer button below the list (#rewardAddBtnFixed, static in index.html, wired once
+// below) — always in the same place, opens the New Reward modal directly.
 function renderRewardPanelList(){
   const listEl = document.getElementById('rewardPanelList');
   if(!listEl) return;
@@ -164,7 +185,7 @@ function renderRewardPanelList(){
     const achieved = rewardAchievedToday(r);
     const tag = achieved
       ? `<span class="reward-tag star">🌟</span>`
-      : `<span class="reward-tag locked">${trNum(r.pointsNeeded)}</span>`;
+      : `<span class="reward-tag locked">${rewardPillLabel(r)}</span>`;
     return `
       <div class="reward-row${achieved?' achieved':''}">
         <span class="reward-row-name">${escapeHtml(r.name)}</span>
@@ -209,11 +230,12 @@ function openRewardsPanel(){
     if(ringWrap){ ringWrap.style.width = ''; ringWrap.style.height = ''; }
     if(panel){ panel.style.width = ''; panel.style.height = ''; }
     // If this close was itself only a step toward opening the big popover (see openRewardsPopover()
-    // below), that's queued here rather than fired right after closeBackLayer() — closeBackLayer()
-    // calls history.go(-1), which is async (see app-main.js's doc comment on pushBackLayer/
-    // closeBackLayer); calling pushBackLayer() again immediately, before that navigation actually
-    // resolves, races it and left the panel never really closing. Running it from inside this onPop
-    // instead means it only runs once the panel's own close has genuinely completed.
+    // in app-rewards-popover.js), that's queued here rather than fired right after closeBackLayer()
+    // — closeBackLayer() calls history.go(-1), which is async (see app-main.js's doc comment on
+    // pushBackLayer/closeBackLayer); calling pushBackLayer() again immediately, before that
+    // navigation actually resolves, races it and left the panel never really closing. Running it
+    // from inside this onPop instead means it only runs once the panel's own close has genuinely
+    // completed.
     if(pendingAfterRewardPanelClose){ const fn = pendingAfterRewardPanelClose; pendingAfterRewardPanelClose = null; fn(); }
   });
 }
@@ -231,242 +253,6 @@ document.getElementById('rewardBadge').addEventListener('click', openRewardsPane
 document.getElementById('rewardPanelClose').addEventListener('click', ()=> closeBackLayer());
 document.getElementById('rewardAddBtnFixed').addEventListener('click', (e)=>{ e.stopPropagation(); openAddRewardModal(); });
 document.getElementById('rewardPanelList').addEventListener('click', ()=> openRewardsPopover());
-
-// ---------- Rewards popover (this session) ----------
-// One persistent, body-root element (index.html) — never re-created, only shown/hidden and toggled
-// between its two views (List / Manage). Opening it pushes exactly ONE back-layer: every close
-// control (both views' own close-X, the scrim tap, and hardware back) converges on that same single
-// cleanup, same as openModal()'s own choke point. Manage Rewards has no separate "back to List" of
-// its own — matching its own close-X, hardware-back from Manage fully closes the popover too.
-let rewardsPopoverOpen = false;
-let rewardsPopoverSheetMode = false; // true while the Manage Rewards ("sheet") view is showing
-
-function renderRewardsPopoverList(){
-  const el = document.getElementById('rpListRows');
-  const fracEl = document.getElementById('rpListFrac');
-  if(!el) return;
-  if(fracEl) fracEl.textContent = state.rewards.length ? trRewardFraction(rewardsAchievedCount(), state.rewards.length) : '';
-  if(!state.rewards.length){
-    el.innerHTML = `<div class="reward-panel-empty">${tr('No rewards yet')}</div>`;
-    return;
-  }
-  el.innerHTML = state.rewards.map(r=>{
-    const achieved = rewardAchievedToday(r);
-    const right = achieved
-      ? `<span class="rw-pop-star-wrap"><span class="rw-pop-glow"></span><span class="rw-pop-star">🌟</span></span>`
-      : `<span class="rw-pop-pill">${trNum(r.pointsNeeded)}</span>`;
-    return `
-      <div class="rw-pop-row${achieved?' achieved':''}">
-        ${rewardGlyphHtml(r)}
-        <span class="rw-pop-name">${escapeHtml(r.name)}</span>
-        ${right}
-      </div>`;
-  }).join('');
-}
-function renderManageRewardsList(){
-  const el = document.getElementById('rpManageRows');
-  if(!el) return;
-  el.innerHTML = state.rewards.map(r=>`
-    <div class="rp-manage-row">
-      ${rewardGlyphHtml(r)}
-      <span class="rp-manage-name">${escapeHtml(r.name)}</span>
-      <span class="rp-manage-points">${trNum(r.pointsNeeded)}</span>
-      <button class="rp-icon-btn rp-edit-btn" data-edit="${r.id}" aria-label="${tr('Edit reward')}">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
-      </button>
-      <button class="rp-icon-btn rp-delete-btn" data-delete="${r.id}" aria-label="${tr('Remove reward')}">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
-      </button>
-    </div>`).join('');
-  el.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> openEditRewardModal(b.dataset.edit)));
-  el.querySelectorAll('[data-delete]').forEach(b=> b.addEventListener('click', ()=>{
-    const id = b.dataset.delete;
-    if(!confirm(tr('Remove this reward?'))) return;
-    // Clears today's notification entry if this reward happened to be achieved-and-celebrated
-    // already — otherwise it'd be orphaned in the bell forever, since evaluateRewardNotifications()
-    // only re-checks rewards still in state.rewards. Same pattern as
-    // clearRoutineCompletionNotifications() for a deleted routine.
-    notifSetCondition(`reward:${id}:${todayStr()}`, false, 'celebration', null, false);
-    state.rewards = state.rewards.filter(x=>x.id!==id);
-    saveState();
-    updateRewardBadge();
-    renderManageRewardsList();
-    renderRewardsPopoverList();
-  }));
-}
-function renderRewardsPopoverAll(){
-  renderRewardsPopoverList();
-  renderManageRewardsList();
-}
-
-// FLIP helper (used only by the ring-fly transition below): lets an element that just got
-// reparented/resized/repositioned by `mutate` animate FROM its old rect TO its new one, instead of
-// jumping there instantly.
-function flipAnimate(el, mutate){
-  const first = el.getBoundingClientRect();
-  mutate();
-  const last = el.getBoundingClientRect();
-  const dx = first.left - last.left, dy = first.top - last.top;
-  const sx = first.width / last.width, sy = first.height / last.height;
-  el.style.transition = 'none';
-  el.style.transformOrigin = 'top left';
-  el.style.transform = `translate(${dx}px,${dy}px) scale(${sx},${sy})`;
-  el.getBoundingClientRect(); // force layout so the transform above actually applies before the next frame reverts it
-  requestAnimationFrame(()=>{
-    el.style.transition = 'transform .45s cubic-bezier(.4,0,.2,1)';
-    el.style.transform = 'none';
-  });
-  // Hand control back to CSS once the flip settles, instead of leaving this inline override in
-  // place forever — matters for the popover especially, which gets flipped in and out of "sheet"
-  // shape across multiple opens and otherwise would silently stop its own CSS-declared show/hide
-  // pop-scale from ever running again after the first Manage Rewards morph.
-  setTimeout(()=>{
-    el.style.transition = '';
-    el.style.transformOrigin = '';
-    el.style.transform = '';
-  }, 480);
-}
-
-// Reparents the real #ringWrap out of hero-row and into #app itself so it can float above
-// everything (including the Manage Rewards sheet below it) while shrunk to sit just under the
-// header, with "DAILY" appearing underneath it. Only ever called while Manage Rewards is open.
-function flyRingUp(){
-  const app = document.getElementById('app');
-  const header = app && app.querySelector('header.top');
-  const ringWrap = document.getElementById('ringWrap');
-  const label = document.getElementById('ringPeriodLabel');
-  const homeLists = document.getElementById('homeLists');
-  if(!app || !header || !ringWrap) return;
-  flipAnimate(ringWrap, ()=>{
-    app.appendChild(ringWrap);
-    ringWrap.classList.add('ring-flying', 'ring-compact');
-    const headerRect = header.getBoundingClientRect();
-    const appRect = app.getBoundingClientRect();
-    const zoneTop = headerRect.bottom - appRect.top;
-    // The sheet's own top edge sits at 40% of #app's height (it's height:60% anchored to the
-    // bottom — see .rewards-popover.as-sheet in ring.css). zoneBottom used to land exactly there,
-    // leaving DAILY's label with no breathing room above the sheet — reserving 10px here (label's
-    // own text height plus a real gap) instead of letting the ring/label zone run flush to it.
-    const sheetTopPx = appRect.height * 0.4;
-    const zoneBottom = sheetTopPx - 10;
-    const zoneHeight = zoneBottom - zoneTop;
-    const ringSize = Math.max(160, Math.min(200, zoneHeight - 16));
-    const ringTop = zoneTop + (zoneHeight - ringSize) / 2;
-    ringWrap.style.top = ringTop + 'px';
-    ringWrap.style.left = '50%';
-    ringWrap.style.marginLeft = (-ringSize/2) + 'px';
-    ringWrap.style.width = ringSize + 'px';
-    ringWrap.style.height = ringSize + 'px';
-    if(label){
-      label.textContent = tr('DAILY');
-      // sits right under the ring, between it and the Manage Rewards sheet below
-      label.style.top = (ringTop + ringSize + 1) + 'px';
-      label.classList.add('show');
-      requestAnimationFrame(()=> label.classList.add('in'));
-    }
-  });
-  if(homeLists) homeLists.classList.add('rewards-modal-mode');
-}
-// Reverses flyRingUp() — reparents #ringWrap back into hero-row at its normal flow position.
-function flyRingHome(){
-  const ringWrap = document.getElementById('ringWrap');
-  const heroRow = document.getElementById('heroRow');
-  const label = document.getElementById('ringPeriodLabel');
-  const homeLists = document.getElementById('homeLists');
-  if(!ringWrap || !heroRow) return;
-  if(label) label.classList.remove('show','in');
-  flipAnimate(ringWrap, ()=>{
-    ringWrap.classList.remove('ring-flying', 'ring-compact');
-    ringWrap.style.top = ''; ringWrap.style.left = ''; ringWrap.style.marginLeft = '';
-    ringWrap.style.width = ''; ringWrap.style.height = '';
-    heroRow.appendChild(ringWrap);
-  });
-  if(homeLists) homeLists.classList.remove('rewards-modal-mode');
-}
-
-function openRewardsPopover(){
-  if(rewardsPopoverOpen || !state.settings.rewardsEnabled) return;
-  if(rewardsPanelOpen){
-    // See the doc comment on pendingAfterRewardPanelClose above — let the panel's own async close
-    // actually finish before we push the popover's own history entry on top of it.
-    pendingAfterRewardPanelClose = doOpenRewardsPopover;
-    closeBackLayer();
-    return;
-  }
-  doOpenRewardsPopover();
-}
-function doOpenRewardsPopover(){
-  rewardsPopoverOpen = true;
-  const heroRow = document.getElementById('heroRow');
-  if(heroRow) heroRow.classList.add('reward-popover-open');
-  document.getElementById('rpManageView').classList.add('hide');
-  document.getElementById('rpListView').classList.remove('hide');
-  renderRewardsPopoverAll();
-  document.getElementById('rwScrim').classList.add('show');
-  document.getElementById('rewardsPopover').classList.add('show');
-  pushBackLayer(()=>{
-    rewardsPopoverOpen = false;
-    const wasSheet = rewardsPopoverSheetMode;
-    if(wasSheet){ flyRingHome(); rewardsPopoverSheetMode = false; }
-    document.getElementById('rewardsPopover').classList.remove('show', 'as-sheet');
-    document.getElementById('rwScrim').classList.remove('show', 'as-sheet');
-    document.getElementById('rpManageView').classList.add('hide');
-    document.getElementById('rpListView').classList.remove('hide');
-    const heroRow = document.getElementById('heroRow');
-    if(heroRow) heroRow.classList.remove('reward-popover-open');
-    const navigateAway = rewardsPopoverCloseIsNavigateAway;
-    rewardsPopoverCloseIsNavigateAway = false;
-    if(!navigateAway){
-      if(wasSheet){
-        // Let flyRingHome()'s own FLIP transform (~.45s) actually settle before the mini panel's
-        // own (separate, CSS width/height-transitioned) expand kicks in on the same #ringWrap —
-        // running both at once was visibly janky on real phones, two animations independently
-        // fighting over the same element's box within the same brief window.
-        setTimeout(()=> openRewardsPanel(), 460);
-      } else {
-        openRewardsPanel();
-      }
-    }
-    // Navigating away from Home entirely (tab switch / Settings / bell — see setTab()/gearBtn/
-    // bellBtn in app-main.js) while the popover was open: no mini panel to reopen once you're not
-    // on Home, and whatever navigation the user actually asked for was queued here rather than
-    // fired right after closeBackLayer() above, which is async — see the identical race this same
-    // pattern works around for pendingAfterRewardPanelClose.
-    if(pendingAfterPopoverClose){ const fn = pendingAfterPopoverClose; pendingAfterPopoverClose = null; fn(); }
-  });
-}
-document.getElementById('rpListClose').addEventListener('click', ()=> closeBackLayer());
-document.getElementById('rpManageClose').addEventListener('click', ()=> closeBackLayer());
-document.getElementById('rpDoneBtn').addEventListener('click', ()=> closeBackLayer());
-document.getElementById('rwScrim').addEventListener('click', ()=>{ if(rewardsPopoverOpen) closeBackLayer(); });
-
-// Set right before closing the popover for a reason other than the user's own close action —
-// specifically, navigating away from Home while it's open. See doc comment above.
-let rewardsPopoverCloseIsNavigateAway = false;
-let pendingAfterPopoverClose = null;
-// Closes the popover first (if open) and defers `fn` until that close has genuinely finished —
-// used by setTab()/gearBtn/bellBtn in app-main.js so the popover (and its flown-up ring) can't be
-// left floating on top of whatever page you navigate to. If the popover isn't open, `fn` just runs
-// immediately.
-function closeRewardsPopoverForNavigationThen(fn){
-  if(!rewardsPopoverOpen){ fn(); return; }
-  rewardsPopoverCloseIsNavigateAway = true;
-  pendingAfterPopoverClose = fn;
-  closeBackLayer();
-}
-
-document.getElementById('manageRewardsBtn').addEventListener('click', ()=>{
-  rewardsPopoverSheetMode = true;
-  const popover = document.getElementById('rewardsPopover');
-  flipAnimate(popover, ()=>{
-    popover.classList.add('as-sheet');
-    document.getElementById('rwScrim').classList.add('as-sheet');
-    document.getElementById('rpListView').classList.add('hide');
-    document.getElementById('rpManageView').classList.remove('hide');
-  });
-  flyRingUp();
-});
-document.getElementById('rpAddRewardBtn').addEventListener('click', ()=> openAddRewardModal());
 
 // ---------- New Reward chip picker (this session — overhauled) ----------
 // Single-select preset/custom chip flow, same visual language and DOM/CSS classes as onboarding's
@@ -546,49 +332,84 @@ function rwWireChipFlow(onChange){
   });
 }
 
-// ---------- Shared "Points needed" control (this session — reworked for clarity + direct typing)
+// ---------- Shared "Points needed" control (this session — reworked for clarity + direct typing,
+// then extended with the "Maximum points" toggle) ----------
 // Used by both the New Reward chip picker and the (otherwise untouched) Edit Reward modal. The
 // slider stays capped 0-990/step-10 (dragging it), but the number beside it is a real, independent
 // <input type="number"> — tapping it lets you type any value directly, with no upper cap and no
 // requirement to land on a multiple of 10; the slider just visually clamps to its own 0-990 range
 // to represent that (maxed-out) when the typed value exceeds it, without altering what actually
-// gets saved. ----------
-function rewardPointsFieldHtml(value){
+// gets saved.
+//
+// "Maximum points" grays out both the slider and number input (disabled, not just visually dimmed)
+// and shows today's live getDailyBasePoints() value in them instead — purely as a preview of what
+// it currently evaluates to, since that number changes day to day. The number actually SAVED as
+// pointsNeeded is whatever was last manually set (before/without Maximum points on) — a sensible
+// fallback if the reward is later switched back off, not today's snapshot. ----------
+function rewardPointsFieldHtml(value, isMax){
   const val = Math.max(0, value || 0);
   const sliderVal = Math.max(0, Math.min(990, val));
   return `
     <div class="field">
       <label>${tr('Points needed')}</label>
       <div class="reward-slider-row">
-        <input id="rwPoints" type="range" min="0" max="990" step="10" value="${sliderVal}" class="reward-slider" />
-        <input id="rwPointsValue" type="number" inputmode="numeric" class="reward-slider-value-input" value="${val}" />
+        <input id="rwPoints" type="range" min="0" max="990" step="10" value="${sliderVal}" class="reward-slider" ${isMax?'disabled':''} />
+        <input id="rwPointsValue" type="number" inputmode="numeric" class="reward-slider-value-input" value="${val}" ${isMax?'disabled':''} />
+      </div>
+      <div class="toggle-row" id="rwMaxRow" style="margin-top:10px;">
+        <div class="item-name">${tr('Maximum points')}</div>
+        <div class="switch ${isMax?'on':''}" id="rwMaxSwitch"><div class="knob"></div></div>
       </div>
     </div>`;
 }
-// Returns {getValue, setValue} — getValue() always reads from the number input (the source of
-// truth); setValue() (used by the chip picker's preset pre-fill) drives both controls from one call.
-function wireRewardPointsControl(root){
+// Returns {getValue, setValue, isMaxPoints} — getValue() always reads the last manually-set
+// number (never today's Maximum-points snapshot); setValue() (used by the chip picker's preset
+// pre-fill) drives the manual value, applied immediately unless Maximum points is currently on.
+function wireRewardPointsControl(root, initialMax){
   const slider = root.querySelector('#rwPoints');
   const numInput = root.querySelector('#rwPointsValue');
+  const maxSwitch = root.querySelector('#rwMaxSwitch');
+  let isMax = !!initialMax;
+  let lastManualValue = parseInt(numInput.value, 10) || 0;
   const paint = (raw)=>{
     const clamped = Math.max(0, Math.min(990, raw));
     slider.value = clamped;
     const pct = (clamped - slider.min) / (slider.max - slider.min) * 100;
     slider.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--line) ${pct}%)`;
   };
+  const applyMaxUI = ()=>{
+    maxSwitch.classList.toggle('on', isMax);
+    slider.disabled = isMax;
+    numInput.disabled = isMax;
+    if(isMax){
+      const todayMax = getDailyBasePoints(todayStr());
+      numInput.value = todayMax;
+      paint(todayMax);
+    } else {
+      numInput.value = lastManualValue;
+      paint(lastManualValue);
+    }
+  };
   slider.addEventListener('input', ()=>{
     const v = parseInt(slider.value, 10);
     numInput.value = v;
+    lastManualValue = v;
     paint(v);
   });
   numInput.addEventListener('input', ()=>{
     const v = parseInt(numInput.value, 10);
-    if(!isNaN(v)) paint(v);
+    if(!isNaN(v)){ lastManualValue = v; paint(v); }
   });
-  paint(parseInt(numInput.value, 10) || 0);
+  maxSwitch.addEventListener('click', ()=>{
+    isMax = !isMax;
+    applyMaxUI();
+  });
+  paint(lastManualValue);
+  applyMaxUI();
   return {
-    getValue: ()=>{ const v = parseInt(numInput.value, 10); return isNaN(v) ? 0 : Math.max(0, v); },
-    setValue: (v)=>{ numInput.value = v; paint(v); }
+    getValue: ()=> Math.max(0, lastManualValue || 0),
+    setValue: (v)=>{ lastManualValue = v; if(!isMax){ numInput.value = v; paint(v); } },
+    isMaxPoints: ()=> isMax
   };
 }
 
@@ -608,7 +429,7 @@ function openAddRewardModal(){
       <button class="btn-primary" id="rwSave">${tr('Add reward')}</button>
     </div>
   `);
-  const points = wireRewardPointsControl(m);
+  const points = wireRewardPointsControl(m, false);
   function onChipChange(pointsToSet){
     if(pointsToSet!=null) points.setValue(pointsToSet);
     m.querySelector('#rwChipFlow').outerHTML = rwChipFlowHtml();
@@ -618,6 +439,7 @@ function openAddRewardModal(){
   m.querySelector('#rwCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#rwSave').addEventListener('click', ()=>{
     const pointsNeeded = points.getValue();
+    const isMax = points.isMaxPoints();
     let name = '', emoji = null, logoId = null;
     if(rwSelectedPreset){
       name = tr(rwSelectedPreset.nameKey);
@@ -628,8 +450,8 @@ function openAddRewardModal(){
       if(c){ name = c.name; emoji = REWARD_DEFAULT_EMOJI; }
     }
     if(!name){ showToast(tr('Pick a reward first')); return; }
-    if(!pointsNeeded || pointsNeeded<1){ showToast(tr('Give it a points target')); return; }
-    state.rewards.push({ id: uid(), name, pointsNeeded, createdDate: todayStr(), emoji, logoId });
+    if(!isMax && (!pointsNeeded || pointsNeeded<1)){ showToast(tr('Give it a points target')); return; }
+    state.rewards.push({ id: uid(), name, pointsNeeded, maxPoints: isMax, createdDate: todayStr(), emoji, logoId });
     saveState();
     closeBackLayer();
     updateRewardBadge();
@@ -638,15 +460,16 @@ function openAddRewardModal(){
   });
 }
 
-// ---------- Edit Reward modal (untouched this session — plain name + slider, no chips; a
-// reward's emoji/logo is preserved as-is across an edit, never touched here) ----------
-function rewardModalFieldsHtml(name, pointsNeeded){
+// ---------- Edit Reward modal (plain name + slider, no chips — a reward's emoji/logo is preserved
+// as-is across an edit, never touched here; gained the same "Maximum points" toggle as New Reward
+// this session, otherwise still untouched) ----------
+function rewardModalFieldsHtml(name, pointsNeeded, isMax){
   return `
     <div class="field">
       <label>${tr('Reward name')}</label>
       <input id="rwName" type="text" value="${escapeHtml(name||'')}" placeholder="${tr('e.g. Using Phone')}" />
     </div>
-    ${rewardPointsFieldHtml(pointsNeeded)}
+    ${rewardPointsFieldHtml(pointsNeeded, isMax)}
   `;
 }
 function openEditRewardModal(id){
@@ -655,22 +478,24 @@ function openEditRewardModal(id){
   const m = openModal(`
     ${modalCloseXHtml()}
     <h3>${tr('Edit reward')}</h3>
-    ${rewardModalFieldsHtml(reward.name, reward.pointsNeeded)}
+    ${rewardModalFieldsHtml(reward.name, reward.pointsNeeded, reward.maxPoints)}
     <div class="modal-actions">
       <button class="btn-secondary" id="rwCancel">${tr('Cancel')}</button>
       <button class="btn-primary" id="rwSave">${tr('Save changes')}</button>
     </div>
     <button class="settings-btn danger-text" style="text-align:center; width:100%; margin-top:10px;" id="rwDelete">${tr('Remove reward')}</button>
   `);
-  const points = wireRewardPointsControl(m);
+  const points = wireRewardPointsControl(m, !!reward.maxPoints);
   m.querySelector('#rwCancel').addEventListener('click', ()=> closeBackLayer());
   m.querySelector('#rwSave').addEventListener('click', ()=>{
     const name = m.querySelector('#rwName').value.trim();
     const pointsNeeded = points.getValue();
+    const isMax = points.isMaxPoints();
     if(!name){ showToast(tr('Give it a name')); return; }
-    if(!pointsNeeded || pointsNeeded<1){ showToast(tr('Give it a points target')); return; }
+    if(!isMax && (!pointsNeeded || pointsNeeded<1)){ showToast(tr('Give it a points target')); return; }
     reward.name = name;
     reward.pointsNeeded = pointsNeeded;
+    reward.maxPoints = isMax;
     saveState();
     closeBackLayer();
     updateRewardBadge();

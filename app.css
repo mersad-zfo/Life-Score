@@ -613,6 +613,12 @@
   .field input.reward-slider-value-input:focus{ outline:none; }
   .reward-slider-value-input::-webkit-outer-spin-button,
   .reward-slider-value-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  /* "Maximum points" (this session): grays out both controls — not just the browser's default
+     disabled dimming, which barely reads as "disabled" on a custom-styled range input. */
+  .field input.reward-slider:disabled{ opacity:.4; cursor:not-allowed; }
+  .field input.reward-slider:disabled::-webkit-slider-thumb{ background:var(--ink-soft); box-shadow:0 0 0 1.5px var(--ink-soft); }
+  .field input.reward-slider:disabled::-moz-range-thumb{ background:var(--ink-soft); box-shadow:0 0 0 1.5px var(--ink-soft); }
+  .field input.reward-slider-value-input:disabled{ opacity:.4; cursor:not-allowed; color:var(--ink-soft); }
   .modal-actions{
     display:flex; gap:10px; margin-top:18px;
   }
@@ -1153,6 +1159,27 @@
     pointer-events:none;
     opacity:0.55;
   }
+  /* Difficulty field's editable points number (this session) — sits inline with the "Difficulty"
+     label itself, next to the existing 3-button seg-control, rather than a full extra row (see
+     the reward slider's .reward-slider-row for that heavier treatment). Tapping Easy/Normal/Hard
+     sets this number; typing a value that doesn't match any of the 3 presets just leaves all
+     three buttons unselected — see wireDifficultyPicker() in app-modals.js. */
+  .diff-field-top{
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .diff-points-inline{
+    display:flex; align-items:baseline; gap:3px;
+  }
+  .diff-points-inline input{
+    font-family:inherit; font-size:15px; font-weight:700; color:var(--accent);
+    width:40px; text-align:right; border:none; background:none; padding:0;
+    -moz-appearance:textfield;
+  }
+  .diff-points-inline input:focus{ outline:none; }
+  .diff-points-inline input::-webkit-outer-spin-button,
+  .diff-points-inline input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .diff-points-inline input:disabled{ opacity:.4; cursor:not-allowed; color:var(--ink-soft); }
+  .diff-points-inline span{ font-size:12px; color:var(--ink-soft); }
   .task-upcoming{
     opacity:0.55;
   }

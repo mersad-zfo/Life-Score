@@ -104,12 +104,25 @@ function readDayGrid(m, idPrefix){
 }
 
 // ---------- Difficulty picker ----------
-function buildDifficultyPicker(idPrefix, current, locked){
+// points is the actual value that'll be saved (basePoints/rewardValue/startValue depending on
+// context) — independent of the 3-button tag once hand-edited, same relationship as the reward
+// slider's number vs. its "Maximum points" toggle. recurrence is a plain string ('daily'/
+// 'weekly'/'monthly'/'task') used to look up each preset's point value; for the Add Routine modal
+// (the only place recurrence itself can change before saving) it's kept in data-recurrence and
+// refreshed live by wireRecurrencePicker() below.
+function buildDifficultyPicker(idPrefix, current, locked, points, recurrence){
   const diff = current || 'normal';
+  const val = points!==undefined ? points : difficultyPointsFor(recurrence||'task', diff);
   return `
     <div class="field">
-      <label>${tr('Difficulty')}</label>
-      <div class="seg-control${locked?' seg-locked':''}" id="${idPrefix}Difficulty">
+      <div class="diff-field-top">
+        <label style="margin-bottom:0;">${tr('Difficulty')}</label>
+        <div class="diff-points-inline">
+          <input id="${idPrefix}DifficultyPoints" type="number" inputmode="numeric" value="${val}" ${locked?'disabled':''} />
+          <span>${tr('pts')}</span>
+        </div>
+      </div>
+      <div class="seg-control${locked?' seg-locked':''}" id="${idPrefix}Difficulty" data-recurrence="${recurrence||'task'}" data-last-diff="${diff}" style="margin-top:8px;">
         <button type="button" data-diff="easy"   class="${diff==='easy'  ?'active':''}">${tr('Easy')}</button>
         <button type="button" data-diff="normal" class="${diff==='normal'?'active':''}">${tr('Normal')}</button>
         <button type="button" data-diff="hard"   class="${diff==='hard'  ?'active':''}">${tr('Hard')}</button>
@@ -117,9 +130,32 @@ function buildDifficultyPicker(idPrefix, current, locked){
       ${locked ? `<div class="lock-note" style="margin-top:4px;">${tr('Locked after the first day')}</div>` : ''}
     </div>`;
 }
+// Recurrence changed (Add Routine only, before saving) — recompute the points field from
+// whichever difficulty tag was last picked, same value it'd show if that tag were clicked fresh.
+function refreshDifficultyPointsForRecurrence(m, idPrefix, recurrence){
+  const seg = m.querySelector(`#${idPrefix}Difficulty`);
+  if(!seg) return;
+  seg.dataset.recurrence = recurrence;
+  const diff = seg.dataset.lastDiff || 'normal';
+  const numInput = m.querySelector(`#${idPrefix}DifficultyPoints`);
+  if(numInput) numInput.value = difficultyPointsFor(recurrence, diff);
+  seg.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.diff===diff));
+}
 function wireDifficultyPicker(m, idPrefix){
+  const seg = m.querySelector(`#${idPrefix}Difficulty`);
+  const numInput = m.querySelector(`#${idPrefix}DifficultyPoints`);
+  numInput.addEventListener('input', ()=>{
+    const rec = seg.dataset.recurrence;
+    const v = parseInt(numInput.value, 10);
+    let matched = null;
+    ['easy','normal','hard'].forEach(d=>{ if(!isNaN(v) && difficultyPointsFor(rec, d)===v) matched = d; });
+    seg.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.diff===matched));
+    if(matched) seg.dataset.lastDiff = matched;
+  });
   m.querySelectorAll(`#${idPrefix}Difficulty button`).forEach(btn=>{
     btn.addEventListener('click', ()=>{
+      seg.dataset.lastDiff = btn.dataset.diff;
+      numInput.value = difficultyPointsFor(seg.dataset.recurrence, btn.dataset.diff);
       m.querySelectorAll(`#${idPrefix}Difficulty button`).forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
     });
@@ -127,7 +163,13 @@ function wireDifficultyPicker(m, idPrefix){
 }
 function readDifficulty(m, idPrefix){
   const btn = m.querySelector(`#${idPrefix}Difficulty button.active`);
-  return btn ? btn.dataset.diff : 'normal';
+  if(btn) return btn.dataset.diff;
+  const seg = m.querySelector(`#${idPrefix}Difficulty`);
+  return (seg && seg.dataset.lastDiff) || 'normal';
+}
+function readDifficultyPoints(m, idPrefix){
+  const v = parseInt(m.querySelector(`#${idPrefix}DifficultyPoints`).value, 10);
+  return isNaN(v) ? 0 : v;
 }
 
 // ---------- Recurrence-specific fields (day grid + difficulty) ----------
@@ -181,6 +223,7 @@ function wireRecurrencePicker(m, idPrefix){
       const rec = btn.dataset.rec;
       m.querySelector(`#${idPrefix}RecurFields`).innerHTML = dayGridFieldHtml(idPrefix, rec, null);
       wireRecurFields(m, idPrefix);
+      refreshDifficultyPointsForRecurrence(m, idPrefix, rec);
     });
   });
 }
@@ -368,7 +411,7 @@ function openAddRoutineModal(){
     ${buildRecurrencePicker('h', 'daily')}
     <div id="hRecurFields">${dayGridFieldHtml('h', 'daily', null)}</div>
     ${timeDetailsFieldsHtml('h', null, null)}
-    ${buildDifficultyPicker('h', 'normal', false)}
+    ${buildDifficultyPicker('h', 'normal', false, undefined, 'daily')}
     <div class="modal-actions">
       <button class="btn-secondary" id="hCancel">${tr('Cancel')}</button>
       <button class="btn-primary" id="hSave">${tr('Add routine')}</button>
@@ -392,8 +435,10 @@ function openAddRoutineModal(){
     const {time, description} = readTimeDetails(m, 'h');
     const recurrence = readRecurrence(m, 'h');
     const difficulty = readDifficulty(m, 'h');
+    const points = readDifficultyPoints(m, 'h');
     const steps = readSteps(m, 'h');
     if(!name){ showToast(tr('Give it a name')); return; }
+    if(!points || points<1){ showToast(tr('Give it a points value')); return; }
     const graceToday = shouldGraceToday();
     const base = {
       id: uid(), name, emoji, description, time, recurrence, difficulty, steps,
@@ -404,12 +449,12 @@ function openAddRoutineModal(){
       awardedPoints: null
     };
     if(recurrence==='daily'){
-      const basePoints = difficultyPointsFor('daily', difficulty);
+      const basePoints = points;
       state.routines.push({...base, basePoints, configHistory: [{from: base.createdDate, basePoints, steps}]});
     } else {
       const schedule = readDayGrid(m, 'h');
       if(schedule.length===0){ showToast(tr('Pick at least one day')); return; }
-      const rewardValue = difficultyPointsFor(recurrence, difficulty);
+      const rewardValue = points;
       state.routines.push({
         ...base,
         rewardValue,
@@ -449,7 +494,7 @@ function openEditRoutineModal(id){
     ${buildRecurrencePickerLocked('eh', h.recurrence)}
     <div id="ehRecurFields">${dayGridFieldHtml('eh', h.recurrence, h.schedule)}</div>
     ${timeDetailsFieldsHtml('eh', h.time, h.description)}
-    ${buildDifficultyPicker('eh', h.difficulty||'normal', diffLocked)}
+    ${buildDifficultyPicker('eh', h.difficulty||'normal', diffLocked, h.recurrence==='daily' ? h.basePoints : h.rewardValue, h.recurrence)}
     <div class="modal-actions">
       <button class="btn-secondary" id="ehCancel">${tr('Cancel')}</button>
       <button class="btn-primary" id="ehSave">${tr('Save changes')}</button>
@@ -470,13 +515,14 @@ function openEditRoutineModal(id){
     h.description = description;
     h.time = time;
     if(!diffLocked){
+      const points = readDifficultyPoints(m, 'eh');
+      if(!points || points<1){ showToast(tr('Give it a points value')); return; }
       h.steps = readSteps(m, 'eh');
-      const difficulty = readDifficulty(m, 'eh');
-      h.difficulty = difficulty;
+      h.difficulty = readDifficulty(m, 'eh');
       if(h.recurrence==='daily'){
-        h.basePoints = difficultyPointsFor('daily', difficulty);
+        h.basePoints = points;
       } else {
-        h.rewardValue = difficultyPointsFor(h.recurrence, difficulty);
+        h.rewardValue = points;
       }
     }
     if(h.recurrence!=='daily'){
@@ -520,7 +566,7 @@ function openAddTaskModal(){
       <input id="tDueDate" type="date" value="${todayStr()}" min="${todayStr()}" />
     </div>
     ${timeDetailsFieldsHtml('t', null, null, tr('Add extra detail, e.g. a phone number'))}
-    ${buildDifficultyPicker('t', 'normal', false)}
+    ${buildDifficultyPicker('t', 'normal', false, undefined, 'task')}
     <div class="modal-actions">
       <button class="btn-secondary" id="tCancel">${tr('Cancel')}</button>
       <button class="btn-primary" id="tSave">${tr('Add task')}</button>
@@ -542,12 +588,14 @@ function openAddTaskModal(){
     const {time, description} = readTimeDetails(m, 't');
     if(!name){ showToast(tr('Give it a name')); return; }
     const difficulty = readDifficulty(m, 't');
+    const points = readDifficultyPoints(m, 't');
+    if(!points || points<1){ showToast(tr('Give it a points value')); return; }
     const dueDate = m.querySelector('#tDueDate').value || todayStr();
     const steps = readSteps(m, 't');
     state.tasks.push({
       id: uid(), name, emoji, description, time, difficulty, recurrence:'once', steps,
       createdDate: todayStr(), dueDate, completedDate: null, awardedPoints: null,
-      startValue: difficultyPointsFor('task', difficulty),
+      startValue: points,
       decayRate: TASK_DECAY_RATE
     });
     saveState();
@@ -579,7 +627,7 @@ function openEditTaskModal(id){
       ${diffLocked ? `<div class="lock-note" style="margin-top:4px;">${tr('Locked after the first day')}</div>` : ''}
     </div>
     ${timeDetailsFieldsHtml('et', task.time, task.description, tr('Add extra detail, e.g. a phone number'))}
-    ${buildDifficultyPicker('et', task.difficulty || 'normal', diffLocked)}
+    ${buildDifficultyPicker('et', task.difficulty || 'normal', diffLocked, task.startValue, 'task')}
     <div class="modal-actions">
       <button class="btn-secondary" id="etCancel">${tr('Cancel')}</button>
       <button class="btn-primary" id="etSave">${tr('Save changes')}</button>
@@ -603,9 +651,10 @@ function openEditTaskModal(id){
     // CLAUDE.md/ARCHITECTURE.md. Read+apply regardless of diffLocked.
     task.steps = readSteps(m, 'et');
     if(!diffLocked){
-      const difficulty = readDifficulty(m, 'et');
-      task.difficulty = difficulty;
-      task.startValue = difficultyPointsFor('task', difficulty);
+      const points = readDifficultyPoints(m, 'et');
+      if(!points || points<1){ showToast(tr('Give it a points value')); return; }
+      task.difficulty = readDifficulty(m, 'et');
+      task.startValue = points;
       task.decayRate = TASK_DECAY_RATE;
       const dueDate = m.querySelector('#etDueDate').value;
       if(dueDate) task.dueDate = dueDate;
