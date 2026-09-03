@@ -405,7 +405,16 @@ function reorderRoutine(id, dir){
 // any date-specific lookup (getDailyBasePoints, isScheduledOn) reads whichever version was
 // actually in effect on that historical day — never the current live fields.
 function currentRoutineConfig(r){
-  return { schedule: r.schedule, basePoints: r.basePoints, rewardValue: r.rewardValue, steps: r.steps || null };
+  return {
+    schedule: r.schedule,
+    // Weekly-only sub-mode (this session): 'weekdays' (default, plain day-of-week picker) or
+    // 'everyOther' (repeats every 2 calendar days from everyOtherStart, ignoring weekday
+    // entirely). Versioned alongside schedule so a routine that later switches modes doesn't
+    // rewrite how any already-elapsed day was evaluated.
+    scheduleMode: r.scheduleMode || 'weekdays',
+    everyOtherStart: r.everyOtherStart || null,
+    basePoints: r.basePoints, rewardValue: r.rewardValue, steps: r.steps || null
+  };
 }
 function pushConfigVersion(r){
   const t = todayStr();
@@ -433,9 +442,16 @@ function daysInMonth(year, monthIndex){
 }
 function isScheduledOn(r, dateStr){
   const d = new Date(dateStr+'T00:00:00');
-  const schedule = configAt(r, dateStr).schedule;
-  if(r.recurrence==='weekly') return (schedule||[]).includes(d.getDay());
+  const cfg = configAt(r, dateStr);
+  if(r.recurrence==='weekly'){
+    if(cfg.scheduleMode==='everyOther'){
+      if(!cfg.everyOtherStart || dateStr < cfg.everyOtherStart) return false; // hasn't started yet
+      return daysBetween(cfg.everyOtherStart, dateStr) % 2 === 0;
+    }
+    return (cfg.schedule||[]).includes(d.getDay());
+  }
   if(r.recurrence==='monthly'){
+    const schedule = cfg.schedule;
     const lastDay = daysInMonth(d.getFullYear(), d.getMonth());
     const dom = d.getDate();
     if((schedule||[]).includes(dom)) return true;
@@ -454,9 +470,9 @@ function nextScheduledDate(r, afterDateStr){
   }
   return null;
 }
-function formatDueLabel(dateStr, recurrence){
+function formatDueLabel(dateStr, recurrence, scheduleMode){
   const d = new Date(dateStr+'T00:00:00');
-  if(recurrence==='weekly') return d.toLocaleDateString(localeForLang(), {weekday:'long'});
+  if(recurrence==='weekly' && scheduleMode!=='everyOther') return d.toLocaleDateString(localeForLang(), {weekday:'long'});
   return d.toLocaleDateString(localeForLang(), {month:'short', day:'numeric'});
 }
 // All routines are freely editable at all times, same as daily always was — weekly/monthly used

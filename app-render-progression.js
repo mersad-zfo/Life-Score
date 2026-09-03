@@ -73,15 +73,96 @@ const MONTH_NAMES_EN  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','
 const MONTH_NAMES_FA  = ['ژانویه','فوریه','مارس','آوریل','مه','ژوئن','ژوئیه','اوت','سپتامبر','اکتبر','نوامبر','دسامبر'];
 function monthShortName(m){ return curLang()==='fa' ? MONTH_NAMES_FA[m-1] : MONTH_NAMES_EN[m-1]; }
 
-function progHeroHtml(label, received, base){
+// ---- Hero ring (this session) ----
+// Same visual system as Home's ring (app-render-today.js: same CSS classes/gradients, same
+// comet-trail sweep while filling, same breathing halo once complete) but built fresh for each
+// Month/Week/Day view rather than being a persistent, in-place-updated singleton the way Home's
+// is — these views get a brand new element every time you navigate here, so each ring gets its
+// own scoped comet loop that just stops itself the moment it notices its element is no longer in
+// the DOM, rather than sharing Home's one perpetual loop tied to fixed element IDs.
+const PROG_RING_R = 98, PROG_RING_C = 2 * Math.PI * PROG_RING_R;
+const PROG_COMET_STEPS = 6;
+
+function progRingHeroHtml(uid, label, rating, received, base){
+  const rc = ratingPillClass(rating);
+  const rLabel = rating ? tr(rating) : tr('no rating yet');
   return `
-    <div class="score-hero">
-      <div class="label">${label}</div>
-      <div class="score-hero-fraction">
-        ${scoreFractionHtml(received, base)}
+    <div class="ring-wrap prog-ring-wrap" id="${uid}">
+      <svg viewBox="0 0 230 230">
+        <g transform="rotate(-90 115 115)">
+          <circle class="ring-track" cx="115" cy="115" r="${PROG_RING_R}"></circle>
+          <circle class="ring-progress prog-ring-progress" cx="115" cy="115" r="${PROG_RING_R}"></circle>
+          <g class="comet-trail prog-comet-trail"></g>
+        </g>
+      </svg>
+      <div class="ring-center">
+        <div class="ring-mini-label">${label}</div>
+        <div class="score-hero-fraction">${scoreFractionHtml(received, base)}</div>
+        <div class="rating-pill ${rc}">${rLabel}</div>
       </div>
     </div>`;
 }
+// Call once right after the hero's HTML has actually been inserted into the DOM (querying by the
+// uid handed to progRingHeroHtml above) — fills the ring in from empty, same easing as Home, and
+// starts the comet loop only while genuinely mid-fill (0% < fill < 100%), matching updateHomeRing().
+function animateProgRingHero(uid, received, base, isAwesome){
+  const wrap = document.getElementById(uid);
+  if(!wrap) return;
+  const progressEl = wrap.querySelector('.prog-ring-progress');
+  const cometG = wrap.querySelector('.prog-comet-trail');
+  if(!progressEl) return;
+  const clamped = Math.max(0, Math.min(1, base>0 ? received/base : 0));
+
+  if(cometG && !cometG.children.length){
+    for(let i=0;i<PROG_COMET_STEPS;i++){
+      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx', PROG_RING_R+17); c.setAttribute('cy', PROG_RING_R+17); c.setAttribute('r', PROG_RING_R);
+      c.setAttribute('stroke-width', (13 - i*0.9).toFixed(1));
+      c.classList.add('comet-seg');
+      cometG.appendChild(c);
+    }
+  }
+
+  progressEl.style.transition = 'none';
+  progressEl.style.strokeDasharray = PROG_RING_C;
+  progressEl.style.strokeDashoffset = PROG_RING_C;
+  progressEl.getBoundingClientRect(); // force reflow so the fill-in below actually animates
+  progressEl.style.transition = 'stroke-dashoffset 1s cubic-bezier(.4,0,.2,1)';
+  const target = PROG_RING_C * (1 - clamped);
+  requestAnimationFrame(()=>{ progressEl.style.strokeDashoffset = target; });
+
+  const isComplete = clamped >= 1;
+  const isFilling = clamped > 0 && clamped < 1;
+  progressEl.classList.toggle('pulse-halo', isComplete);
+  progressEl.classList.toggle('awesome', !!isAwesome);
+  if(cometG) cometG.classList.toggle('active', isFilling);
+  if(!isFilling) return;
+
+  const fillLen = PROG_RING_C * clamped;
+  function tick(now){
+    const w = document.getElementById(uid);
+    if(!w || !w.isConnected) return; // this view moved on — let the loop end for good
+    const g = w.querySelector('.prog-comet-trail');
+    if(g){
+      const period = 2600;
+      const t = (now % period) / period;
+      const travel = Math.max(0, fillLen - 18);
+      const eased = t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+      const headPos = eased * travel;
+      const fadeOpacity = t<0.08 ? t/0.08 : (t>0.92 ? (1-t)/0.08 : 1);
+      Array.from(g.children).forEach((c,i)=>{
+        const len = 18 - i*2.6;
+        c.setAttribute('stroke-dasharray', `${Math.max(len,1)} 9999`);
+        c.setAttribute('stroke-dashoffset', -(headPos - i*4));
+        c.style.opacity = ((0.55 - i*0.08) * fadeOpacity).toFixed(2);
+      });
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+let progRingUidCounter = 0;
+function nextProgRingUid(){ return 'progRing' + (++progRingUidCounter); }
 
 function progTileHtml(topLabel, rating, received, base, clickAttr){
   const cls = tileRatingClass(rating);
@@ -204,7 +285,7 @@ function renderProgMonthView(container){
   const year=progYear, month=progMonth;
   const mStart = progMonthStart(year, month);
   const mEnd   = progMonthEnd(year, month);
-  const {base, received} = getRatingForRange(mStart, mEnd);
+  const {rating, base, received} = getRatingForRange(mStart, mEnd);
   const heroLabel = `${monthShortName(month)} ${year}`;
   const weekRanges = getMonthWeekRanges(year, month);
 
@@ -214,10 +295,12 @@ function renderProgMonthView(container){
     tilesHtml += progTileHtml(wr.label, r.rating, r.received, r.base, `data-prog-week='${JSON.stringify(wr)}'`);
   });
 
+  const ringUid = nextProgRingUid();
   container.innerHTML = `
-    ${progHeroHtml(heroLabel, received, base)}
+    ${progRingHeroHtml(ringUid, heroLabel, rating, received, base)}
     <div class="score-grid" style="margin-top:12px;">${tilesHtml}</div>
   `;
+  animateProgRingHero(ringUid, received, base, rating==='AWESOME!!!');
 
   container.querySelectorAll('[data-prog-week]').forEach(el=>{
     el.addEventListener('click', ()=>{
@@ -232,7 +315,7 @@ function renderProgMonthView(container){
 // ---- Week view: weekly hero + day tiles ----
 function renderProgWeekView(container){
   const wr = progWeekRange;
-  const {base, received} = getRatingForRange(wr.from, wr.to);
+  const {rating, base, received} = getRatingForRange(wr.from, wr.to);
   const today = todayStr();
 
   let tilesHtml = '';
@@ -246,11 +329,13 @@ function renderProgWeekView(container){
   }
 
   const backLabel = `${monthShortName(progMonth)} ${progYear}`;
+  const ringUid = nextProgRingUid();
   container.innerHTML = `
     ${progBackBtn(backLabel)}
-    ${progHeroHtml(wr.label, received, base)}
+    ${progRingHeroHtml(ringUid, wr.label, rating, received, base)}
     <div class="score-grid" style="margin-top:12px;">${tilesHtml}</div>
   `;
+  animateProgRingHero(ringUid, received, base, rating==='AWESOME!!!');
 
   container.querySelector('#progBack').addEventListener('click', ()=> closeBackLayer());
   container.querySelectorAll('[data-prog-day]').forEach(el=>{
@@ -333,11 +418,13 @@ function renderProgDayView(container){
   if(!listHtml) listHtml = `<div class="prog-day-empty" style="color:var(--ink-soft); text-align:center; padding:20px 0; font-size:14px;">-</div>`;
 
   const backLabel = progWeekRange ? progWeekRange.label : '';
+  const ringUid = nextProgRingUid();
   container.innerHTML = `
     ${progBackBtn(backLabel)}
-    ${progHeroHtml(heroLabel, dr.received, dr.base)}
+    ${progRingHeroHtml(ringUid, heroLabel, dr.rating, dr.received, dr.base)}
     <div class="prog-day-list">${listHtml}</div>
   `;
+  animateProgRingHero(ringUid, dr.received, dr.base, dr.rating==='AWESOME!!!');
 
   container.querySelector('#progBack').addEventListener('click', ()=> closeBackLayer());
 }

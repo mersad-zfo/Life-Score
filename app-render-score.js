@@ -21,9 +21,18 @@ function scoreFractionHtml(received, base){
 function renderScore(main){
   const s = getScores();
   const rToday    = getTodayRating();
-  const rWeek     = getWeekRating();
   const rMonth    = getCurrentMonthRating();
   const rAllTime  = getAllTimeRating();
+
+  // "This week" now mirrors Progression's own week-chunk definition exactly — a month split into
+  // 7-8 day chunks (see getMonthWeekRanges() in app-render-progression.js), not a plain
+  // Saturday-based calendar week. The two used to disagree almost every week since they used
+  // different boundaries; this reuses the exact same function Progression's own tiles call, so
+  // there's no way for them to drift apart again (owner request this session).
+  const t = todayStr();
+  const [wy, wm] = t.split('-').map(Number);
+  const weekChunk = getMonthWeekRanges(wy, wm).find(wr => t>=wr.from && t<=wr.to);
+  const weekData = getRatingForRange(weekChunk.from, t);
 
   let html = `
     <div class="score-hero">
@@ -37,9 +46,9 @@ function renderScore(main){
         <div class="t-label">${tr('Today')}</div>
         <div class="t-fraction">${scoreFractionHtml(s.daily.received, s.daily.base)}</div>
       </div>
-      <div class="score-tile ${tileRatingClass(rWeek)}">
+      <div class="score-tile ${tileRatingClass(weekData.rating)}">
         <div class="t-label">${tr('This week')}</div>
-        <div class="t-fraction">${scoreFractionHtml(s.weekly.received, s.weekly.base)}</div>
+        <div class="t-fraction">${scoreFractionHtml(weekData.received, weekData.base)}</div>
       </div>
       <div class="score-tile ${tileRatingClass(rMonth)}">
         <div class="t-label">${tr('This month')}</div>

@@ -154,6 +154,9 @@ const LANG_DICT = {
     'Account deleted': 'حساب حذف شد',
     'Give it a name': 'یک نام برایش بگذارید',
     'Pick at least one day': 'حداقل یک روز انتخاب کنید',
+    // Every-other-day schedule mode (this session)
+    'Week days': 'روزهای هفته', 'Every other day': 'یک روز در میان', 'Starts on': 'شروع از',
+    'Tomorrow': 'فردا', 'Pick a date': 'انتخاب تاریخ', 'Repeats on': 'تکرار در', 'Date': 'تاریخ',
     'Routine updated': 'روتین به‌روزرسانی شد',
     'Task updated': 'کار به‌روزرسانی شد',
     'Everything reset': 'همه‌چیز بازنشانی شد',

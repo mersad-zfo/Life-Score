@@ -45,7 +45,9 @@ function renderRecurringRoutineCard(r){
   // WEEK_DAY_ORDER.indexOf(d) to convert to the array's actual position, same as buildDayGrid()
   // already does for the picker's own button labels.
   const scheduleText = r.recurrence==='weekly'
-    ? (r.schedule||[]).slice().sort((a,b)=>a-b).map(d=>names[WEEK_DAY_ORDER.indexOf(d)]).join(', ')
+    ? (r.scheduleMode==='everyOther'
+        ? tr('Every other day')
+        : (r.schedule||[]).slice().sort((a,b)=>a-b).map(d=>names[WEEK_DAY_ORDER.indexOf(d)]).join(', '))
     : (r.schedule||[]).slice().sort((a,b)=>a-b).join(', ');
 
   const rState = routineState(r);
@@ -57,7 +59,7 @@ function renderRecurringRoutineCard(r){
   let secondaryText;
   if(!isDue){
     const next = nextScheduledDate(r, todayStr());
-    secondaryText = next ? trNextDue(formatDueLabel(next, r.recurrence)) : tr('Not due yet');
+    secondaryText = next ? trNextDue(formatDueLabel(next, r.recurrence, r.scheduleMode)) : tr('Not due yet');
   }
 
   // Same circular checkmark as daily routines. Only ever clickable while genuinely due today

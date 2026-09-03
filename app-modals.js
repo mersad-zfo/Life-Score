@@ -177,16 +177,97 @@ function readDifficultyPoints(m, idPrefix){
 // selected — steps, time & details, and difficulty are all static fields placed elsewhere in the
 // modal (see openAddRoutineModal/openEditRoutineModal below) and don't need to be regenerated —
 // or lose their in-progress values — when the recurrence toggle changes.
-function dayGridFieldHtml(idPrefix, recurrence, schedule){
+function dayGridFieldHtml(idPrefix, recurrence, schedule, scheduleMode, everyOtherStart){
   if(recurrence==='daily') return '';
+  if(recurrence==='monthly'){
+    return `
+      <div class="field">
+        <label>${tr('Which day(s) of the month')}</label>
+        ${buildDayGrid(idPrefix, 'monthly', schedule||[])}
+      </div>`;
+  }
+  // Weekly gets a "Repeats on" toggle (this session) between the plain weekday grid and a new
+  // every-other-day mode (repeats every 2 calendar days from a start date, ignoring weekday
+  // entirely — there was previously no way to express this at all). The two are mutually
+  // exclusive and swap completely rather than one dimming the other, since a weekday selection
+  // is meaningless once the schedule isn't weekday-based.
+  const mode = scheduleMode || 'weekdays';
+  const isOther = mode === 'everyOther';
+  const start = everyOtherStart || todayStr();
+  const startPick = start===todayStr() ? 'today' : (start===addDays(todayStr(),1) ? 'tomorrow' : 'custom');
   return `
     <div class="field">
-      <label>${recurrence==='weekly' ? tr('Which day(s) of the week') : tr('Which day(s) of the month')}</label>
-      ${buildDayGrid(idPrefix, recurrence, schedule||[])}
+      <label>${tr('Repeats on')}</label>
+      <div class="mini-seg" id="${idPrefix}ScheduleModeSeg">
+        <button type="button" data-v="weekdays" class="${!isOther?'active':''}">${tr('Week days')}</button>
+        <button type="button" data-v="other" class="${isOther?'active':''}">${tr('Every other day')}</button>
+      </div>
+      <div id="${idPrefix}WeekdaysBlock" class="${isOther?'hidden':''}">
+        ${buildDayGrid(idPrefix, 'weekly', schedule||[])}
+      </div>
+      <div id="${idPrefix}EveryOtherBlock" class="${isOther?'':'hidden'}">
+        <div class="starts-on-label">${tr('Starts on')}</div>
+        <div class="quick-chips" id="${idPrefix}StartChips">
+          <button type="button" data-v="today" class="${startPick==='today'?'active':''}">${tr('Today')}</button>
+          <button type="button" data-v="tomorrow" class="${startPick==='tomorrow'?'active':''}">${tr('Tomorrow')}</button>
+          <button type="button" data-v="custom" class="${startPick==='custom'?'active':''}">${tr('Pick a date')}</button>
+        </div>
+        <div class="field" id="${idPrefix}StartDateField" style="margin-top:10px;${startPick==='custom'?'':' display:none;'}">
+          <label>${tr('Date')}</label>
+          <input type="date" id="${idPrefix}StartDate" value="${start}" min="${todayStr()}">
+        </div>
+      </div>
     </div>`;
+}
+function wireScheduleModeToggle(m, idPrefix){
+  const seg = m.querySelector(`#${idPrefix}ScheduleModeSeg`);
+  if(!seg) return; // daily/monthly — nothing to wire
+  const weekdaysBlock = m.querySelector(`#${idPrefix}WeekdaysBlock`);
+  const otherBlock = m.querySelector(`#${idPrefix}EveryOtherBlock`);
+  seg.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const isOther = btn.dataset.v === 'other';
+      weekdaysBlock.classList.toggle('hidden', isOther);
+      otherBlock.classList.toggle('hidden', !isOther);
+    });
+  });
+  const chips = m.querySelector(`#${idPrefix}StartChips`);
+  if(!chips) return;
+  chips.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      chips.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const dateField = m.querySelector(`#${idPrefix}StartDateField`);
+      const dateInput = m.querySelector(`#${idPrefix}StartDate`);
+      if(btn.dataset.v === 'custom'){
+        dateField.style.display = '';
+      } else {
+        dateField.style.display = 'none';
+        dateInput.value = btn.dataset.v === 'today' ? todayStr() : addDays(todayStr(), 1);
+      }
+    });
+  });
+}
+// Returns {schedule, scheduleMode, everyOtherStart} — the full weekly-or-monthly schedule shape,
+// reading whichever of the two mutually-exclusive weekly blocks is currently active.
+function readScheduleField(m, idPrefix, recurrence){
+  if(recurrence !== 'weekly'){
+    return { schedule: readDayGrid(m, idPrefix), scheduleMode: 'weekdays', everyOtherStart: null };
+  }
+  const seg = m.querySelector(`#${idPrefix}ScheduleModeSeg`);
+  const activeBtn = seg && seg.querySelector('button.active');
+  const isOther = activeBtn && activeBtn.dataset.v === 'other';
+  if(isOther){
+    const dateInput = m.querySelector(`#${idPrefix}StartDate`);
+    return { schedule: [], scheduleMode: 'everyOther', everyOtherStart: (dateInput && dateInput.value) || todayStr() };
+  }
+  return { schedule: readDayGrid(m, idPrefix), scheduleMode: 'weekdays', everyOtherStart: null };
 }
 function wireRecurFields(m, idPrefix){
   wireDayGrid(m, idPrefix);
+  wireScheduleModeToggle(m, idPrefix);
 }
 
 // ---------- Recurrence seg-control (add modal — interactive) ----------
@@ -221,7 +302,7 @@ function wireRecurrencePicker(m, idPrefix){
       m.querySelectorAll(`#${idPrefix}Recurrence button`).forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       const rec = btn.dataset.rec;
-      m.querySelector(`#${idPrefix}RecurFields`).innerHTML = dayGridFieldHtml(idPrefix, rec, null);
+      m.querySelector(`#${idPrefix}RecurFields`).innerHTML = dayGridFieldHtml(idPrefix, rec, null, 'weekdays', null);
       wireRecurFields(m, idPrefix);
       refreshDifficultyPointsForRecurrence(m, idPrefix, rec);
     });
@@ -452,14 +533,14 @@ function openAddRoutineModal(){
       const basePoints = points;
       state.routines.push({...base, basePoints, configHistory: [{from: base.createdDate, basePoints, steps}]});
     } else {
-      const schedule = readDayGrid(m, 'h');
-      if(schedule.length===0){ showToast(tr('Pick at least one day')); return; }
+      const {schedule, scheduleMode, everyOtherStart} = readScheduleField(m, 'h', recurrence);
+      if(scheduleMode==='weekdays' && schedule.length===0){ showToast(tr('Pick at least one day')); return; }
       const rewardValue = points;
       state.routines.push({
         ...base,
         rewardValue,
-        schedule,
-        configHistory: [{from: base.createdDate, schedule, rewardValue, steps}]
+        schedule, scheduleMode, everyOtherStart,
+        configHistory: [{from: base.createdDate, schedule, scheduleMode, everyOtherStart, rewardValue, steps}]
       });
     }
     saveState();
@@ -492,7 +573,7 @@ function openEditRoutineModal(id){
     </div>
     ${stepsFieldHtml('eh', h.steps, diffLocked)}
     ${buildRecurrencePickerLocked('eh', h.recurrence)}
-    <div id="ehRecurFields">${dayGridFieldHtml('eh', h.recurrence, h.schedule)}</div>
+    <div id="ehRecurFields">${dayGridFieldHtml('eh', h.recurrence, h.schedule, h.scheduleMode, h.everyOtherStart)}</div>
     ${timeDetailsFieldsHtml('eh', h.time, h.description)}
     ${buildDifficultyPicker('eh', h.difficulty||'normal', diffLocked, h.recurrence==='daily' ? h.basePoints : h.rewardValue, h.recurrence)}
     <div class="modal-actions">
@@ -526,9 +607,11 @@ function openEditRoutineModal(id){
       }
     }
     if(h.recurrence!=='daily'){
-      const schedule = readDayGrid(m, 'eh');
-      if(schedule.length===0){ showToast(tr('Pick at least one day')); return; }
+      const {schedule, scheduleMode, everyOtherStart} = readScheduleField(m, 'eh', h.recurrence);
+      if(scheduleMode==='weekdays' && schedule.length===0){ showToast(tr('Pick at least one day')); return; }
       h.schedule = schedule;
+      h.scheduleMode = scheduleMode;
+      h.everyOtherStart = everyOtherStart;
     }
     // Stamp today's version of whatever changed — configAt() will use this for any date from
     // today forward, while every day before today keeps reading whichever version was actually

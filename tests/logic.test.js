@@ -407,6 +407,44 @@ test('getRatingForRange: a genuine short custom range still uses a week-scale th
 });
 
 // =====================================================================================
+section('Every-other-day schedule mode (this session)');
+// =====================================================================================
+test('isScheduledOn: everyOther — due every 2 days starting from everyOtherStart', () => {
+  resetState('2020-01-01');
+  const r = { id:'r1', recurrence:'weekly', scheduleMode:'everyOther', everyOtherStart:'2026-08-01', schedule:[], configHistory:[{from:'2026-08-01', schedule:[], scheduleMode:'everyOther', everyOtherStart:'2026-08-01', rewardValue:40}] };
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-01'), true);  // start day itself
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-02'), false);
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-03'), true);
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-04'), false);
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-09'), true);  // 8 days later, still even
+});
+test('isScheduledOn: everyOther — never due before its start date', () => {
+  resetState('2020-01-01');
+  const r = { id:'r1', recurrence:'weekly', scheduleMode:'everyOther', everyOtherStart:'2026-08-10', schedule:[], configHistory:[{from:'2020-01-01', schedule:[], scheduleMode:'everyOther', everyOtherStart:'2026-08-10', rewardValue:40}] };
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-09'), false);
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-10'), true);
+});
+test('isScheduledOn: weekly routines default to plain weekday matching when scheduleMode is absent (pre-existing routines)', () => {
+  resetState('2020-01-01');
+  const r = { id:'r1', recurrence:'weekly', schedule:[1,3,5], configHistory:[{from:'2020-01-01', schedule:[1,3,5], rewardValue:40}] }; // no scheduleMode field at all
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-24'), true);  // Monday
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-25'), false); // Tuesday
+});
+test('isScheduledOn: switching a routine from weekdays to everyOther mid-life does not rewrite already-elapsed days (configHistory versioning)', () => {
+  resetState('2020-01-01');
+  const r = { id:'r1', recurrence:'weekly',
+    schedule:[], scheduleMode:'everyOther', everyOtherStart:'2026-08-20',
+    configHistory:[
+      {from:'2026-08-01', schedule:[1], scheduleMode:'weekdays', everyOtherStart:null, rewardValue:40}, // Mondays only, back then
+      {from:'2026-08-20', schedule:[], scheduleMode:'everyOther', everyOtherStart:'2026-08-20', rewardValue:40}
+    ]
+  };
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-10'), true);  // a Monday, under the OLD weekday config
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-11'), false); // a Tuesday, under the OLD config
+  assert.strictEqual(app.isScheduledOn(r, '2026-08-22'), true);  // under the NEW everyOther config (2 days after 8/20)
+});
+
+// =====================================================================================
 section('Steps — point splitting');
 // =====================================================================================
 test('splitPointsEvenly: remainder folds into the LAST step, sum always exact', () => {
@@ -416,6 +454,24 @@ test('splitPointsEvenly: remainder folds into the LAST step, sum always exact', 
 });
 test('splitPointsEvenly: n<=0 -> empty list', () => {
   assertShapeEqual(app.splitPointsEvenly(20, 0), []);
+});
+test('routineStepPoints splits base+milestone-bonus, not just the raw base (this session\'s fix — was under-splitting, only adding the bonus once the last step completed)', () => {
+  resetState('2020-01-01');
+  // Weekly, rewardValue 40, streak 9 -> completing crosses the first weekly milestone (step 10),
+  // so the live preview reward is 44 (inc = round(40*0.1) = 4), same "40 becomes 44" case the
+  // non-step pill already showed correctly.
+  const r = { id:'r1', recurrence:'weekly', rewardValue:40, streak:9, neglect:0, steps:[{id:'s1',name:'a'},{id:'s2',name:'b'}] };
+  assertShapeEqual(app.routineStepPoints(r), [22, 22]); // 44 split across 2 -> 22/22, not 20/20
+});
+test('routineStepsRemainingPoints (nothing checked yet) matches the non-step pill\'s preview reward exactly', () => {
+  resetState('2020-01-01');
+  const r = { id:'r1', recurrence:'weekly', rewardValue:40, streak:9, neglect:0, steps:[{id:'s1',name:'a'},{id:'s2',name:'b'}] };
+  assert.strictEqual(app.routineStepsRemainingPoints(r), app.routinePreviewReward(r)); // both 44
+});
+test('routineStepPoints with no active bonus still matches the plain base (streak not crossing a milestone)', () => {
+  resetState('2020-01-01');
+  const r = { id:'r1', recurrence:'weekly', rewardValue:40, streak:3, neglect:0, steps:[{id:'s1',name:'a'},{id:'s2',name:'b'}] };
+  assertShapeEqual(app.routineStepPoints(r), [20, 20]); // streak 3->4 crosses no milestone, no bonus
 });
 
 // =====================================================================================

@@ -427,6 +427,13 @@
     color:var(--ink-soft);
     margin-top:6px;
   }
+  /* Progression's hero ring (this session) — same ring markup/classes as Home's, just smaller and
+     centered in a plain (non-flex) container, since Month/Week/Day views sit in ordinary block
+     flow rather than Home's flex row layout. */
+  .prog-ring-wrap{
+    width:180px; height:180px;
+    margin:10px auto 4px;
+  }
   .score-grid{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -822,6 +829,25 @@
     border-color:var(--accent);
     color:#fff;
   }
+  /* Every-other-day schedule mode (this session) — the "Repeats on" toggle above the weekday
+     grid, and the "Starts on" quick-pick chips shown in its place once "Every other day" is
+     selected. See dayGridFieldHtml()/wireScheduleModeToggle() in app-modals.js. */
+  .hidden{ display:none; }
+  .mini-seg{
+    display:flex; background:var(--bg); border:1px solid var(--line); border-radius:10px;
+    padding:2px; gap:2px; width:fit-content; margin-bottom:10px;
+  }
+  .mini-seg button{
+    padding:5px 10px; border-radius:8px; font-size:11.5px; font-weight:500; color:var(--ink-soft);
+  }
+  .mini-seg button.active{ background:var(--accent); color:#fff; }
+  .starts-on-label{ font-size:11.5px; color:var(--ink-soft); margin:2px 0 6px; }
+  .quick-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .quick-chips button{
+    padding:7px 12px; border-radius:10px; border:1px solid var(--line); background:var(--bg);
+    font-size:12.5px; color:var(--ink-soft); font-weight:500;
+  }
+  .quick-chips button.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .add-details-link{
     font-size:13px;
     font-weight:500;

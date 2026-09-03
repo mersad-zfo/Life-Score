@@ -26,10 +26,14 @@ function routineStepsBaseAmount(r, cfg){
   const c = cfg || r;
   return r.recurrence==='daily' ? c.basePoints : c.rewardValue;
 }
-// Live (today's) per-step point values, in step order.
+// Live (today's) per-step point values, in step order. Bonus-aware (fixed this session): splits
+// routinePreviewReward(r) — base + any streak-milestone bonus that would apply if completed right
+// now — not just the raw base, so the running total while checking off steps already matches what
+// a non-step routine's pill shows, and the last step's check lines up exactly with the final award
+// instead of only adding the bonus on top at the very end (see BACKLOG.md).
 function routineStepPoints(r){
   if(!routineHasSteps(r)) return [];
-  return splitPointsEvenly(routineStepsBaseAmount(r), r.steps.length);
+  return splitPointsEvenly(routinePreviewReward(r), r.steps.length);
 }
 function routineStepDoneToday(r, stepId){
   const t = todayStr();
@@ -63,10 +67,14 @@ function completeRoutineViaSteps(r){
   if(r.neglect===0) r.neglectMilestoneHit = false;
 
   const fullReward = routineReward(r);
-  const base = routineStepsBaseAmount(r);
-  const bonus = fullReward - base; // 0 if there's no active streak bonus this time
   r.awardedPoints = fullReward;
-  state.log.push({id: uid(), kind:'routine', refId: r.id, name: r.name, points: bonus, date: t});
+  // The step entries already logged, one proportional (bonus-inclusive) share per step as each
+  // was checked (routineStepPoints() above now splits the full bonus-aware reward, not just the
+  // base — fixed this session, was previously under-splitting and only adding the bonus here).
+  // This entry carries zero points and exists purely so uncompleteRoutine() and the Day-view
+  // completion check (both key off finding a kind:'routine' entry) still recognize a step-based
+  // routine's day as complete — logging the real reward again here would double-count it.
+  state.log.push({id: uid(), kind:'routine', refId: r.id, name: r.name, points: 0, date: t});
   saveState();
   renderMain();
   if(navigator.vibrate) navigator.vibrate(15);
@@ -305,8 +313,12 @@ function realignStepLogPointsForToday(kind, item){
 
   if(kind==='routine'){
     // Routines don't carry a step across days the way a task can — every routine_step entry is
-    // inherently "today's", so a plain even split across all current steps is correct.
-    const total = routineStepsBaseAmount(item);
+    // inherently "today's", so a plain even split across all current steps is correct. Uses
+    // routinePreviewReward() (base + any streak-milestone bonus), matching routineStepPoints()
+    // above — was routineStepsBaseAmount() (base only), which would have silently reintroduced
+    // the under-splitting bug this session's fix addressed the moment someone edited a step list
+    // mid-day.
+    const total = routinePreviewReward(item);
     const newSplit = splitPointsEvenly(total, item.steps.length);
     item.steps.forEach((s,i)=>{
       const entry = state.log.find(l=> l.kind==='routine_step' && l.refId===item.id && l.stepId===s.id && l.date===t);
